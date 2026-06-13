@@ -92,6 +92,6 @@
 		"defaultRequire": 1
 	},
 	"overwrites": {
-		"requireAnnotations": true
+		"requireAnnotations": false
 	}
 }
