@@ -1,0 +1,62 @@
+{
+  "Xeno.options.unknown": "Unknown",
+
+  "Xeno.options.pages.video": "Video",
+  "Xeno.options.pages.graphics": "Graphics",
+  "Xeno.options.pages.optimizations": "Optimizations",
+  "Xeno.options.pages.other": "Other",
+
+  "Xeno.options.performanceImpact": "Performance impact: %s",
+  "Xeno.options.performanceImpact.low": "Low",
+  "Xeno.options.performanceImpact.medium": "Medium",
+  "Xeno.options.performanceImpact.high": "High",
+
+  "Xeno.options.buttons.apply": "Apply",
+  "Xeno.options.buttons.undo": "Undo",
+  "Xeno.options.buttons.kofi": "Support me",
+  "Xeno.options.buttons.update_available": "Update available!",
+
+  "Xeno.options.advCulling": "Advanced Chunk Culling",
+  "Xeno.options.advCulling.aggressive": "Aggressive",
+  "Xeno.options.advCulling.conservative": "Conservative",
+  "Xeno.options.advCulling.normal": "Normal",
+  "Xeno.options.advCulling.tooltip": "Use a culling algorithm that might improve performance by reducing the number of non visible chunk sections rendered.",
+
+  "Xeno.options.ao.subBlock": "Sub Block",
+  "Xeno.options.ao.subBlock.tooltip": "Enables smooth lighting for non full block (experimental).",
+
+  "Xeno.options.deviceSelector": "Device selector",
+  "Xeno.options.deviceSelector.auto": "Auto",
+  "Xeno.options.deviceSelector.tooltip": "Current device",
+
+  "Xeno.options.entityCulling": "Entity Culling",
+  "Xeno.options.entityCulling.tooltip": "Enables culling for entities on not visible sections.",
+
+  "Xeno.options.frameQueue": "Render queue size",
+  "Xeno.options.frameQueue.tooltip": "Higher values might help stabilize frametime but will increase input lag.",
+
+  "Xeno.options.backfaceCulling": "Backface Culling",
+  "Xeno.options.backfaceCulling.tooltip": "Culls not visible block faces on the CPU improving GPU performance. To prevent increased CPU overhead enable Indirect Draw.",
+
+  "Xeno.options.indirectDraw": "Indirect Draw",
+  "Xeno.options.indirectDraw.tooltip": "Reduces CPU overhead but might increase GPU overhead.",
+
+  "Xeno.options.refreshRate": "Fullscreen Refresh Rate",
+
+  "Xeno.options.uniqueOpaqueLayer": "Unique opaque layer",
+  "Xeno.options.uniqueOpaqueLayer.tooltip": "Use a unique render layer for opaque terrain to improve performance.",
+
+  "Xeno.options.wayland": "Use Wayland",
+  "Xeno.options.wayland.tooltip": "Use Linux Wayland compositor if available (Experimental). Requires restart.",
+
+  "Xeno.options.windowMode": "Window Mode",
+  "Xeno.options.windowMode.windowed": "Windowed",
+  "Xeno.options.windowMode.windowedFullscreen": "Windowed Fullscreen",
+
+  "Xeno.options.builderThreads": "Chunk Builder Threads",
+  "Xeno.options.builderThreads.auto": "Auto",
+
+  "Xeno.options.textureAnimations": "Texture Animations",
+
+  "Xeno.options.searchFieldPlaceholder": "Search Graphics Settings"
+}

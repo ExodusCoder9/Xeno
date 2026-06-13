@@ -52,6 +52,7 @@
 		"render.entity.EntityRendererM",
 		"render.entity.model.ModelPartCubeM",
 		"render.entity.model.ModelPartM",
+		"render.DynamicUniformsMixin",
 		"render.frame.MinecraftMixin",
 		"render.frame.RenderSystemMixin",
 		"render.frapi.BlockModelLighterAccessor",
