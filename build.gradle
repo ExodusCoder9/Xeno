@@ -43,6 +43,8 @@ dependencies {
 	// Platform-specific native runtimes
 	runtimeOnly "org.lwjgl:lwjgl-shaderc:3.4.1:natives-windows"
 	runtimeOnly "org.lwjgl:lwjgl-vma:3.4.1:natives-windows"
+	runtimeOnly "org.lwjgl:lwjgl-shaderc:3.4.1:natives-linux"
+	runtimeOnly "org.lwjgl:lwjgl-vma:3.4.1:natives-linux"
 
 	// MixinExtras for @Local support in mixins (bundled with FabricLoader 0.15.0+)
 	annotationProcessor("io.github.llamalad7:mixinextras-common:0.5.3")
