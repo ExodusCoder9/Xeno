@@ -3,7 +3,7 @@
 	"id": "xeno",
 	"version": "${version}",
 	"name": "Xeno",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Vulkan Based Rendering Engine Mod Forked from XCollateral's VulkanMod",
 	"authors": [
 		"Me!"
 	],
