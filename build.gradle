@@ -7,11 +7,13 @@ version = project.mod_version
 group = project.maven_group
 
 repositories {
-
+	mavenCentral()
+	maven { url "https://jitpack.io" }
 }
 
 loom {
 	splitEnvironmentSourceSets()
+	accessWidenerPath = file("src/main/resources/xeno.accesswidener")
 
 	mods {
 		"xeno" {
@@ -26,7 +28,18 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-	
+
+	// LWJGL addons for Vulkan rendering backend
+	implementation "org.lwjgl:lwjgl-shaderc:3.4.1"
+	implementation "org.lwjgl:lwjgl-vma:3.4.1"
+	implementation "org.lwjgl:lwjgl-vulkan:3.4.1"
+
+	// Platform-specific native runtimes
+	runtimeOnly "org.lwjgl:lwjgl-shaderc:3.4.1:natives-windows"
+	runtimeOnly "org.lwjgl:lwjgl-vma:3.4.1:natives-windows"
+
+	// MixinExtras for @Local support in mixins
+	include "com.github.LlamaLad7:MixinExtras:0.6.0"
 }
 
 processResources {

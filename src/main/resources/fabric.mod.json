@@ -29,6 +29,10 @@
 			"environment": "client"
 		}
 	],
+	"accessWidener": "xeno.accesswidener",
+	"custom": {
+		"fabric-renderer-api-v1:contains_renderer": true
+	},
 	"depends": {
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~26.1.2",
