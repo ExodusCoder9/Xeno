@@ -30,7 +30,7 @@ import net.fabricmc.loader.api.ModContainer;
 import com.xeno.config.Config;
 import com.xeno.config.Platform;
 import com.xeno.config.UpdateChecker;
-import com.xeno.render.chunk.build.frapi.VulkanModRenderer;
+import com.xeno.render.chunk.build.frapi.XenoRenderer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -48,7 +48,7 @@ public class Initializer implements ClientModInitializer {
       Path configPath = FabricLoader.getInstance().getConfigDir().resolve("xeno_settings.json");
       CONFIG = loadConfig(configPath);
       Platform.init();
-      Renderer.register(VulkanModRenderer.INSTANCE);
+      Renderer.register(XenoRenderer.INSTANCE);
       UpdateChecker.checkForUpdates();
    }
 
