@@ -1,3 +1,5 @@
+package com.xeno.render.chunk;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk;
+
 
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
@@ -416,5 +418,8 @@ public class RenderSection {
       Set<BlockEntity> globalBlockEntities = new ObjectOpenHashSet();
       BuildTask buildTask;
       SortTransparencyTask sortTask;
+
+      CompileStatus() {
+      }
    }
 }

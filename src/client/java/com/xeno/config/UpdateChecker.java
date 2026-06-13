@@ -1,3 +1,5 @@
+package com.xeno.config;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config;
+
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -38,10 +40,13 @@ import com.xeno.Initializer;
 public abstract class UpdateChecker {
    private static boolean updateAvailable = false;
 
+   public UpdateChecker() {
+   }
+
    public static void checkForUpdates() {
       CompletableFuture.supplyAsync(() -> {
          try {
-            String req = "https://api.modrinth.com/v2/project/Xeno/version?include_changelog=false";
+            String req = "https://api.modrinth.com/v2/project/vulkanmod/version?include_changelog=false";
             String mcVersion = SharedConstants.getCurrentVersion().name();
             req = req + "&game_versions=%s".formatted(mcVersion);
             URL url = new URL(req);

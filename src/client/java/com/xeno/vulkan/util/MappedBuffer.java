@@ -1,3 +1,5 @@
+package com.xeno.vulkan.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.util;
+
 
 import java.nio.ByteBuffer;
 import org.lwjgl.system.MemoryUtil;

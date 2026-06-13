@@ -1,3 +1,5 @@
+package com.xeno.vulkan.framebuffer;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.framebuffer;
+
 
 import java.nio.LongBuffer;
 import com.xeno.vulkan.Renderer;
@@ -32,6 +34,7 @@ import org.lwjgl.vulkan.VkAttachmentReference;
 import org.lwjgl.vulkan.VkClearValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkRect2D;
+import org.lwjgl.vulkan.VkRenderPassBeginInfo;
 import org.lwjgl.vulkan.VkRenderPassCreateInfo;
 import org.lwjgl.vulkan.VkRenderingAttachmentInfo;
 import org.lwjgl.vulkan.VkRenderingInfo;
@@ -150,6 +153,31 @@ public class RenderPass {
       if (stack != null) {
          stack.close();
       }
+   }
+
+   public void beginRenderPass(VkCommandBuffer commandBuffer, long framebufferId, MemoryStack stack) {
+      if (this.colorAttachmentInfo != null && this.framebuffer.getColorAttachment().getCurrentLayout() != 2) {
+         this.framebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, 2);
+      }
+
+      if (this.depthAttachmentInfo != null && this.framebuffer.getDepthAttachment().getCurrentLayout() != 3) {
+         this.framebuffer.getDepthAttachment().transitionImageLayout(stack, commandBuffer, 3);
+      }
+
+      VkRenderPassBeginInfo renderPassInfo = VkRenderPassBeginInfo.calloc(stack);
+      renderPassInfo.sType$Default();
+      renderPassInfo.renderPass(this.id);
+      renderPassInfo.framebuffer(framebufferId);
+      VkRect2D renderArea = VkRect2D.malloc(stack);
+      renderArea.offset().set(0, 0);
+      renderArea.extent().set(this.framebuffer.getWidth(), this.framebuffer.getHeight());
+      renderPassInfo.renderArea(renderArea);
+      org.lwjgl.vulkan.VkClearValue.Buffer clearValues = VkClearValue.malloc(2, stack);
+      ((VkClearValue)clearValues.get(0)).color().float32(VRenderSystem.clearColor);
+      ((VkClearValue)clearValues.get(1)).depthStencil().set(1.0F, 0);
+      renderPassInfo.pClearValues(clearValues);
+      VK10.vkCmdBeginRenderPass(commandBuffer, renderPassInfo, 0);
+      Renderer.getInstance().setBoundRenderPass(this);
    }
 
    public void endRenderPass(VkCommandBuffer commandBuffer) {

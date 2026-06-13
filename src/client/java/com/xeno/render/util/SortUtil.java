@@ -1,3 +1,5 @@
+package com.xeno.render.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,12 +20,15 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.util;
+
 
 import it.unimi.dsi.fastutil.ints.IntComparator;
 import java.util.Arrays;
 
 public class SortUtil {
+   public SortUtil() {
+   }
+
    public static void mergeSort(int[] a, float[] distances) {
       mergeSort(a, distances, 0, a.length, null);
    }

@@ -1,3 +1,5 @@
+package com.xeno.render.texture;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.texture;
+
 
 import java.util.HashSet;
 import java.util.Set;
@@ -29,6 +31,9 @@ import org.lwjgl.vulkan.VkCommandBuffer;
 public abstract class SpriteUpdateUtil {
    private static final Set<VulkanImage> transitionedLayouts = new HashSet<>();
 
+   public SpriteUpdateUtil() {
+   }
+
    public static void addTransitionedLayout(VulkanImage image) {
       transitionedLayouts.add(image);
    }
@@ -36,27 +41,22 @@ public abstract class SpriteUpdateUtil {
    public static void transitionLayouts() {
       if (!transitionedLayouts.isEmpty()) {
          VkCommandBuffer commandBuffer = ImageUploadHelper.INSTANCE.getOrStartCommandBuffer().handle;
-         transitionedLayouts.forEach(image -> {
-            MemoryStack stack = MemoryStack.stackPush();
-
-            try {
-               image.readOnlyLayout(stack, commandBuffer);
-            } catch (Throwable t$) {
-               if (stack != null) {
-                  try {
-                     stack.close();
-                  } catch (Throwable x2) {
-                     t$.addSuppressed(x2);
-                  }
-               }
-
-               throw t$;
-            }
-
+         MemoryStack stack = MemoryStack.stackPush();
+         try {
+            transitionedLayouts.forEach(image -> image.readOnlyLayout(stack, commandBuffer));
+         } catch (Throwable t$) {
             if (stack != null) {
-               stack.close();
+               try {
+                  stack.close();
+               } catch (Throwable x2) {
+                  t$.addSuppressed(x2);
+               }
             }
-         });
+            throw t$;
+         }
+         if (stack != null) {
+            stack.close();
+         }
          transitionedLayouts.clear();
       }
    }

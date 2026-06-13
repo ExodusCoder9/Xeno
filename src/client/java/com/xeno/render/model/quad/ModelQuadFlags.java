@@ -1,3 +1,5 @@
+package com.xeno.render.model.quad;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.model.quad;
+
 
 import net.minecraft.core.Direction;
 
@@ -26,6 +28,9 @@ public class ModelQuadFlags {
    public static final int IS_PARTIAL = 1;
    public static final int IS_PARALLEL = 2;
    public static final int IS_ALIGNED = 4;
+
+   public ModelQuadFlags() {
+   }
 
    public static boolean contains(int flags, int mask) {
       return (flags & mask) != 0;
@@ -54,6 +59,7 @@ public class ModelQuadFlags {
          case X -> minY >= 1.0E-4F || minZ >= 1.0E-4F || maxY <= 0.9999F || maxZ <= 0.9999F;
          case Y -> minX >= 1.0E-4F || minZ >= 1.0E-4F || maxX <= 0.9999F || maxZ <= 0.9999F;
          case Z -> minX >= 1.0E-4F || minY >= 1.0E-4F || maxX <= 0.9999F || maxY <= 0.9999F;
+         default -> throw new MatchException(null, null);
       };
 
       boolean parallel;
@@ -64,6 +70,7 @@ public class ModelQuadFlags {
                case X -> minX == maxX;
                case Y -> minY == maxY;
                case Z -> minZ == maxZ;
+               default -> throw new MatchException(null, null);
             };
             if (parallel) {
                switch (face) {

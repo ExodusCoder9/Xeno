@@ -1,3 +1,5 @@
+package com.xeno.vulkan.memory;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.memory;
+
 
 import java.nio.ByteBuffer;
 import com.xeno.vulkan.Vulkan;
@@ -33,6 +35,9 @@ import org.lwjgl.vulkan.VkMemoryType;
 public class MemoryTypes {
    public static MemoryType GPU_MEM;
    public static MemoryType HOST_MEM;
+
+   public MemoryTypes() {
+   }
 
    public static void createMemoryTypes() {
       for (int i = 0; i < DeviceManager.memoryProperties.memoryTypeCount(); i++) {

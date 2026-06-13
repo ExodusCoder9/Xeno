@@ -1,3 +1,5 @@
+package com.xeno.render.texture;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.texture;
+
 
 import com.xeno.vulkan.Synchronization;
 import com.xeno.vulkan.device.DeviceManager;
@@ -27,8 +29,11 @@ import com.xeno.vulkan.queue.Queue;
 
 public class ImageUploadHelper {
    public static final ImageUploadHelper INSTANCE = new ImageUploadHelper();
-   final Queue queue = DeviceManager.getTransferQueue();
+   final Queue queue = DeviceManager.getGraphicsQueue();
    private CommandPool.CommandBuffer currentCmdBuffer;
+
+   public ImageUploadHelper() {
+   }
 
    public void submitCommands() {
       this.submitCommands(true);

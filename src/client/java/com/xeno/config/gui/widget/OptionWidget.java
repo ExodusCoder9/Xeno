@@ -1,3 +1,5 @@
+package com.xeno.config.gui.widget;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,12 +20,13 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.widget;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.narration.NarratableEntry.NarrationPriority;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import com.xeno.config.gui.render.GuiRenderer;
@@ -171,11 +174,11 @@ public abstract class OptionWidget<O extends Option<?>> extends VAbstractWidget 
 
    @NotNull
    @Override
-   public NarratableEntry.NarrationPriority narrationPriority() {
+   public NarrationPriority narrationPriority() {
       if (this.focused) {
-         return NarratableEntry.NarrationPriority.FOCUSED;
+         return NarrationPriority.FOCUSED;
       } else {
-         return this.hovered ? NarratableEntry.NarrationPriority.HOVERED : NarratableEntry.NarrationPriority.NONE;
+         return this.hovered ? NarrationPriority.HOVERED : NarrationPriority.NONE;
       }
    }
 

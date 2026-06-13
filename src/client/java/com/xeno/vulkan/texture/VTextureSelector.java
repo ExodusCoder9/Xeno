@@ -1,3 +1,5 @@
+package com.xeno.vulkan.texture;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.texture;
+
 
 import com.mojang.blaze3d.textures.GpuTextureView;
 import java.nio.ByteBuffer;
@@ -37,6 +39,9 @@ public abstract class VTextureSelector {
    private static final int[] levels = new int[12];
    private static final VulkanImage whiteTexture = VulkanImage.createWhiteTexture();
    private static int activeTexture = 0;
+
+   public VTextureSelector() {
+   }
 
    public static void bindTexture(VulkanImage texture) {
       boundTextures[0] = texture;

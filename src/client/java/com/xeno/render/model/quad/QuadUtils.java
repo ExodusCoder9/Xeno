@@ -1,3 +1,5 @@
+package com.xeno.render.model.quad;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,11 +20,14 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.model.quad;
+
 
 public abstract class QuadUtils {
    public static final byte DEFAULT_START_IDX = 0;
    public static final byte FLIPPED_START_IDX = 3;
+
+   public QuadUtils() {
+   }
 
    public static int getIterationStartIdx(float[] aos, int[] lms) {
       float ao00_11 = aos[0] + aos[2];

@@ -1,3 +1,5 @@
+package com.xeno.vulkan.memory.buffer;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,11 +20,8 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.memory.buffer;
 
-import com.xeno.render.chunk.buffer.UploadManager;
-import com.xeno.render.texture.ImageUploadHelper;
-import com.xeno.vulkan.Renderer;
+
 import it.unimi.dsi.fastutil.Stack;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectListIterator;
@@ -32,7 +31,9 @@ public class StagingBuffers {
    ObjectArrayList<StagingBuffer>[] usedBuffersByFrame;
    StagingBuffer currentBuffer;
    boolean inFrame = false;
-   private final ObjectArrayList<StagingBuffer> pendingBuffers = new ObjectArrayList();
+
+   public StagingBuffers() {
+   }
 
    public void updateFrameCount(int frames) {
       if (this.usedBuffersByFrame != null) {
@@ -41,15 +42,12 @@ public class StagingBuffers {
 
             while (var6.hasNext()) {
                StagingBuffer buffer = (StagingBuffer)var6.next();
-               buffer.setParent(this);
                this.availableBuffers.push(buffer);
             }
          }
       } else {
          for (int i = 0; i < frames + 1; i++) {
-            StagingBuffer buffer = new StagingBuffer();
-            buffer.setParent(this);
-            this.availableBuffers.push(buffer);
+            this.availableBuffers.push(new StagingBuffer());
          }
       }
 
@@ -64,38 +62,24 @@ public class StagingBuffers {
    public StagingBuffer getStagingBuffer() {
       if (this.currentBuffer == null) {
          if (this.availableBuffers.isEmpty()) {
-            StagingBuffer buffer = new StagingBuffer();
-            buffer.setParent(this);
-            this.availableBuffers.push(buffer);
+            this.availableBuffers.push(new StagingBuffer());
          }
 
          this.currentBuffer = (StagingBuffer)this.availableBuffers.pop();
+      }
+
+      if (!this.inFrame) {
+         System.nanoTime();
       }
 
       return this.currentBuffer;
    }
 
-   public void submitCurrentBuffer() {
-      if (this.currentBuffer != null) {
-         UploadManager.INSTANCE.submitUploads();
-         ImageUploadHelper.INSTANCE.submitCommands(false);
-         Renderer.getInstance().flushCmds();
-         this.currentBuffer.reset();
-         this.pendingBuffers.push(this.currentBuffer);
-         if (this.availableBuffers.isEmpty()) {
-            StagingBuffer buffer = new StagingBuffer();
-            buffer.setParent(this);
-            this.availableBuffers.push(buffer);
-         }
-
-         this.currentBuffer = (StagingBuffer)this.availableBuffers.pop();
-      }
-   }
-
    public void beginFrame(int frame) {
       ObjectArrayList<StagingBuffer> usedBuffers = this.usedBuffersByFrame[frame];
+      ObjectListIterator var3 = usedBuffers.iterator();
 
-      for (ObjectListIterator var3 = usedBuffers.iterator(); var3.hasNext();) {
+      while (var3.hasNext()) {
          StagingBuffer buffer = (StagingBuffer)var3.next();
          buffer.reset();
          this.availableBuffers.push(buffer);
@@ -106,22 +90,11 @@ public class StagingBuffers {
          usedBuffers.push(this.currentBuffer);
       }
 
-      ObjectListIterator var6 = this.pendingBuffers.iterator();
-
-      while (var6.hasNext()) {
-         StagingBuffer buffer = (StagingBuffer)var6.next();
-         this.availableBuffers.push(buffer);
-      }
-
-      this.pendingBuffers.clear();
       if (this.availableBuffers.isEmpty()) {
-         StagingBuffer buffer = new StagingBuffer();
-         buffer.setParent(this);
-         this.availableBuffers.push(buffer);
+         this.availableBuffers.push(new StagingBuffer());
       }
 
       this.currentBuffer = (StagingBuffer)this.availableBuffers.pop();
-      this.currentBuffer.setParent(this);
       this.inFrame = true;
    }
 

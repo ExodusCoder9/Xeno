@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,13 +20,17 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.util;
+
 
 import net.minecraft.core.Direction;
+import net.minecraft.core.Direction.Axis;
 
 public class Util {
    public static final Direction[] DIRECTIONS = Direction.values();
    public static final Direction[] XZ_DIRECTIONS = getXzDirections();
+
+   public Util() {
+   }
 
    public static byte getOppositeDirIdx(byte idx) {
       return (byte)((idx & 1) != 0 ? idx - 1 : idx + 1);
@@ -35,7 +41,7 @@ public class Util {
       int i = 0;
 
       for (Direction direction : Direction.values()) {
-         if (direction.getAxis() == Direction.Axis.X || direction.getAxis() == Direction.Axis.Z) {
+         if (direction.getAxis() == Axis.X || direction.getAxis() == Axis.Z) {
             directions[i] = direction;
             i++;
          }

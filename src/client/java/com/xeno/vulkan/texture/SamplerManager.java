@@ -1,3 +1,5 @@
+package com.xeno.vulkan.texture;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.texture;
+
 
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -47,6 +49,9 @@ public abstract class SamplerManager {
    public static final int REDUCTION_MODE_OFFSET = 13;
    static final float MIP_BIAS = -0.5F;
    static final Object2LongMap<SamplerInfo> SAMPLERS = new Object2LongOpenHashMap();
+
+   public SamplerManager() {
+   }
 
    public static long getSampler(boolean clamp, boolean linearFiltering, int maxLod) {
       return getSampler(clamp, linearFiltering, maxLod, false, 0);

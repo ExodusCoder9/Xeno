@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
+
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import net.minecraft.util.ARGB;

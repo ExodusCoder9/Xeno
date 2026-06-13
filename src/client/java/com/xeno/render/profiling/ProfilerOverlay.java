@@ -1,3 +1,5 @@
+package com.xeno.render.profiling;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.profiling;
+
 
 import com.google.common.base.Strings;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;

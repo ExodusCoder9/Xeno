@@ -3,13 +3,13 @@
 	"id": "xeno",
 	"version": "${version}",
 	"name": "Xeno",
-	"description": "Vulkan Based Rendering Engine Mod Forked from XCollateral's VulkanMod",
+	"description": "A high-performance Vulkan rendering backend for Minecraft, providing enhanced frame rates and reduced CPU overhead through GPU-driven rendering techniques.",
 	"authors": [
 		"ExodusCoder9"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "",
+		"sources": ""
 	},
 	"license": "LGPL 3.0",
 	"icon": "assets/xeno/icon.png",

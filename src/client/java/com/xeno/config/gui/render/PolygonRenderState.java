@@ -1,3 +1,5 @@
+package com.xeno.config.gui.render;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.render;
+
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -43,7 +45,9 @@ public record PolygonRenderState(
       this(renderPipeline, textureSetup, pose, vertices, color, screenRectangle, getBounds(vertices, pose, screenRectangle));
    }
 
-   @Override
+   public PolygonRenderState {
+   }
+
    public void buildVertices(VertexConsumer vertexConsumer) {
       for (float[] vertex : this.vertices) {
          float x = vertex[0];

@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
+
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import java.nio.ByteBuffer;
@@ -79,12 +81,10 @@ public class VkGpuBuffer extends GpuBuffer {
       this.buffer = buffer;
    }
 
-   @Override
    public boolean isClosed() {
       return this.closed;
    }
 
-   @Override
    public void close() {
       if (!this.closed) {
          this.closed = true;
@@ -116,7 +116,7 @@ public class VkGpuBuffer extends GpuBuffer {
    }
 
    @Environment(EnvType.CLIENT)
-   public static class MappedView implements GpuBuffer.MappedView {
+   public static class MappedView implements com.mojang.blaze3d.buffers.GpuBuffer.MappedView {
       private final int target;
       private final ByteBuffer data;
 
@@ -125,12 +125,10 @@ public class VkGpuBuffer extends GpuBuffer {
          this.data = byteBuffer;
       }
 
-      @Override
       public ByteBuffer data() {
          return this.data;
       }
 
-      @Override
       public void close() {
       }
    }

@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.util;
+
 
 import java.util.Iterator;
 import org.apache.commons.lang3.Validate;
@@ -80,6 +82,9 @@ public class CircularIntList {
       private int currentIndex = 0;
       private final int maxIndex = CircularIntList.this.size;
 
+      public OwnIterator() {
+      }
+
       @Override
       public boolean hasNext() {
          return this.currentIndex < this.maxIndex;
@@ -103,6 +108,9 @@ public class CircularIntList {
       private int currentIndex;
       private int startIndex;
       private int endIndex;
+
+      public RangeIterator() {
+      }
 
       public void update(int startIndex, int endIndex) {
          Validate.isTrue(endIndex < CircularIntList.this.list.length, "Beyond max size", new Object[0]);

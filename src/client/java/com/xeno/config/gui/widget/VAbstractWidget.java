@@ -1,3 +1,5 @@
+package com.xeno.config.gui.widget;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.widget;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -39,6 +41,9 @@ public abstract class VAbstractWidget extends GuiElement {
    protected Component message;
    protected boolean centeredText = true;
    protected int margin = 4;
+
+   public VAbstractWidget() {
+   }
 
    public void setDimensions(int x, int y, int width, int height) {
       this.x = x;
@@ -90,7 +95,6 @@ public abstract class VAbstractWidget extends GuiElement {
       }
    }
 
-   @Override
    public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
       if (this.active && this.visible && this.isValidClickButton(event.button())) {
          boolean clicked = this.clicked(event.x(), event.y());
@@ -108,7 +112,6 @@ public abstract class VAbstractWidget extends GuiElement {
       return this.active && this.visible && mX >= this.getX() && mY >= this.getY() && mX < this.getX() + this.getWidth() && mY < this.getY() + this.getHeight();
    }
 
-   @Override
    public boolean mouseReleased(MouseButtonEvent event) {
       if (this.isValidClickButton(event.button())) {
          this.onRelease(event.x(), event.y());
@@ -122,7 +125,6 @@ public abstract class VAbstractWidget extends GuiElement {
       return button == 0;
    }
 
-   @Override
    public boolean mouseDragged(MouseButtonEvent event, double d, double e) {
       if (this.isValidClickButton(event.button())) {
          this.onDrag(event.x(), event.y(), d, e);

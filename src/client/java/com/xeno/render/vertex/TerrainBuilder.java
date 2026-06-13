@@ -1,3 +1,5 @@
+package com.xeno.render.vertex;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,9 +20,10 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.vertex;
+
 
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.IndexType;
 import java.nio.ByteBuffer;
 import net.minecraft.world.level.block.state.BlockState;
 import com.xeno.Initializer;
@@ -119,7 +122,7 @@ public class TerrainBuilder {
 
       int vertexCount = this.quadSorter.getVertexCount();
       int indexCount = vertexCount / 4 * 6;
-      VertexFormat.IndexType indexType = VertexFormat.IndexType.least(indexCount);
+      IndexType indexType = IndexType.least(indexCount);
       boolean sequentialIndexing;
       if (this.needsSorting) {
          int indexBufferSize = indexCount * indexType.bytes;
@@ -169,7 +172,10 @@ public class TerrainBuilder {
    public void setBlockAttributes(BlockState blockState) {
    }
 
-   public record DrawState(int vertexSize, int indexCount, VertexFormat.IndexType indexType, boolean indexOnly, boolean sequentialIndex) {
+   public record DrawState(int vertexSize, int indexCount, IndexType indexType, boolean indexOnly, boolean sequentialIndex) {
+      public DrawState {
+      }
+
       private int indexBufferSize() {
          return this.sequentialIndex ? 0 : this.indexCount * this.indexType.bytes;
       }

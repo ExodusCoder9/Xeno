@@ -1,3 +1,5 @@
+package com.xeno.config;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config;
+
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -33,18 +35,22 @@ public class Config {
    public VideoModeSet.VideoMode videoMode = VideoModeSet.getDummy().getVideoMode();
    public int windowMode = 0;
    public int advCulling = 2;
-   public boolean indirectDraw = true;
    public boolean uniqueOpaqueLayer = true;
    public boolean entityCulling = true;
    public int device = -1;
    public boolean useWayland = false;
    public int ambientOcclusion = 1;
-    public int frameQueueSize = 4;
+   public int frameQueueSize = 2;
    public int builderThreads = 0;
    public boolean backFaceCulling = true;
+   public boolean greedyMeshing = false;
+   public boolean gpuDrivenRenderer = false;
    public boolean textureAnimations = true;
    private static Path CONFIG_PATH;
    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().excludeFieldsWithModifiers(new int[]{2}).create();
+
+   public Config() {
+   }
 
    public void write() {
       if (!Files.exists(CONFIG_PATH.getParent())) {

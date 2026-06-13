@@ -1,3 +1,5 @@
+package com.xeno.render.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.shader;
+
 
 import com.xeno.vulkan.shader.PipelineConfig;
 import com.xeno.vulkan.shader.SPIRVUtils;
@@ -60,4 +62,7 @@ public class PipelineConfigs {
       .addImageDescriptor(3, "sampler2D", "Sampler0", 0)
       .addImageDescriptor(4, "sampler2D", "LightTexture", 2)
       .build();
+
+   public PipelineConfigs() {
+   }
 }

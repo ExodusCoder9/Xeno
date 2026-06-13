@@ -25,7 +25,7 @@ loom {
 	runs {
 		client {
 			vmArgs "-Dorg.lwjgl.system.MemoryStack.stackSize=524288",
-				"-Dorg.lwjgl.util.NoChecks=true"
+				"-Xss4M"
 		}
 	}
 }

@@ -24,7 +24,6 @@ import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 import com.xeno.Initializer;
 import com.xeno.render.chunk.RenderSection;
 import com.xeno.render.chunk.WorldRenderer;
@@ -41,8 +40,10 @@ public class EntityRendererM<T extends Entity> {
    private boolean isVisible(Frustum frustum, AABB aABB) {
       if (Initializer.CONFIG.entityCulling) {
          WorldRenderer worldRenderer = WorldRenderer.getInstance();
-         Vec3 pos = aABB.getCenter();
-         RenderSection section = worldRenderer.getSectionGrid().getSectionAtBlockPos((int)pos.x(), (int)pos.y(), (int)pos.z());
+         double cx = (aABB.minX + aABB.maxX) * 0.5;
+         double cy = (aABB.minY + aABB.maxY) * 0.5;
+         double cz = (aABB.minZ + aABB.maxZ) * 0.5;
+         RenderSection section = worldRenderer.getSectionGrid().getSectionAtBlockPos((int)cx, (int)cy, (int)cz);
          return section == null ? frustum.isVisible(aABB) : worldRenderer.getLastFrame() == section.getLastFrame();
       } else {
          return frustum.isVisible(aABB);

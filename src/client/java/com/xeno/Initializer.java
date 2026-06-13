@@ -1,3 +1,5 @@
+package com.xeno;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,32 +20,35 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno;
 
-import com.xeno.config.Config;
-import com.xeno.config.Platform;
-import com.xeno.config.UpdateChecker;
-import com.xeno.render.chunk.build.frapi.XenoRenderer;
+
+import java.nio.file.Path;
+import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.renderer.v1.Renderer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
+import com.xeno.config.Config;
+import com.xeno.config.Platform;
+import com.xeno.config.UpdateChecker;
+import com.xeno.render.chunk.build.frapi.VulkanModRenderer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.nio.file.Path;
-
-public class Initializer {
+public class Initializer implements ClientModInitializer {
    public static final Logger LOGGER = LogManager.getLogger("xeno");
    private static String VERSION;
    public static Config CONFIG;
 
-   public static void init() {
+   public Initializer() {
+   }
+
+   public void onInitializeClient() {
       VERSION = ((ModContainer)FabricLoader.getInstance().getModContainer("xeno").get()).getMetadata().getVersion().getFriendlyString();
       LOGGER.info("== Xeno ==");
       Path configPath = FabricLoader.getInstance().getConfigDir().resolve("xeno_settings.json");
       CONFIG = loadConfig(configPath);
       Platform.init();
-      Renderer.register(XenoRenderer.INSTANCE);
+      Renderer.register(VulkanModRenderer.INSTANCE);
       UpdateChecker.checkForUpdates();
    }
 

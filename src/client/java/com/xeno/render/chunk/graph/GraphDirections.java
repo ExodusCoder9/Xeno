@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.graph;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.graph;
+
 
 public abstract class GraphDirections {
    public static final int DOWN = 0;
@@ -27,4 +29,7 @@ public abstract class GraphDirections {
    public static final int SOUTH = 3;
    public static final int WEST = 4;
    public static final int EAST = 5;
+
+   public GraphDirections() {
+   }
 }

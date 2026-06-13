@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,11 +20,14 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
+
 
 import com.google.common.collect.Sets;
 import com.mojang.blaze3d.opengl.Uniform;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.opengl.Uniform.Sampler;
+import com.mojang.blaze3d.opengl.Uniform.Ubo;
+import com.mojang.blaze3d.opengl.Uniform.Utb;
+import com.mojang.blaze3d.pipeline.RenderPipeline.UniformDescription;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
 import java.util.HashMap;
@@ -49,28 +54,29 @@ public class EGlProgram {
       this.debugLabel = string;
    }
 
-   public void setupUniforms(Pipeline pipeline, List<RenderPipeline.UniformDescription> uniformDescriptions, List<String> samplers) {
+   public void setupUniforms(Pipeline pipeline, List<UniformDescription> uniformDescriptions, List<String> samplers) {
       int i = 0;
       int j = 0;
 
-      for (RenderPipeline.UniformDescription uniformDescription : uniformDescriptions) {
+      for (UniformDescription uniformDescription : uniformDescriptions) {
          String name = uniformDescription.name();
 
-         Uniform uniform = switch (uniformDescription.type()) {
+         Uniform uniform = (Uniform)(switch (uniformDescription.type()) {
             case UNIFORM_BUFFER -> {
                UBO ubo = pipeline.getUBO(name);
                if (ubo == null) {
                   yield null;
                } else {
                   int binding = ubo.binding;
-                  yield new Uniform.Ubo(binding);
+                  yield new Ubo(binding);
                }
             }
             case TEXEL_BUFFER -> {
                int binding = i++;
-               yield new Uniform.Utb(binding, 0, Objects.requireNonNull(uniformDescription.textureFormat()));
+               yield new Utb(binding, 0, Objects.requireNonNull(uniformDescription.textureFormat()));
             }
-         };
+            default -> throw new MatchException(null, null);
+         });
          this.uniformsByName.put(name, uniform);
       }
 
@@ -79,7 +85,7 @@ public class EGlProgram {
          if (imageDescriptor != null) {
             int binding = imageDescriptor.getBinding();
             int imageIdx = imageDescriptor.imageIdx;
-            this.uniformsByName.put(samplerName, new Uniform.Sampler(binding, imageIdx));
+            this.uniformsByName.put(samplerName, new Sampler(binding, imageIdx));
          }
       }
    }

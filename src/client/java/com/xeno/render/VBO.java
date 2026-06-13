@@ -1,3 +1,5 @@
+package com.xeno.render;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,10 +20,11 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render;
+
 
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.MeshData.DrawState;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import com.xeno.vulkan.Renderer;
 import com.xeno.vulkan.memory.MemoryType;
@@ -37,7 +40,7 @@ public class VBO {
    private final MemoryType memoryType;
    private VertexBuffer vertexBuffer;
    private IndexBuffer indexBuffer;
-   private VertexFormat.Mode mode;
+   private Mode mode;
    private boolean autoIndexed = false;
    private int indexCount;
    private int vertexCount;
@@ -47,7 +50,7 @@ public class VBO {
    }
 
    public void upload(MeshData meshData) {
-      MeshData.DrawState parameters = meshData.drawState();
+      DrawState parameters = meshData.drawState();
       this.indexCount = parameters.indexCount();
       this.vertexCount = parameters.vertexCount();
       this.mode = parameters.mode();
@@ -56,7 +59,7 @@ public class VBO {
       meshData.close();
    }
 
-   private void uploadVertexBuffer(MeshData.DrawState parameters, ByteBuffer data) {
+   private void uploadVertexBuffer(DrawState parameters, ByteBuffer data) {
       if (data != null) {
          if (this.vertexBuffer != null) {
             this.vertexBuffer.scheduleFree();
@@ -175,7 +178,7 @@ public class VBO {
       return this.autoIndexed;
    }
 
-   public VertexFormat.Mode getMode() {
+   public Mode getMode() {
       return this.mode;
    }
 

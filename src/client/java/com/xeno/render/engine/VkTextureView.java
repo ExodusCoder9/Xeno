@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
+
 
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
@@ -41,12 +43,10 @@ public class VkTextureView extends GpuTextureView {
       return (VkFbo)this.fboCache.computeIfAbsent(depthAttachmentId, j -> new VkFbo(this, (VkGpuTexture)depthAttachment));
    }
 
-   @Override
    public boolean isClosed() {
       return this.closed;
    }
 
-   @Override
    public void close() {
       if (!this.closed) {
          this.closed = true;

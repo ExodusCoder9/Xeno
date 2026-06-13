@@ -1,3 +1,5 @@
+package com.xeno.gl;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.gl;
+
 
 import java.nio.ByteBuffer;
 import com.xeno.vulkan.Vulkan;
@@ -28,6 +30,9 @@ import org.apache.commons.lang3.Validate;
 import org.lwjgl.system.MemoryUtil;
 
 public abstract class GlUtil {
+   public GlUtil() {
+   }
+
    public static SPIRVUtils.ShaderKind extToShaderKind(String ext) {
       return switch (ext) {
          case ".vsh" -> SPIRVUtils.ShaderKind.VERTEX_SHADER;

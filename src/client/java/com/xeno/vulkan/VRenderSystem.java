@@ -1,3 +1,5 @@
+package com.xeno.vulkan;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan;
+
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.platform.Window;
@@ -74,6 +76,9 @@ public abstract class VRenderSystem {
    public static Matrix4f projection;
    public static Matrix4f modelView;
    private static int currentTime;
+
+   public VRenderSystem() {
+   }
 
    public static void initRenderer() {
       Vulkan.initVulkan(window);

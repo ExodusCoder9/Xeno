@@ -1,3 +1,5 @@
+package com.xeno.config.gui.widget;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.widget;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -73,7 +75,6 @@ public class RangeOptionWidget extends OptionWidget<RangeOption> {
       this.setValueFromMouse(mouseX);
    }
 
-   @Override
    public boolean keyPressed(KeyEvent event) {
       boolean isLeft = event.key() == 263;
       boolean isRight = event.key() == 262;

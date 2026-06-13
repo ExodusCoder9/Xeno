@@ -1,3 +1,5 @@
+package com.xeno.vulkan.framebuffer;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.framebuffer;
+
 
 import it.unimi.dsi.fastutil.longs.Long2ReferenceOpenHashMap;
 import java.nio.IntBuffer;
@@ -126,15 +128,20 @@ public class SwapChain extends Framebuffer {
             createInfo.compositeAlpha(1);
             createInfo.presentMode(presentMode);
             createInfo.clipped(true);
-            if (this.swapChainId != 0L) {
-               this.swapChainImages.forEach(imagex -> VK10.vkDestroyImageView(device, imagex.getImageView(), null));
-               KHRSwapchain.vkDestroySwapchainKHR(device, this.swapChainId, null);
+            long oldSwapchain = this.swapChainId;
+            if (oldSwapchain != 0L) {
+               createInfo.oldSwapchain(oldSwapchain);
             }
 
             LongBuffer pSwapChain = stack.longs(0L);
             int result = KHRSwapchain.vkCreateSwapchainKHR(device, createInfo, null, pSwapChain);
             Vulkan.checkResult(result, "Failed to create swap chain");
             this.swapChainId = pSwapChain.get(0);
+            if (oldSwapchain != 0L) {
+               this.swapChainImages.forEach(imagex -> VK10.vkDestroyImageView(device, imagex.getImageView(), null));
+               this.swapChainImages.clear();
+               KHRSwapchain.vkDestroySwapchainKHR(device, oldSwapchain, null);
+            }
             KHRSwapchain.vkGetSwapchainImagesKHR(device, this.swapChainId, imageCount, null);
             LongBuffer pSwapchainImages = stack.mallocLong(imageCount.get(0));
             KHRSwapchain.vkGetSwapchainImagesKHR(device, this.swapChainId, imageCount, pSwapchainImages);
@@ -226,13 +233,7 @@ public class SwapChain extends Framebuffer {
 
    @Override
    protected long getFramebufferId(RenderPass renderPass) {
-      long[] framebuffers = (long[])this.FBO_map.computeIfAbsent(renderPass.id, renderPass1 -> {
-         if (this.FBO_map.size() > 64) {
-            this.FBO_map.clear();
-         }
-
-         return this.createFramebuffers(renderPass);
-      });
+      long[] framebuffers = (long[])this.FBO_map.computeIfAbsent(renderPass.id, renderPass1 -> this.createFramebuffers(renderPass));
       return framebuffers[Renderer.getCurrentImage()];
    }
 
@@ -298,13 +299,11 @@ public class SwapChain extends Framebuffer {
       IntBuffer width = MemoryStack.stackGet().ints(0);
       IntBuffer height = MemoryStack.stackGet().ints(0);
       GLFW.glfwGetFramebufferSize(Vulkan.window, width, height);
-      VkExtent2D actualExtent = VkExtent2D.malloc().set(width.get(0), height.get(0));
+      VkExtent2D actualExtent = VkExtent2D.malloc(MemoryStack.stackPush()).set(width.get(0), height.get(0));
       VkExtent2D minExtent = capabilities.minImageExtent();
       VkExtent2D maxExtent = capabilities.maxImageExtent();
       actualExtent.width(MathUtil.clamp(minExtent.width(), maxExtent.width(), actualExtent.width()));
       actualExtent.height(MathUtil.clamp(minExtent.height(), maxExtent.height(), actualExtent.height()));
-      width.position(0);
-      height.position(0);
       return actualExtent;
    }
 

@@ -1,0 +1,83 @@
+#version 450
+layout(local_size_x = 64) in;
+
+struct SectionInfo {
+    float x, y, z;
+    int inAreaIndex;
+};
+
+struct DrawParam {
+    int indexCount;
+    int firstIndex;
+    int vertexOffset;
+    int baseInstance;
+};
+
+struct DrawCommand {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int  vertexOffset;
+    uint firstInstance;
+};
+
+layout(std140, binding = 0) uniform CullUniforms {
+    vec3 cameraPos;
+    int sectionCount;
+    int renderType;
+    int backFaceCulling;
+};
+
+layout(std430, binding = 1) readonly buffer SectionSSBO {
+    SectionInfo sections[];
+};
+
+layout(std430, binding = 2) readonly buffer DrawParamSSBO {
+    DrawParam drawParams[];
+};
+
+layout(std430, binding = 3) writeonly buffer OutputSSBO {
+    DrawCommand commands[];
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= sectionCount) return;
+
+    SectionInfo s = sections[idx];
+    float sx = s.x + 0.5;
+    float sy = s.y + 0.5;
+    float sz = s.z + 0.5;
+
+    int mask = 0;
+    if (backFaceCulling != 0) {
+        if (cameraPos.x < sx)      mask |= 1 << 0;
+        if (cameraPos.y < sy)      mask |= 1 << 1;
+        if (cameraPos.z < sz)      mask |= 1 << 2;
+        if (cameraPos.x > sx)      mask |= 1 << 3;
+        if (cameraPos.z > sz)      mask |= 1 << 4;
+        mask |= 1 << 6; // Y_NEG always visible
+    } else {
+        mask = 0x7F;
+    }
+
+    uint baseSlot = idx * 7u;
+    int dpBase = s.inAreaIndex * 28 + renderType * 7;
+
+    for (int i = 0; i < 7; i++) {
+        if ((mask & (1 << i)) == 0) {
+            commands[baseSlot + i].indexCount = 0u;
+        } else {
+            DrawParam dp = drawParams[dpBase + i];
+            if (dp.indexCount > 0) {
+                commands[baseSlot + i].indexCount = uint(dp.indexCount);
+                commands[baseSlot + i].instanceCount = 1u;
+                commands[baseSlot + i].firstIndex = uint(dp.firstIndex);
+                commands[baseSlot + i].vertexOffset = dp.vertexOffset;
+                commands[baseSlot + i].firstInstance = uint(dp.baseInstance);
+            } else {
+                commands[baseSlot + i].indexCount = 0u;
+            }
+        }
+    }
+}

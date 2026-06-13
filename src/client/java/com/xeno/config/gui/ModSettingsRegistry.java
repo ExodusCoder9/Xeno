@@ -1,3 +1,5 @@
+package com.xeno.config.gui;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,11 +20,13 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui;
+
 
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import java.util.Set;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import com.xeno.Initializer;
 import com.xeno.config.option.Options;
 
@@ -32,8 +36,8 @@ public class ModSettingsRegistry {
 
    ModSettingsRegistry() {
       ModSettingsEntry vulkanModSettings = new ModSettingsEntry(
-         Component.literal("xeno").withStyle(style -> style.withColor(0xBB00FF)),
-         () -> null,
+         Component.literal("Xeno").withStyle(ChatFormatting.DARK_PURPLE),
+         null,
          Options::getOptionPages,
          () -> Initializer.CONFIG.write()
       );

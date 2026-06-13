@@ -1,3 +1,5 @@
+package com.xeno.config.option;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,15 +20,15 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.option;
+
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 
 public enum PerformanceImpact {
-   LOW(Component.translatable("Xeno.options.performanceImpact.low").withStyle(ChatFormatting.DARK_GREEN)),
-   MEDIUM(Component.translatable("Xeno.options.performanceImpact.medium").withStyle(ChatFormatting.YELLOW)),
-   HIGH(Component.translatable("Xeno.options.performanceImpact.high").withStyle(ChatFormatting.RED));
+   LOW(Component.translatable("xeno.options.performanceImpact.low").withStyle(ChatFormatting.DARK_GREEN)),
+   MEDIUM(Component.translatable("xeno.options.performanceImpact.medium").withStyle(ChatFormatting.YELLOW)),
+   HIGH(Component.translatable("xeno.options.performanceImpact.high").withStyle(ChatFormatting.DARK_PURPLE));
 
    private final Component component;
 

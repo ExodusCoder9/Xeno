@@ -1,3 +1,5 @@
+package com.xeno.vulkan.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.util;
+
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -26,6 +28,9 @@ import java.nio.FloatBuffer;
 public class ColorUtil {
    private static final float COLOR_INV = 0.003921569F;
    static ColorUtil.ColorConsumer colorConsumer = new ColorUtil.DefaultColorConsumer();
+
+   public ColorUtil() {
+   }
 
    public static void useGammaCorrection(boolean b) {
       colorConsumer = b ? new ColorUtil.GammaColorConsumer() : new ColorUtil.DefaultColorConsumer();
@@ -58,6 +63,9 @@ public class ColorUtil {
    }
 
    public static class ARGB {
+      public ARGB() {
+      }
+
       public static int pack(float r, float g, float b, float a) {
          return ColorUtil.floatToInt(a) << 24 | ColorUtil.floatToInt(r) << 16 | ColorUtil.floatToInt(g) << 8 | ColorUtil.floatToInt(b);
       }
@@ -126,6 +134,9 @@ public class ColorUtil {
    }
 
    public static class DefaultColorConsumer implements ColorUtil.ColorConsumer {
+      public DefaultColorConsumer() {
+      }
+
       @Override
       public void setRGBA_Buffer(MappedBuffer buffer, float r, float g, float b, float a) {
          this.putColor(buffer, r, g, b, a);
@@ -143,6 +154,9 @@ public class ColorUtil {
    }
 
    public static class GammaColorConsumer implements ColorUtil.ColorConsumer {
+      public GammaColorConsumer() {
+      }
+
       @Override
       public void setRGBA_Buffer(MappedBuffer buffer, float r, float g, float b, float a) {
          r = ColorUtil.gamma(r);
@@ -169,6 +183,9 @@ public class ColorUtil {
    }
 
    public static class RGBA {
+      public RGBA() {
+      }
+
       public static int pack(float r, float g, float b, float a) {
          return ColorUtil.floatToInt(a) << 24 | ColorUtil.floatToInt(b) << 16 | ColorUtil.floatToInt(g) << 8 | ColorUtil.floatToInt(r);
       }

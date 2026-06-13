@@ -60,6 +60,7 @@ public abstract class ModelPartM {
       Matrix3f matrix3f = pose.normal();
       ExtendedVertexBuilder vertexBuilder = ExtendedVertexBuilder.of(vertexConsumer);
       boolean useFastFormat = vertexBuilder != null && vertexBuilder.canUseFastVertex();
+      boolean identityNormal = matrix3f.equals(new Matrix3f()); // identity check
       if (useFastFormat) {
          color = ColorUtil.RGBA.fromArgb32(color);
 
@@ -70,9 +71,14 @@ public abstract class ModelPartM {
             cubeModel.transformVertices(matrix4f);
 
             for (CubeModel.Polygon polygon : polygons) {
-               matrix3f.transform(this.normal.set(polygon.normal()));
-               this.normal.normalize();
-               int packedNormal = I32_SNorm.packNormal(this.normal.x(), this.normal.y(), this.normal.z());
+               int packedNormal;
+               if (identityNormal) {
+                  packedNormal = I32_SNorm.packNormal(polygon.normal().x(), polygon.normal().y(), polygon.normal().z());
+               } else {
+                  matrix3f.transform(this.normal.set(polygon.normal()));
+                  this.normal.normalize();
+                  packedNormal = I32_SNorm.packNormal(this.normal.x(), this.normal.y(), this.normal.z());
+               }
                CubeModel.Vertex[] vertices = polygon.vertices();
 
                for (CubeModel.Vertex vertex : vertices) {

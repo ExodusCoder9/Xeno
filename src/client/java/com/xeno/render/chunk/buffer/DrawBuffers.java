@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.buffer;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.buffer;
+
 
 import java.nio.ByteBuffer;
 import java.util.EnumMap;
@@ -183,9 +185,9 @@ public class DrawBuffers {
       this.allocated = true;
 
       int initialSize = switch (renderType) {
-         case SOLID -> 100000;
-         case CUTOUT -> 250000;
-         case TRANSLUCENT, TRIPWIRE -> 60000;
+         case SOLID -> 250000;
+         case CUTOUT -> 500000;
+         case TRANSLUCENT, TRIPWIRE -> 150000;
       };
       return this.vertexBuffers.computeIfAbsent(renderType, renderType1 -> new AreaBuffer(AreaBuffer.Usage.VERTEX, initialSize, this.vertexSize));
    }
@@ -322,8 +324,34 @@ public class DrawBuffers {
       if (drawCount != 0) {
          ByteBuffer byteBuffer = MemoryUtil.memByteBuffer(cmdBufferPtr, queue.size() * QuadFacing.COUNT * 32);
          indirectBuffer.recordCopyCmd(byteBuffer.position(0));
-         VK10.vkCmdDrawIndexedIndirect(Renderer.getCommandBuffer(), indirectBuffer.getId(), indirectBuffer.getOffset(), drawCount, 32);
+          VK10.vkCmdDrawIndexedIndirect(Renderer.getCommandBuffer(), indirectBuffer.getId(), indirectBuffer.getOffset(), drawCount, 32);
       }
+   }
+
+   public void buildDrawBatchesGpu(
+      Vector3d cameraPos, StaticQueue<RenderSection> queue, TerrainRenderType renderType, int currentFrame
+   ) {
+      GpuDrawBatcher batcher = GpuDrawBatcher.getInstance();
+      if (!batcher.isInitialized()) {
+         batcher.init();
+      }
+      if (!batcher.isInitialized()) return;
+
+      VkCommandBuffer cmdBuffer = Renderer.getCommandBuffer();
+      int sectionCount = queue.size();
+      if (sectionCount == 0) return;
+
+      // Flatten queue into array for upload
+      RenderSection[] sections = new RenderSection[sectionCount];
+      int i = 0;
+      for (RenderSection s : queue) {
+         sections[i++] = s;
+      }
+
+      batcher.buildBatchesGpu(
+         cmdBuffer, sections, sectionCount, cameraPos, renderType,
+         this.drawParamsPtr, currentFrame
+      );
    }
 
    public void buildDrawBatchesDirect(Vector3d cameraPos, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType) {

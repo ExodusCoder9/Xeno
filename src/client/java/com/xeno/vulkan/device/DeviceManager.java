@@ -1,3 +1,5 @@
+package com.xeno.vulkan.device;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.device;
+
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.nio.IntBuffer;
@@ -72,6 +74,9 @@ public abstract class DeviceManager {
    static PresentQueue presentQueue;
    static TransferQueue transferQueue;
    static ComputeQueue computeQueue;
+
+   public DeviceManager() {
+   }
 
    public static void init(VkInstance instance) {
       try {
@@ -472,5 +477,8 @@ public abstract class DeviceManager {
       public VkSurfaceCapabilitiesKHR capabilities;
       public org.lwjgl.vulkan.VkSurfaceFormatKHR.Buffer formats;
       public IntBuffer presentModes;
+
+      public SurfaceProperties() {
+      }
    }
 }

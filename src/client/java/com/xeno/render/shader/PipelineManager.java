@@ -1,3 +1,5 @@
+package com.xeno.render.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.shader;
+
 
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -41,6 +43,9 @@ public abstract class PipelineManager {
    static GraphicsPipeline fastBlitPipeline;
    static GraphicsPipeline cloudsPipeline;
    private static Function<TerrainRenderType, GraphicsPipeline> shaderGetter;
+
+   public PipelineManager() {
+   }
 
    public static void init() {
       setTerrainVertexFormat(CustomVertexFormat.COMPRESSED_TERRAIN);

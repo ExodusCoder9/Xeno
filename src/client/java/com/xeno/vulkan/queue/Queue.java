@@ -1,3 +1,5 @@
+package com.xeno.vulkan.queue;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.queue;
+
 
 import java.nio.IntBuffer;
 import java.util.stream.IntStream;
@@ -257,6 +259,9 @@ public abstract class Queue {
       Graphics,
       Transfer,
       Compute;
+
+      Family() {
+      }
    }
 
    public static class QueueFamilyIndices {
@@ -264,6 +269,9 @@ public abstract class Queue {
       public int presentFamily = -1;
       public int transferFamily = -1;
       public int computeFamily = -1;
+
+      public QueueFamilyIndices() {
+      }
 
       public boolean isComplete() {
          return this.graphicsFamily != -1 && this.presentFamily != -1 && this.transferFamily != -1 && this.computeFamily != -1;

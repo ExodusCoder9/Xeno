@@ -1,3 +1,5 @@
+package com.xeno.config.gui.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.util;
+
 
 import com.xeno.vulkan.util.ColorUtil;
 
@@ -26,8 +28,11 @@ public class VGuiConstants {
    public static final int COLOR_WHITE = ColorUtil.ARGB.pack(1.0F, 1.0F, 1.0F, 1.0F);
    public static final int COLOR_BLACK = ColorUtil.ARGB.pack(0.0F, 0.0F, 0.0F, 1.0F);
    public static final int COLOR_GRAY = ColorUtil.ARGB.pack(0.6F, 0.6F, 0.6F, 1.0F);
-   public static final int COLOR_RED = ColorUtil.ARGB.pack(0.5F, 0.0F, 0.7F, 0.8F);
+    public static final int COLOR_RED = ColorUtil.ARGB.pack(0.32F, 0.08F, 0.4F, 0.8F);
    public static final int PAGE_BUTTON_WIDTH = 100;
    public static final int WIDGET_HEIGHT = 20;
    public static final int WIDGET_MARGIN = 5;
+
+   public VGuiConstants() {
+   }
 }

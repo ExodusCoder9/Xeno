@@ -1,3 +1,5 @@
+package com.xeno.config.gui;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui;
+
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -117,7 +119,6 @@ public class VOptionList extends GuiElement {
       this.focused = focussed;
    }
 
-   @Override
    public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
       this.updateScrollingState(event.x(), event.button());
       if (this.isMouseOver(event.x(), event.y())) {
@@ -134,7 +135,6 @@ public class VOptionList extends GuiElement {
       }
    }
 
-   @Override
    public boolean mouseReleased(MouseButtonEvent event) {
       if (this.isValidClickButton(event.button())) {
          VOptionList.Entry entry = this.getEntryAtPos(event.x(), event.y());
@@ -148,7 +148,6 @@ public class VOptionList extends GuiElement {
       return false;
    }
 
-   @Override
    public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
       if (event.button() != 0) {
          return false;
@@ -176,7 +175,6 @@ public class VOptionList extends GuiElement {
       return true;
    }
 
-   @Override
    public boolean mouseScrolled(double mouseX, double mouseY, double xScroll, double yScroll) {
       this.setScrollAmount(this.getScrollAmount() - yScroll * this.totalItemHeight / 2.0);
       return true;
@@ -234,9 +232,9 @@ public class VOptionList extends GuiElement {
          barY = Math.max(barY, this.getY());
          int scrollbarPosition = this.getScrollbarPosition();
          int thickness = 3;
-         int backgroundColor = ColorUtil.ARGB.pack(0.6F, 0.4F, 0.8F, 0.2F);
-         GuiRenderer.fill(scrollbarPosition, this.getY(), scrollbarPosition + thickness, this.getY() + height, backgroundColor);
-         int barColor = ColorUtil.ARGB.pack(0.35F, 0.0F, 0.5F, 0.6F);
+          int backgroundColor = ColorUtil.ARGB.pack(0.5F, 0.25F, 0.5F, 0.15F);
+          GuiRenderer.fill(scrollbarPosition, this.getY(), scrollbarPosition + thickness, this.getY() + height, backgroundColor);
+          int barColor = ColorUtil.ARGB.pack(0.6F, 0.2F, 0.8F, 0.6F);
          GuiRenderer.fill(scrollbarPosition, barY, scrollbarPosition + thickness, barY + barHeight, barColor);
       }
    }
@@ -320,27 +318,22 @@ public class VOptionList extends GuiElement {
          }
       }
 
-      @Override
       public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
          return this.widget == null ? false : this.widget.mouseClicked(event, bl);
       }
 
-      @Override
       public boolean mouseReleased(MouseButtonEvent event) {
          return this.widget == null ? false : this.widget.mouseReleased(event);
       }
 
-      @Override
       public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
          return this.widget == null ? false : this.widget.mouseDragged(event, deltaX, deltaY);
       }
 
-      @Override
       public boolean isFocused() {
          return false;
       }
 
-      @Override
       public void setFocused(boolean bl) {
          if (this.widget != null) {
             this.widget.setFocused(bl);

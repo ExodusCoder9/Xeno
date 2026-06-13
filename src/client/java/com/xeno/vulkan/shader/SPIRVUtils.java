@@ -1,3 +1,5 @@
+package com.xeno.vulkan.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.shader;
+
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectListIterator;
@@ -48,6 +50,9 @@ public class SPIRVUtils {
    private static final SPIRVUtils.ShaderReleaser SHADER_RELEASER = new SPIRVUtils.ShaderReleaser();
    private static final long pUserData = 0L;
    private static ObjectArrayList<String> includePaths;
+
+   public SPIRVUtils() {
+   }
 
    private static void initCompiler() {
       compiler = Shaderc.shaderc_compiler_initialize();
@@ -114,6 +119,9 @@ public class SPIRVUtils {
 
    private static class ShaderIncluder implements ShadercIncludeResolveI {
       private static final int MAX_PATH_LENGTH = 4096;
+
+      private ShaderIncluder() {
+      }
 
       public long invoke(long user_data, long requested_source, int type, long requesting_source, long include_depth) {
          String requesting = MemoryUtil.memASCII(requesting_source);
@@ -184,6 +192,9 @@ public class SPIRVUtils {
    }
 
    private static class ShaderReleaser implements ShadercIncludeResultReleaseI {
+      private ShaderReleaser() {
+      }
+
       public void invoke(long user_data, long include_result) {
       }
    }

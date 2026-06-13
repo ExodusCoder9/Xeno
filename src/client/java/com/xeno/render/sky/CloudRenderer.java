@@ -1,3 +1,5 @@
+package com.xeno.render.sky;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.sky;
+
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -27,7 +29,7 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.io.IOException;
 import java.io.InputStream;
 import net.minecraft.client.CloudStatus;
@@ -65,6 +67,8 @@ public class CloudRenderer {
    private CloudStatus prevCloudsStatus;
    private boolean generateClouds;
    private VBO cloudBuffer;
+   private long cloudGridTimeFactor;
+   private GraphicsPipeline cachedCloudsPipeline;
 
    public CloudRenderer() {
       this.loadTexture();
@@ -72,11 +76,12 @@ public class CloudRenderer {
 
    public void loadTexture() {
       this.cloudGrid = createCloudGrid(TEXTURE_LOCATION);
+      this.cloudGridTimeFactor = this.cloudGrid.width * 400L;
    }
 
    public void renderClouds(float cloudHeight, int cloudColor, double camX, double camY, double camZ, long gameTime, float partialTicks) {
       Minecraft minecraft = Minecraft.getInstance();
-      float timeOffset = (float)(gameTime % (this.cloudGrid.width * 400L)) + partialTicks;
+      float timeOffset = (float)(gameTime % this.cloudGridTimeFactor) + partialTicks;
       double centerX = camX + timeOffset * 0.03F;
       double centerZ = camZ + 3.96F;
       double centerY = cloudHeight - (float)camY + 0.33F;
@@ -91,7 +96,7 @@ public class CloudRenderer {
          yState = 2;
       }
 
-      CloudStatus cloudStatus = minecraft.options.cloudStatus().get();
+      CloudStatus cloudStatus = (CloudStatus)minecraft.options.cloudStatus().get();
       if (centerCellX != this.prevCloudX
          || centerCellZ != this.prevCloudZ
          || cloudStatus != this.prevCloudsStatus
@@ -135,7 +140,8 @@ public class CloudRenderer {
          float g = ColorUtil.ARGB.unpackG(cloudColor);
          float b = ColorUtil.ARGB.unpackB(cloudColor);
          VRenderSystem.setShaderColor(r, g, b, 0.8F);
-         GraphicsPipeline pipeline = PipelineManager.getCloudsPipeline();
+         if (cachedCloudsPipeline == null) cachedCloudsPipeline = PipelineManager.getCloudsPipeline();
+         GraphicsPipeline pipeline = cachedCloudsPipeline;
          VRenderSystem.enableBlend();
          VRenderSystem.blendFuncSeparate(770, 771, 1, 0);
          VRenderSystem.enableDepthTest();
@@ -183,8 +189,8 @@ public class CloudRenderer {
       float xDirBrightness = 0.9F;
       float downFaceBrightness = 0.7F;
       float zDirBrightness = 0.8F;
-      BufferBuilder bufferBuilder = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-      int cloudRange = Math.min(Minecraft.getInstance().options.cloudRange().get(), 128) * 16;
+      BufferBuilder bufferBuilder = tesselator.begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+      int cloudRange = Math.min((Integer)Minecraft.getInstance().options.cloudRange().get(), 128) * 16;
       int renderDistance = Mth.ceil(cloudRange / 12.0F);
       boolean insideClouds = this.prevCloudY == 2;
       if (this.prevCloudsStatus == CloudStatus.FANCY) {

@@ -1,3 +1,5 @@
+package com.xeno.vulkan.memory.buffer;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,32 +20,28 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.memory.buffer;
+
 
 import java.nio.ByteBuffer;
 import com.xeno.render.chunk.buffer.UploadManager;
 import com.xeno.render.chunk.util.Util;
 import com.xeno.render.texture.ImageUploadHelper;
 import com.xeno.vulkan.Renderer;
+import com.xeno.vulkan.Synchronization;
 import com.xeno.vulkan.memory.MemoryTypes;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.system.libc.LibCString;
 
 public class StagingBuffer extends Buffer {
-   private static final long DEFAULT_SIZE = 67108864L;
-   private StagingBuffers parent;
+   private static final long DEFAULT_SIZE = 134217728L;
 
    public StagingBuffer() {
-      this(67108864L);
+      this(134217728L);
    }
 
    public StagingBuffer(long size) {
       super("Staging buffer", 1, MemoryTypes.HOST_MEM);
       this.createBuffer(size);
-   }
-
-   public void setParent(StagingBuffers parent) {
-      this.parent = parent;
    }
 
    public void copyBuffer(int size, ByteBuffer byteBuffer) {
@@ -56,11 +54,7 @@ public class StagingBuffer extends Buffer {
       }
 
       if (size > this.bufferSize - this.usedBytes) {
-         if (this.parent != null) {
-            this.parent.submitCurrentBuffer();
-         } else {
-            this.submitUploads();
-         }
+         this.submitUploads();
       }
 
       LibCString.nmemcpy(this.dataPtr + this.usedBytes, scrPtr, size);
@@ -71,22 +65,18 @@ public class StagingBuffer extends Buffer {
    public void align(int alignment) {
       long alignedOffset = Util.align(this.usedBytes, alignment);
       if (alignedOffset > this.bufferSize) {
-         if (this.parent != null) {
-            this.parent.submitCurrentBuffer();
-         } else {
-            this.submitUploads();
-         }
+         this.submitUploads();
          alignedOffset = 0L;
       }
 
       this.usedBytes = alignedOffset;
    }
 
-   public void submitUploads() {
+   private void submitUploads() {
       UploadManager.INSTANCE.submitUploads();
       ImageUploadHelper.INSTANCE.submitCommands(false);
       Renderer.getInstance().flushCmds();
-      this.resizeBuffer(this.bufferSize);
+      Synchronization.INSTANCE.waitFences();
       this.reset();
    }
 }

@@ -1,3 +1,5 @@
+package com.xeno.vulkan.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.util;
+
 
 import com.xeno.render.shader.PipelineManager;
 import com.xeno.vulkan.Renderer;
@@ -28,6 +30,9 @@ import org.lwjgl.vulkan.VK11;
 import org.lwjgl.vulkan.VkCommandBuffer;
 
 public class DrawUtil {
+   public DrawUtil() {
+   }
+
    public static void blitToScreen() {
       fastBlit();
    }

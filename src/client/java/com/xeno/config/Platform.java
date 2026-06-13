@@ -1,3 +1,5 @@
+package com.xeno.config;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,17 +20,21 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config;
+
 
 import net.minecraft.util.Util;
+import net.minecraft.util.Util.OS;
 import com.xeno.Initializer;
 import org.apache.commons.lang3.SystemUtils;
 import org.lwjgl.glfw.GLFW;
 
 public abstract class Platform {
-   public static final Util.OS OS = Util.getPlatform();
+   public static final OS OS = Util.getPlatform();
    private static int activePlat;
    private static String activeDE;
+
+   public Platform() {
+   }
 
    public static void init() {
       activePlat = getSupportedPlat();
@@ -84,15 +90,15 @@ public abstract class Platform {
    }
 
    public static boolean isWindows() {
-      return OS == Util.OS.LINUX;
+      return OS == net.minecraft.util.Util.OS.LINUX;
    }
 
    public static boolean isLinux() {
-      return OS == Util.OS.LINUX;
+      return OS == net.minecraft.util.Util.OS.LINUX;
    }
 
    public static boolean isMacOS() {
-      return OS == Util.OS.OSX;
+      return OS == net.minecraft.util.Util.OS.OSX;
    }
 
    public static int getActivePlat() {

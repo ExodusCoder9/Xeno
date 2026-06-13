@@ -1,3 +1,5 @@
+package com.xeno.config.video;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.video;
+
 
 import com.mojang.blaze3d.platform.Monitor;
 import com.mojang.blaze3d.platform.Window;
@@ -40,6 +42,9 @@ public abstract class VideoModeManager {
    public static Long2ObjectMap<VideoModeSet.VideoMode> osVideoModes = new Long2ObjectOpenHashMap();
    public static long selectedMonitor;
    public static VideoModeSet.VideoMode selectedVideoMode;
+
+   public VideoModeManager() {
+   }
 
    public static void init(Long2ObjectMap<Monitor> monitors) {
       VideoModeManager.monitors = monitors;

@@ -1,3 +1,5 @@
+package com.xeno.vulkan.texture;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.texture;
+
 
 import java.nio.LongBuffer;
 import com.xeno.vulkan.Renderer;
@@ -38,6 +40,9 @@ import org.lwjgl.vulkan.VkOffset3D;
 import org.lwjgl.vulkan.VkBufferImageCopy.Buffer;
 
 public abstract class ImageUtil {
+   public ImageUtil() {
+   }
+
    public static void copyBufferToImageCmd(
       MemoryStack stack,
       VkCommandBuffer commandBuffer,

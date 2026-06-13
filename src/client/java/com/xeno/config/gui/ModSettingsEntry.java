@@ -1,3 +1,5 @@
+package com.xeno.config.gui;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui;
+
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -50,13 +52,13 @@ public class ModSettingsEntry {
       return this.pages;
    }
 
-   public Identifier getIcon() {
-      if (this.icon == null) {
-         this.icon = this.iconSupplier.get();
-      }
+    public Identifier getIcon() {
+       if (this.icon == null && this.iconSupplier != null) {
+          this.icon = this.iconSupplier.get();
+       }
 
-      return this.icon;
-   }
+       return this.icon;
+    }
 
    public void runOnApply() {
       this.onApply.run();

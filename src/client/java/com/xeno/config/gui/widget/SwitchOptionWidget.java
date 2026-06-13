@@ -1,3 +1,5 @@
+package com.xeno.config.gui.widget;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.widget;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;

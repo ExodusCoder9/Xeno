@@ -1,3 +1,5 @@
+package com.xeno.vulkan.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.shader;
+
 
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import java.util.function.Supplier;
@@ -34,6 +36,9 @@ public class Uniforms {
    public static Object2ReferenceOpenHashMap<String, Supplier<MappedBuffer>> vec3f_uniformMap = new Object2ReferenceOpenHashMap();
    public static Object2ReferenceOpenHashMap<String, Supplier<MappedBuffer>> vec4f_uniformMap = new Object2ReferenceOpenHashMap();
    public static Object2ReferenceOpenHashMap<String, Supplier<MappedBuffer>> mat4f_uniformMap = new Object2ReferenceOpenHashMap();
+
+   public Uniforms() {
+   }
 
    public static void setupDefaultUniforms() {
       mat4f_uniformMap.put("ModelViewMat", VRenderSystem::getModelViewMatrix);

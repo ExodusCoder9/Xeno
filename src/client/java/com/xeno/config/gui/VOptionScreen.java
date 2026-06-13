@@ -1,3 +1,5 @@
+package com.xeno.config.gui;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,12 +20,12 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui;
+
 
 import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.ChatFormatting;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -34,8 +36,8 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.util.Util;
-import com.xeno.config.UpdateChecker;
+
+
 import com.xeno.config.gui.render.GuiRenderer;
 import com.xeno.config.gui.util.SearchHelper;
 import com.xeno.config.gui.util.VGuiConstants;
@@ -75,7 +77,6 @@ public class VOptionScreen extends Screen {
       this.modSettingsEntries = new ArrayList<>(ModSettingsRegistry.INSTANCE.getModEntries());
    }
 
-   @Override
    protected void init() {
       this.initOptionsPages();
       if (this.optionPages.isEmpty()) {
@@ -116,20 +117,14 @@ public class VOptionScreen extends Screen {
       }
    }
 
-   private VTextInputWidget createSearchField() {
-      int rightMargin = 10;
-      int padding = 10;
-      int kofiWidth = Minecraft.getInstance().font.width(Component.translatable("Xeno.options.buttons.kofi")) + padding;
-      int topBarRight = this.width - kofiWidth - rightMargin;
-      if (UpdateChecker.isUpdateAvailable()) {
-         int updateWidth = this.minecraft.font.width(Component.translatable("Xeno.options.buttons.update_available")) + padding;
-         topBarRight -= updateWidth + 5;
-      }
+    private VTextInputWidget createSearchField() {
+       int rightMargin = 10;
+       int topBarRight = this.width - rightMargin;
 
-      int leftMargin = 116;
+       int leftMargin = 116;
       int width = Math.min(topBarRight - leftMargin - 4, 413);
       return new VTextInputWidget(
-         leftMargin, 4, width, 20, Component.translatable("Xeno.options.searchFieldPlaceholder"), widget -> this.performSearch(widget.getInput())
+         leftMargin, 4, width, 20, Component.translatable("xeno.options.searchFieldPlaceholder"), widget -> this.performSearch(widget.getInput())
       );
    }
 
@@ -245,48 +240,21 @@ public class VOptionScreen extends Screen {
       int x0 = this.width - buttonWidth - rightMargin;
       int y0 = this.height - 20 - 7;
       VButtonWidget doneButton = new VButtonWidget(x0, y0, buttonWidth, 20, CommonComponents.GUI_DONE, button -> Minecraft.getInstance().setScreen(this.parent));
-      buttonWidth = Minecraft.getInstance().font.width(Component.translatable("Xeno.options.buttons.apply")) + 2 * padding;
+      buttonWidth = Minecraft.getInstance().font.width(Component.translatable("xeno.options.buttons.apply")) + 2 * padding;
       x0 -= buttonWidth + 5;
-      this.applyButton = new VButtonWidget(x0, y0, buttonWidth, 20, Component.translatable("Xeno.options.buttons.apply"), button -> this.applyOptions());
-      buttonWidth = Minecraft.getInstance().font.width(Component.translatable("Xeno.options.buttons.undo")) + 2 * padding;
+      this.applyButton = new VButtonWidget(x0, y0, buttonWidth, 20, Component.translatable("xeno.options.buttons.apply"), button -> this.applyOptions());
+      buttonWidth = Minecraft.getInstance().font.width(Component.translatable("xeno.options.buttons.undo")) + 2 * padding;
       x0 -= buttonWidth + 5;
-      this.undoButton = new VButtonWidget(x0, y0, buttonWidth, 20, Component.translatable("Xeno.options.buttons.undo"), button -> this.undo());
-      int kofiWidth = Minecraft.getInstance().font.width(Component.translatable("Xeno.options.buttons.kofi")) + padding;
-      int kofiX = this.width - kofiWidth - rightMargin;
-      VButtonWidget supportButton = new VButtonWidget(
-         kofiX,
-         4,
-         kofiWidth,
-         20,
-         Component.translatable("Xeno.options.buttons.kofi"),
-         button -> Util.getPlatform().openUri("https://ko-fi.com/xcollateral")
-      );
-      this.buttons.add(this.applyButton);
-      this.buttons.add(doneButton);
-      this.buttons.add(supportButton);
-      this.buttons.add(this.undoButton);
-      this.addWidget(this.applyButton);
-      this.addWidget(doneButton);
-      this.addWidget(supportButton);
-      this.addWidget(this.undoButton);
-      this.addWidget(this.searchField);
-      if (UpdateChecker.isUpdateAvailable()) {
-         assert this.minecraft != null;
-         int updateWidth = this.minecraft.font.width(Component.translatable("Xeno.options.buttons.update_available")) + padding;
-         VButtonWidget updateButton = new VButtonWidget(
-            kofiX - updateWidth - 5,
-            4,
-            updateWidth,
-            20,
-            Component.translatable("Xeno.options.buttons.update_available").withStyle(ChatFormatting.UNDERLINE),
-            button -> Util.getPlatform().openUri("https://modrinth.com/mod/Xeno")
-         );
-         this.buttons.add(updateButton);
-         this.addWidget(updateButton);
-      }
+      this.undoButton = new VButtonWidget(x0, y0, buttonWidth, 20, Component.translatable("xeno.options.buttons.undo"), button -> this.undo());
+       this.buttons.add(this.applyButton);
+       this.buttons.add(doneButton);
+       this.buttons.add(this.undoButton);
+       this.addWidget(this.applyButton);
+       this.addWidget(doneButton);
+       this.addWidget(this.undoButton);
+       this.addWidget(this.searchField);
    }
 
-   @Override
    public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
       for (GuiEventListener element : this.children()) {
          if (element.mouseClicked(event, bl)) {
@@ -303,19 +271,16 @@ public class VOptionScreen extends Screen {
       return false;
    }
 
-   @Override
    public boolean mouseReleased(MouseButtonEvent event) {
       this.setDragging(false);
       this.updateState();
       return this.getChildAt(event.x(), event.y()).filter(guiEventListener -> guiEventListener.mouseReleased(event)).isPresent();
    }
 
-   @Override
    public void onClose() {
       Minecraft.getInstance().setScreen(this.parent);
    }
 
-   @Override
    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
       GuiRenderer.guiGraphics = guiGraphics;
       VRenderSystem.enableBlend();
@@ -388,7 +353,7 @@ public class VOptionScreen extends Screen {
       }
 
       if (impact != null) {
-         textList.addAll(this.font.split(Component.translatable("Performance Impact: %s", impact.component()), this.tooltipWidth));
+         textList.addAll(this.font.split(Component.translatable("Performance Impact: %s", new Object[]{impact.component()}), this.tooltipWidth));
       }
 
       return textList;
@@ -442,7 +407,6 @@ public class VOptionScreen extends Screen {
       }
    }
 
-   @Override
    public boolean keyPressed(KeyEvent keyEvent) {
       if (keyEvent.hasControlDown() && keyEvent.key() == 76) {
          this.setFocused(this.searchField);

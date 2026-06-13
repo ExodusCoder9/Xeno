@@ -1,3 +1,5 @@
+package com.xeno.render.model;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,10 +20,11 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.model;
+
 
 import java.util.Set;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Direction.Axis;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
@@ -35,6 +38,9 @@ public class CubeModel {
    public float maxY;
    public float maxZ;
    CubeModel.Vertex[] vertices;
+
+   public CubeModel() {
+   }
 
    public void setVertices(
       int u,
@@ -171,8 +177,11 @@ public class CubeModel {
          }
       }
 
+      public Polygon {
+      }
+
       private static Direction mirrorFacing(Direction direction) {
-         return direction.getAxis() == Direction.Axis.X ? direction.getOpposite() : direction;
+         return direction.getAxis() == Axis.X ? direction.getOpposite() : direction;
       }
    }
 

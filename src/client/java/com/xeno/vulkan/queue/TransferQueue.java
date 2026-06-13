@@ -1,3 +1,5 @@
+package com.xeno.vulkan.queue;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.queue;
+
 
 import com.xeno.vulkan.Synchronization;
 import com.xeno.vulkan.Vulkan;
@@ -47,8 +49,8 @@ public class TransferQueue extends Queue {
          copyRegion.srcOffset(srcOffset);
          copyRegion.dstOffset(dstOffset);
          VK10.vkCmdCopyBuffer(commandBuffer.getHandle(), srcBuffer, dstBuffer, copyRegion);
-          this.submitCommands(commandBuffer, true);
-          Synchronization.INSTANCE.addCommandBuffer(commandBuffer, true);
+         this.submitCommands(commandBuffer);
+         Synchronization.INSTANCE.addCommandBuffer(commandBuffer);
          var14 = commandBuffer.fence;
       } catch (Throwable var17) {
          if (stack != null) {

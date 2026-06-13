@@ -1,3 +1,5 @@
+package com.xeno.vulkan;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan;
+
 
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
@@ -28,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import net.minecraft.util.Util;
+import net.minecraft.util.Util.OS;
 import com.xeno.vulkan.device.Device;
 import com.xeno.vulkan.device.DeviceManager;
 import com.xeno.vulkan.framebuffer.SwapChain;
@@ -80,6 +83,9 @@ public class Vulkan {
    public static boolean use24BitsDepthFormat = true;
    private static int DEFAULT_DEPTH_FORMAT = 0;
 
+   public Vulkan() {
+   }
+
    private static Set<String> getRequiredExtensionSet() {
       ArrayList<String> extensions = new ArrayList<>(List.of("VK_KHR_swapchain"));
       extensions.add("VK_KHR_dynamic_rendering");
@@ -90,7 +96,7 @@ public class Vulkan {
       VkDebugUtilsMessengerCallbackDataEXT callbackData = VkDebugUtilsMessengerCallbackDataEXT.create(pCallbackData);
       String s;
       if ((messageSeverity & 4096) != 0) {
-         s = "\u001b[31m" + callbackData.pMessageString();
+         s = "\u001b[35m" + callbackData.pMessageString();
       } else {
          s = callbackData.pMessageString();
       }
@@ -335,7 +341,7 @@ public class Vulkan {
    private static PointerBuffer getRequiredInstanceExtensions() {
       PointerBuffer glfwExtensions = GLFWVulkan.glfwGetRequiredInstanceExtensions();
       List<String> otherExtensions = new ArrayList<>();
-      if (Util.getPlatform() == Util.OS.OSX && instanceExtensions.contains("VK_KHR_portability_enumeration")) {
+      if (Util.getPlatform() == OS.OSX && instanceExtensions.contains("VK_KHR_portability_enumeration")) {
          otherExtensions.add("VK_KHR_portability_enumeration");
       }
 

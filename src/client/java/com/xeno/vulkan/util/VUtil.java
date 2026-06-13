@@ -1,3 +1,5 @@
+package com.xeno.vulkan.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.util;
+
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
@@ -34,6 +36,9 @@ public class VUtil {
    public static final int UINT32_MAX = -1;
    public static final long UINT64_MAX = -1L;
    public static final Unsafe UNSAFE;
+
+   public VUtil() {
+   }
 
    public static PointerBuffer asPointerBuffer(Collection<String> collection) {
       MemoryStack stack = MemoryStack.stackGet();

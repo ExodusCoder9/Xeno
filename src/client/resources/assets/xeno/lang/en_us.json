@@ -1,62 +1,65 @@
 {
-  "Xeno.options.unknown": "Unknown",
+  "xeno.options.unknown": "Unknown",
 
-  "Xeno.options.pages.video": "Video",
-  "Xeno.options.pages.graphics": "Graphics",
-  "Xeno.options.pages.optimizations": "Optimizations",
-  "Xeno.options.pages.other": "Other",
+  "xeno.options.pages.video": "Video",
+  "xeno.options.pages.graphics": "Graphics",
+  "xeno.options.pages.optimizations": "Optimizations",
+  "xeno.options.pages.other": "Other",
 
-  "Xeno.options.performanceImpact": "Performance impact: %s",
-  "Xeno.options.performanceImpact.low": "Low",
-  "Xeno.options.performanceImpact.medium": "Medium",
-  "Xeno.options.performanceImpact.high": "High",
+  "xeno.options.performanceImpact": "Performance Impact: %s",
+  "xeno.options.performanceImpact.low": "Low",
+  "xeno.options.performanceImpact.medium": "Medium",
+  "xeno.options.performanceImpact.high": "High",
 
-  "Xeno.options.buttons.apply": "Apply",
-  "Xeno.options.buttons.undo": "Undo",
-  "Xeno.options.buttons.kofi": "Support me",
-  "Xeno.options.buttons.update_available": "Update available!",
+  "xeno.options.buttons.apply": "Apply",
+  "xeno.options.buttons.undo": "Undo",
+  "xeno.options.buttons.kofi": "Support Me",
+  "xeno.options.buttons.update_available": "Update Available",
 
-  "Xeno.options.advCulling": "Advanced Chunk Culling",
-  "Xeno.options.advCulling.aggressive": "Aggressive",
-  "Xeno.options.advCulling.conservative": "Conservative",
-  "Xeno.options.advCulling.normal": "Normal",
-  "Xeno.options.advCulling.tooltip": "Use a culling algorithm that might improve performance by reducing the number of non visible chunk sections rendered.",
+  "xeno.options.advCulling": "Advanced Chunk Culling",
+  "xeno.options.advCulling.aggressive": "Aggressive",
+  "xeno.options.advCulling.conservative": "Conservative",
+  "xeno.options.advCulling.normal": "Normal",
+  "xeno.options.advCulling.tooltip": "Optimizes occlusion culling to reduce the number of non-visible chunk sections submitted for rendering.",
 
-  "Xeno.options.ao.subBlock": "Sub Block",
-  "Xeno.options.ao.subBlock.tooltip": "Enables smooth lighting for non full block (experimental).",
+  "xeno.options.ao.subBlock": "Sub-Block Ambient Occlusion",
+  "xeno.options.ao.subBlock.tooltip": "Applies smooth ambient occlusion at the sub-block level for non-full blocks. Experimental.",
 
-  "Xeno.options.deviceSelector": "Device selector",
-  "Xeno.options.deviceSelector.auto": "Auto",
-  "Xeno.options.deviceSelector.tooltip": "Current device",
+  "xeno.options.deviceSelector": "GPU Device",
+  "xeno.options.deviceSelector.auto": "Automatic",
+  "xeno.options.deviceSelector.tooltip": "Currently active device",
 
-  "Xeno.options.entityCulling": "Entity Culling",
-  "Xeno.options.entityCulling.tooltip": "Enables culling for entities on not visible sections.",
+  "xeno.options.entityCulling": "Entity Culling",
+  "xeno.options.entityCulling.tooltip": "Skips rendering entities located in sections that are fully occluded from the camera view.",
 
-  "Xeno.options.frameQueue": "Render queue size",
-  "Xeno.options.frameQueue.tooltip": "Higher values might help stabilize frametime but will increase input lag.",
+  "xeno.options.frameQueue": "Frame Queue Size",
+  "xeno.options.frameQueue.tooltip": "Controls how many frames are processed ahead. Higher values may smooth frame pacing at the cost of increased input latency.",
 
-  "Xeno.options.backfaceCulling": "Backface Culling",
-  "Xeno.options.backfaceCulling.tooltip": "Culls not visible block faces on the CPU improving GPU performance. To prevent increased CPU overhead enable Indirect Draw.",
+  "xeno.options.backfaceCulling": "Back-Face Culling",
+  "xeno.options.backfaceCulling.tooltip": "Eliminates block faces that face away from the camera on the CPU. Significantly reduces vertex processing load on the GPU.",
 
-  "Xeno.options.indirectDraw": "Indirect Draw",
-  "Xeno.options.indirectDraw.tooltip": "Reduces CPU overhead but might increase GPU overhead.",
+  "xeno.options.greedyMeshing": "Greedy Mesh Optimization",
+  "xeno.options.greedyMeshing.tooltip": "Merges adjacent coplanar block faces of the same type into larger quads. Greatly reduces vertex count on flat terrain. Chunks must be reloaded (F3+A) after toggling.",
 
-  "Xeno.options.refreshRate": "Fullscreen Refresh Rate",
+  "xeno.options.gpuDrivenRenderer": "GPU-Driven Renderer",
+  "xeno.options.gpuDrivenRenderer.tooltip": "Offloads terrain section culling and indirect draw command generation to the GPU via compute shaders. Reduces CPU overhead during terrain rendering.",
 
-  "Xeno.options.uniqueOpaqueLayer": "Unique opaque layer",
-  "Xeno.options.uniqueOpaqueLayer.tooltip": "Use a unique render layer for opaque terrain to improve performance.",
+  "xeno.options.refreshRate": "Fullscreen Refresh Rate",
 
-  "Xeno.options.wayland": "Use Wayland",
-  "Xeno.options.wayland.tooltip": "Use Linux Wayland compositor if available (Experimental). Requires restart.",
+  "xeno.options.uniqueOpaqueLayer": "Unified Opaque Pass",
+  "xeno.options.uniqueOpaqueLayer.tooltip": "Consolidates solid and cutout geometry into a single render pass. Improves GPU throughput by reducing pipeline state changes.",
 
-  "Xeno.options.windowMode": "Window Mode",
-  "Xeno.options.windowMode.windowed": "Windowed",
-  "Xeno.options.windowMode.windowedFullscreen": "Windowed Fullscreen",
+  "xeno.options.wayland": "Wayland Compositor",
+  "xeno.options.wayland.tooltip": "Use the Linux Wayland compositor if available. Experimental feature. Requires a restart.",
 
-  "Xeno.options.builderThreads": "Chunk Builder Threads",
-  "Xeno.options.builderThreads.auto": "Auto",
+  "xeno.options.windowMode": "Display Mode",
+  "xeno.options.windowMode.windowed": "Windowed",
+  "xeno.options.windowMode.windowedFullscreen": "Borderless Window",
 
-  "Xeno.options.textureAnimations": "Texture Animations",
+  "xeno.options.builderThreads": "Chunk Builder Threads",
+  "xeno.options.builderThreads.auto": "Automatic",
 
-  "Xeno.options.searchFieldPlaceholder": "Search Graphics Settings"
+  "xeno.options.textureAnimations": "Animated Textures",
+
+  "xeno.options.searchFieldPlaceholder": "Search Settings"
 }

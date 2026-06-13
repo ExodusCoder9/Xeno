@@ -1,3 +1,5 @@
+package com.xeno.render.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.util;
+
 
 import com.xeno.render.vertex.format.I32_SNorm;
 import org.joml.Math;
@@ -26,6 +28,9 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 public class MathUtil {
+   public MathUtil() {
+   }
+
    public static float clamp(float min, float max, float x) {
       return Math.min(Math.max(x, min), max);
    }

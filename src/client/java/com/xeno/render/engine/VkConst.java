@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,16 +20,20 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
+
 
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
 
 public class VkConst {
+   public VkConst() {
+   }
+
    public static int of(AddressMode addressMode) {
       return switch (addressMode) {
          case REPEAT -> 0;
          case CLAMP_TO_EDGE -> 2;
+         default -> throw new MatchException(null, null);
       };
    }
 
@@ -35,6 +41,7 @@ public class VkConst {
       return switch (filterMode) {
          case NEAREST -> 0;
          case LINEAR -> 1;
+         default -> throw new MatchException(null, null);
       };
    }
 }

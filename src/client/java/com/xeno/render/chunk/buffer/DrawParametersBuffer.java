@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.buffer;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.buffer;
+
 
 import com.xeno.render.chunk.cull.QuadFacing;
 import com.xeno.render.vertex.TerrainRenderType;
@@ -33,6 +35,9 @@ public abstract class DrawParametersBuffer {
    public static final long STRIDE = 16L;
    static final int SECTIONS = 512;
    static final int FACINGS = 7;
+
+   public DrawParametersBuffer() {
+   }
 
    public static long allocateBuffer() {
       int size = (int)(512 * TerrainRenderType.VALUES.length * QuadFacing.COUNT * 16L);

@@ -1,3 +1,5 @@
+package com.xeno.vulkan.shader.converter;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.shader.converter;
+
 
 import com.mojang.blaze3d.vertex.VertexFormat;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -60,6 +62,9 @@ public class GLSLParser {
    ArrayList<Attribute> vertOutAttributes = new ArrayList<>();
    ArrayList<Attribute> fragInAttributes = new ArrayList<>();
    ArrayList<Attribute> fragOutAttributes = new ArrayList<>();
+
+   public GLSLParser() {
+   }
 
    public void setVertexFormat(VertexFormat vertexFormat) {
       this.vertexFormat = vertexFormat;
@@ -639,11 +644,17 @@ public class GLSLParser {
    enum PreprocessorState {
       IGNORE,
       DEFAULT;
+
+      PreprocessorState() {
+      }
    }
 
    public enum Stage {
       VERTEX,
       FRAGMENT;
+
+      Stage() {
+      }
    }
 
    enum State {
@@ -652,6 +663,9 @@ public class GLSLParser {
       UNIFORM_BLOCK,
       ATTRIBUTE,
       DEFAULT;
+
+      State() {
+      }
    }
 
    public static class TokenNode implements GLSLParser.Node {

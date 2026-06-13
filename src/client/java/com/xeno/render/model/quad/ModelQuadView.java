@@ -1,3 +1,5 @@
+package com.xeno.render.model.quad;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.model.quad;
+
 
 import net.minecraft.core.Direction;
 import com.xeno.render.chunk.cull.QuadFacing;

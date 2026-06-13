@@ -1,3 +1,5 @@
+package com.xeno.vulkan;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan;
+
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -46,7 +48,7 @@ public class Synchronization {
       this.addCommandBuffer(commandBuffer, false);
    }
 
-   public void addCommandBuffer(CommandPool.CommandBuffer commandBuffer, boolean useSemaphore) {
+   public synchronized void addCommandBuffer(CommandPool.CommandBuffer commandBuffer, boolean useSemaphore) {
       if (!useSemaphore) {
          this.addFence(commandBuffer.getFence());
          this.fenceCbs.add(commandBuffer);
@@ -56,7 +58,7 @@ public class Synchronization {
       }
    }
 
-   public void addFence(long fence) {
+   public synchronized void addFence(long fence) {
       if (this.idx == 50) {
          this.waitFences();
       }
@@ -65,11 +67,11 @@ public class Synchronization {
       this.idx++;
    }
 
-   public void waitFences() {
+   public synchronized void waitFences() {
       if (this.idx != 0) {
          VkDevice device = Vulkan.getVkDevice();
          this.fences.limit(this.idx);
-         VK10.vkWaitForFences(device, this.fences, true, -1L);
+         VK10.vkWaitForFences(device, this.fences, false, -1L);
          this.fenceCbs.forEach(CommandPool.CommandBuffer::reset);
          this.fenceCbs.clear();
          this.fences.limit(50);
@@ -77,7 +79,7 @@ public class Synchronization {
       }
    }
 
-   public void addWaitSemaphore(long semaphore) {
+   public synchronized void addWaitSemaphore(long semaphore) {
       this.semaphores.add(semaphore);
    }
 
@@ -91,8 +93,8 @@ public class Synchronization {
    }
 
    public void scheduleCbReset() {
-      ObjectArrayList<CommandPool.CommandBuffer> frameSemaphoreCbs = this.semaphoreCbs.clone();
-      MemoryManager.getInstance().addFrameOp(() -> frameSemaphoreCbs.forEach(CommandPool.CommandBuffer::reset));
+      ObjectArrayList<CommandPool.CommandBuffer> pending = this.semaphoreCbs.clone();
+      MemoryManager.getInstance().addFrameOp(() -> pending.forEach(CommandPool.CommandBuffer::reset));
       this.semaphoreCbs.clear();
    }
 

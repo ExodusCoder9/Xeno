@@ -1,3 +1,5 @@
+package com.xeno.config.gui.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,13 +20,16 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.util;
+
 
 import java.util.function.Function;
 import net.minecraft.network.chat.Component;
 import com.xeno.config.option.CyclingOption;
 
 public class SearchHelper {
+   public SearchHelper() {
+   }
+
    public static <T> boolean matchesAnyValue(CyclingOption<T> cycling, String searchTerm) {
       Function<T, Component> translator = cycling.getTranslator();
 

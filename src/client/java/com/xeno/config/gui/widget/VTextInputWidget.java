@@ -1,3 +1,5 @@
+package com.xeno.config.gui.widget;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.widget;
+
 
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
@@ -72,7 +74,7 @@ public class VTextInputWidget extends VAbstractWidget {
             GuiRenderer.fill(xBefore, this.y + 4, xBefore + xSelected, this.y + this.height - 4, selColor);
          }
 
-         Component displayText = hasText ? Component.literal(this.text) : this.placeholder;
+         Component displayText = (Component)(hasText ? Component.literal(this.text) : this.placeholder);
          int var10002 = this.x + 8;
          int var10003 = this.y + (this.height - 8) / 2;
          GuiRenderer.drawString(Minecraft.getInstance().font, displayText, var10002, var10003, textColor | 0xFF000000);
@@ -99,7 +101,6 @@ public class VTextInputWidget extends VAbstractWidget {
       }
    }
 
-   @Override
    public boolean keyPressed(KeyEvent keyEvent) {
       if (!this.focused && !this.selected) {
          return false;
@@ -207,7 +208,6 @@ public class VTextInputWidget extends VAbstractWidget {
       return this.visible;
    }
 
-   @Override
    public boolean isActive() {
       return this.active;
    }

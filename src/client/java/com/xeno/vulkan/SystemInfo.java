@@ -1,3 +1,5 @@
+package com.xeno.vulkan;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,12 +20,15 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan;
+
 
 import oshi.hardware.CentralProcessor;
 
 public class SystemInfo {
    public static final String cpuInfo;
+
+   public SystemInfo() {
+   }
 
    static {
       CentralProcessor centralProcessor = new oshi.SystemInfo().getHardware().getProcessor();

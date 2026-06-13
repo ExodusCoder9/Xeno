@@ -1,3 +1,5 @@
+package com.xeno.config.option;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.option;
+
 
 import com.xeno.config.gui.OptionBlock;
 import com.xeno.config.gui.VOptionList;

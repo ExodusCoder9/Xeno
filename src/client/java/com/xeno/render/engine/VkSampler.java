@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
+
 
 import com.mojang.blaze3d.textures.AddressMode;
 import com.mojang.blaze3d.textures.FilterMode;
@@ -55,37 +57,30 @@ public class VkSampler extends GpuSampler {
       return this.id;
    }
 
-   @Override
    public AddressMode getAddressModeU() {
       return this.addressModeU;
    }
 
-   @Override
    public AddressMode getAddressModeV() {
       return this.addressModeV;
    }
 
-   @Override
    public FilterMode getMinFilter() {
       return this.minFilter;
    }
 
-   @Override
    public FilterMode getMagFilter() {
       return this.magFilter;
    }
 
-   @Override
    public int getMaxAnisotropy() {
       return this.maxAnisotropy;
    }
 
-   @Override
    public OptionalDouble getMaxLod() {
       return null;
    }
 
-   @Override
    public void close() {
       if (!this.closed) {
          this.closed = true;

@@ -1,3 +1,5 @@
+package com.xeno.config.gui.render;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.render;
+
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -39,6 +41,9 @@ public abstract class GuiRenderer {
    public static GuiGraphicsExtractor guiGraphics;
    public static PoseStack pose;
    public static BufferBuilder bufferBuilder;
+
+   public GuiRenderer() {
+   }
 
    public static void enableScissor(int i, int j, int k, int l) {
       guiGraphics.enableScissor(i, j, k, l);

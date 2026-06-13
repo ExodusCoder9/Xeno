@@ -1,3 +1,5 @@
+package com.xeno.vulkan.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.util;
+
 
 import java.lang.reflect.Field;
 import org.lwjgl.system.Pointer;
@@ -27,6 +29,9 @@ import sun.misc.Unsafe;
 public class MemoryAccess {
    public static final Unsafe UNSAFE;
    public static final boolean BITS64 = Pointer.BITS64;
+
+   public MemoryAccess() {
+   }
 
    public static boolean memGetBoolean(long ptr) {
       return UNSAFE.getByte(null, ptr) != 0;

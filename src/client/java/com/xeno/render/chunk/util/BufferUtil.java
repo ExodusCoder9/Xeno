@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,12 +20,15 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.util;
+
 
 import java.nio.ByteBuffer;
 import org.lwjgl.system.MemoryUtil;
 
 public class BufferUtil {
+   public BufferUtil() {
+   }
+
    public static ByteBuffer clone(ByteBuffer src) {
       ByteBuffer ret = MemoryUtil.memAlloc(src.remaining());
       MemoryUtil.memCopy(src, ret);

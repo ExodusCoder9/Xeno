@@ -1,3 +1,5 @@
+package com.xeno.render.profiling;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.profiling;
+
 
 import net.minecraft.client.Minecraft;
 
@@ -26,6 +28,9 @@ public abstract class BuildTimeProfiler {
    private static boolean bench = false;
    private static long startTime;
    private static float deltaTime;
+
+   public BuildTimeProfiler() {
+   }
 
    public static void runBench(boolean building) {
       if (bench) {

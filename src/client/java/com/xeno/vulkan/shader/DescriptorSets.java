@@ -1,3 +1,5 @@
+package com.xeno.vulkan.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.shader;
+
 
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
@@ -46,7 +48,7 @@ import org.lwjgl.vulkan.VkWriteDescriptorSet;
 public class DescriptorSets {
    private static final VkDevice DEVICE = Vulkan.getVkDevice();
    private final Pipeline pipeline;
-   private int poolSize = 128;
+   private int poolSize = 10;
    private long descriptorPool = 0L;
    private long[] sets;
    private long currentSet;
@@ -54,8 +56,6 @@ public class DescriptorSets {
    private final long[] boundUBs;
    private final ImageDescriptor.State[] boundTextures;
    private final IntBuffer dynamicOffsets;
-   private org.lwjgl.vulkan.VkDescriptorBufferInfo.Buffer[] bufferInfos;
-   private org.lwjgl.vulkan.VkDescriptorImageInfo.Buffer[] imageInfo;
 
    DescriptorSets(Pipeline pipeline) {
       this.pipeline = pipeline;
@@ -86,10 +86,27 @@ public class DescriptorSets {
    }
 
    public void bindSets(VkCommandBuffer commandBuffer, UniformBuffer uniformBuffer, int bindPoint) {
-      MemoryStack stack = MemoryStack.stackGet();
-      this.updateUniforms(uniformBuffer);
-      this.updateDescriptorSet(stack, uniformBuffer);
-      VK10.vkCmdBindDescriptorSets(commandBuffer, bindPoint, this.pipeline.pipelineLayout, 0, stack.longs(this.currentSet), this.dynamicOffsets);
+      MemoryStack stack = MemoryStack.stackPush();
+
+      try {
+         this.updateUniforms(uniformBuffer);
+         this.updateDescriptorSet(stack, uniformBuffer);
+         VK10.vkCmdBindDescriptorSets(commandBuffer, bindPoint, this.pipeline.pipelineLayout, 0, stack.longs(this.currentSet), this.dynamicOffsets);
+      } catch (Throwable var8) {
+         if (stack != null) {
+            try {
+               stack.close();
+            } catch (Throwable var7) {
+               var8.addSuppressed(var7);
+            }
+         }
+
+         throw var8;
+      }
+
+      if (stack != null) {
+         stack.close();
+      }
    }
 
    private void updateUniforms(UniformBuffer globalUB) {
@@ -182,31 +199,27 @@ public class DescriptorSets {
          org.lwjgl.vulkan.VkWriteDescriptorSet.Buffer descriptorWrites = VkWriteDescriptorSet.calloc(
             this.pipeline.buffers.size() + this.pipeline.imageDescriptors.size(), stack
          );
-          if (this.bufferInfos == null || this.bufferInfos.length < this.pipeline.buffers.size()) {
-             this.bufferInfos = new org.lwjgl.vulkan.VkDescriptorBufferInfo.Buffer[this.pipeline.buffers.size()];
-          }
+         org.lwjgl.vulkan.VkDescriptorBufferInfo.Buffer[] bufferInfos = new org.lwjgl.vulkan.VkDescriptorBufferInfo.Buffer[this.pipeline.buffers.size()];
          int i = 0;
 
          for (UBO ubo : this.pipeline.getBuffers()) {
             Buffer ub = ubo.getBufferSlice().getBuffer();
             this.boundUBs[i] = ub.getId();
-             this.bufferInfos[i] = VkDescriptorBufferInfo.calloc(1, stack);
-             this.bufferInfos[i].buffer(this.boundUBs[i]);
-             this.bufferInfos[i].range(ubo.getSize());
-             VkWriteDescriptorSet descriptorWrite = (VkWriteDescriptorSet)descriptorWrites.get(i);
-             descriptorWrite.sType$Default();
-             descriptorWrite.dstBinding(ubo.getBinding());
-             descriptorWrite.dstArrayElement(0);
-             descriptorWrite.descriptorType(ubo.getType());
-             descriptorWrite.descriptorCount(1);
-             descriptorWrite.pBufferInfo(this.bufferInfos[i]);
-             descriptorWrite.dstSet(this.currentSet);
-             i++;
-          }
+            bufferInfos[i] = VkDescriptorBufferInfo.calloc(1, stack);
+            bufferInfos[i].buffer(this.boundUBs[i]);
+            bufferInfos[i].range(ubo.getSize());
+            VkWriteDescriptorSet descriptorWrite = (VkWriteDescriptorSet)descriptorWrites.get(i);
+            descriptorWrite.sType$Default();
+            descriptorWrite.dstBinding(ubo.getBinding());
+            descriptorWrite.dstArrayElement(0);
+            descriptorWrite.descriptorType(ubo.getType());
+            descriptorWrite.descriptorCount(1);
+            descriptorWrite.pBufferInfo(bufferInfos[i]);
+            descriptorWrite.dstSet(this.currentSet);
+            i++;
+         }
 
-          if (this.imageInfo == null || this.imageInfo.length < this.pipeline.imageDescriptors.size()) {
-             this.imageInfo = new org.lwjgl.vulkan.VkDescriptorImageInfo.Buffer[this.pipeline.imageDescriptors.size()];
-          }
+         org.lwjgl.vulkan.VkDescriptorImageInfo.Buffer[] imageInfo = new org.lwjgl.vulkan.VkDescriptorImageInfo.Buffer[this.pipeline.imageDescriptors.size()];
 
          for (int j = 0; j < this.pipeline.imageDescriptors.size(); j++) {
             ImageDescriptor imageDescriptor = this.pipeline.imageDescriptors.get(j);
@@ -225,20 +238,20 @@ public class DescriptorSets {
                image.readOnlyLayout();
             }
 
-             this.imageInfo[j] = VkDescriptorImageInfo.calloc(1, stack);
-             this.imageInfo[j].imageLayout(layout);
-             this.imageInfo[j].imageView(view);
-             if (imageDescriptor.useSampler) {
-                this.imageInfo[j].sampler(sampler);
-             }
+            imageInfo[j] = VkDescriptorImageInfo.calloc(1, stack);
+            imageInfo[j].imageLayout(layout);
+            imageInfo[j].imageView(view);
+            if (imageDescriptor.useSampler) {
+               imageInfo[j].sampler(sampler);
+            }
 
-             VkWriteDescriptorSet descriptorWrite = (VkWriteDescriptorSet)descriptorWrites.get(i);
-             descriptorWrite.sType$Default();
-             descriptorWrite.dstBinding(imageDescriptor.getBinding());
-             descriptorWrite.dstArrayElement(0);
-             descriptorWrite.descriptorType(imageDescriptor.getType());
-             descriptorWrite.descriptorCount(1);
-             descriptorWrite.pImageInfo(this.imageInfo[j]);
+            VkWriteDescriptorSet descriptorWrite = (VkWriteDescriptorSet)descriptorWrites.get(i);
+            descriptorWrite.sType$Default();
+            descriptorWrite.dstBinding(imageDescriptor.getBinding());
+            descriptorWrite.dstArrayElement(0);
+            descriptorWrite.descriptorType(imageDescriptor.getType());
+            descriptorWrite.descriptorCount(1);
+            descriptorWrite.pImageInfo(imageInfo[j]);
             descriptorWrite.dstSet(this.currentSet);
             this.boundTextures[j].set(view, sampler);
             i++;

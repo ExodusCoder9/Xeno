@@ -1,3 +1,5 @@
+package com.xeno.vulkan.memory;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,9 +20,8 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.memory;
 
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+
 import it.unimi.dsi.fastutil.longs.Long2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectListIterator;
@@ -42,7 +43,6 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.util.vma.Vma;
 import org.lwjgl.util.vma.VmaAllocationCreateInfo;
-import org.lwjgl.util.vma.VmaAllocationInfo;
 import org.lwjgl.util.vma.VmaBudget;
 import org.lwjgl.vulkan.VkBufferCreateInfo;
 import org.lwjgl.vulkan.VkImageCreateInfo;
@@ -58,7 +58,6 @@ public class MemoryManager {
    private static long deviceMemory = 0L;
    private static long nativeMemory = 0L;
    private int currentFrame = 0;
-   private final Long2LongOpenHashMap persistentMappings = new Long2LongOpenHashMap();
    private final ObjectArrayList<Buffer.BufferInfo>[] freeableBuffers;
    private final ObjectArrayList<VulkanImage>[] freeableImages;
    private final ObjectArrayList<Runnable>[] frameOps;
@@ -88,7 +87,7 @@ public class MemoryManager {
       }
    }
 
-    public void initFrame(int frame) {
+   public synchronized void initFrame(int frame) {
       this.setCurrentFrame(frame);
       this.freeBuffers(frame);
       this.freeImages(frame);
@@ -143,39 +142,16 @@ public class MemoryManager {
       }
    }
 
-    public void createBuffer(Buffer buffer, long size, int usage, int properties) {
+   public synchronized void createBuffer(Buffer buffer, long size, int usage, int properties) {
       MemoryStack stack = MemoryStack.stackPush();
 
       try {
-         VkBufferCreateInfo bufferInfo = VkBufferCreateInfo.calloc(stack);
-         bufferInfo.sType(12);
-         bufferInfo.size(size);
-         bufferInfo.usage(usage);
-         VmaAllocationCreateInfo allocationInfo = VmaAllocationCreateInfo.calloc(stack);
-         allocationInfo.requiredFlags(properties);
-         if ((properties & 1) != 0) {
-            allocationInfo.flags(Vma.VMA_ALLOCATION_CREATE_MAPPED_BIT);
-         }
-
          LongBuffer pBuffer = stack.mallocLong(1);
          PointerBuffer pAllocation = stack.pointers(0L);
-         VmaAllocationInfo allocInfo = VmaAllocationInfo.calloc(stack);
-         int result = Vma.vmaCreateBuffer(ALLOCATOR, bufferInfo, allocationInfo, pBuffer, pAllocation, allocInfo);
-         if (result != 0) {
-            Initializer.LOGGER.info(String.format("Failed to create buffer with size: %.3f MB", (float)size / 1048576.0F));
-            Initializer.LOGGER.info(String.format("Tracked Device Memory used: %d/%d MB", this.getAllocatedDeviceMemoryMB(), this.getDeviceMemoryMB()));
-            Initializer.LOGGER.info(this.getHeapStats());
-            throw new RuntimeException("Failed to create buffer: %s".formatted(VkResult.decode(result)));
-         }
-
+         this.createBuffer(size, usage, properties, pBuffer, pAllocation);
          buffer.setId(pBuffer.get(0));
          buffer.setAllocation(pAllocation.get(0));
          buffer.setBufferSize(size);
-         if (allocInfo.pMappedData() != 0L) {
-            buffer.setDataPtr(allocInfo.pMappedData());
-            this.persistentMappings.put(pAllocation.get(0), allocInfo.pMappedData());
-         }
-
          if ((properties & 1) != 0) {
             deviceMemory += size;
          } else {
@@ -183,16 +159,16 @@ public class MemoryManager {
          }
 
          buffers.putIfAbsent(buffer.getId(), buffer);
-      } catch (Throwable var12) {
+      } catch (Throwable var10) {
          if (stack != null) {
             try {
                stack.close();
-            } catch (Throwable var11) {
-               var12.addSuppressed(var11);
+            } catch (Throwable var9) {
+               var10.addSuppressed(var9);
             }
          }
 
-         throw var12;
+         throw var10;
       }
 
       if (stack != null) {
@@ -261,75 +237,42 @@ public class MemoryManager {
    }
 
    public static void MapAndCopy(long allocation, Consumer<PointerBuffer> consumer) {
-      if (INSTANCE.persistentMappings.containsKey(allocation)) {
-         long ptr = INSTANCE.persistentMappings.get(allocation);
-         MemoryStack stack = MemoryStack.stackPush();
+      MemoryStack stack = MemoryStack.stackPush();
 
-         try {
-            consumer.accept(stack.mallocPointer(1).put(0, ptr));
-         } catch (Throwable var8) {
-            if (stack != null) {
-               try {
-                  stack.close();
-               } catch (Throwable var7) {
-                  var8.addSuppressed(var7);
-               }
-            }
-
-            throw var8;
-         }
-
+      try {
+         PointerBuffer data = stack.mallocPointer(1);
+         Vma.vmaMapMemory(ALLOCATOR, allocation, data);
+         consumer.accept(data);
+         Vma.vmaUnmapMemory(ALLOCATOR, allocation);
+      } catch (Throwable var7) {
          if (stack != null) {
-            stack.close();
-         }
-      } else {
-         MemoryStack stack = MemoryStack.stackPush();
-
-         try {
-            PointerBuffer data = stack.mallocPointer(1);
-            Vma.vmaMapMemory(ALLOCATOR, allocation, data);
-            consumer.accept(data);
-            Vma.vmaUnmapMemory(ALLOCATOR, allocation);
-         } catch (Throwable var7) {
-            if (stack != null) {
-               try {
-                  stack.close();
-               } catch (Throwable var6) {
-                  var7.addSuppressed(var6);
-               }
+            try {
+               stack.close();
+            } catch (Throwable var6) {
+               var7.addSuppressed(var6);
             }
-
-            throw var7;
          }
 
-         if (stack != null) {
-            stack.close();
-         }
+         throw var7;
+      }
+
+      if (stack != null) {
+         stack.close();
       }
    }
 
    public PointerBuffer Map(long allocation) {
-      if (this.persistentMappings.containsKey(allocation)) {
-         long ptr = this.persistentMappings.get(allocation);
-         PointerBuffer data = MemoryUtil.memAllocPointer(1);
-         data.put(0, ptr);
-         return data;
-      }
-
       PointerBuffer data = MemoryUtil.memAllocPointer(1);
       Vma.vmaMapMemory(ALLOCATOR, allocation, data);
-      this.persistentMappings.put(allocation, data.get(0));
       return data;
    }
 
    public static void freeBuffer(long buffer, long allocation) {
-      INSTANCE.persistentMappings.remove(allocation);
       Vma.vmaDestroyBuffer(ALLOCATOR, buffer, allocation);
       buffers.remove(buffer);
    }
 
    private static void freeBuffer(Buffer.BufferInfo bufferInfo) {
-      INSTANCE.persistentMappings.remove(bufferInfo.allocation());
       Vma.vmaDestroyBuffer(ALLOCATOR, bufferInfo.id(), bufferInfo.allocation());
       if (bufferInfo.type() == MemoryType.Type.DEVICE_LOCAL) {
          deviceMemory = deviceMemory - bufferInfo.bufferSize();
@@ -346,17 +289,17 @@ public class MemoryManager {
       deviceMemory = deviceMemory - image.size;
    }
 
-    public void addToFreeable(Buffer buffer) {
+   public synchronized void addToFreeable(Buffer buffer) {
       Buffer.BufferInfo bufferInfo = buffer.getBufferInfo();
       this.checkBuffer(bufferInfo);
       this.freeableBuffers[this.currentFrame].add(bufferInfo);
    }
 
-    public void addToFreeable(VulkanImage image) {
+   public synchronized void addToFreeable(VulkanImage image) {
       this.freeableImages[this.currentFrame].add(image);
    }
 
-    public void addFrameOp(Runnable runnable) {
+   public synchronized void addFrameOp(Runnable runnable) {
       this.frameOps[this.currentFrame].add(runnable);
    }
 

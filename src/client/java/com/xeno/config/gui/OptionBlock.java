@@ -1,3 +1,5 @@
+package com.xeno.config.gui;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,9 +20,11 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui;
+
 
 import com.xeno.config.option.Option;
 
 public record OptionBlock(String title, Option<?>[] options) {
+   public OptionBlock {
+   }
 }

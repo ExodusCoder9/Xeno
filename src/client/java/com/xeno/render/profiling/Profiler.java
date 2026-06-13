@@ -1,3 +1,5 @@
+package com.xeno.render.profiling;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.profiling;
+
 
 import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -192,6 +194,9 @@ public class Profiler {
    public static class ProfilerResults {
       Profiler.Result result;
       ObjectArrayList<Profiler.Result> partialResults = new ObjectArrayList();
+
+      public ProfilerResults() {
+      }
 
       public void update(Profiler.Node mainNode, List<Profiler.Node> nodes) {
          mainNode.updateResult();

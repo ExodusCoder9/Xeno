@@ -1,3 +1,5 @@
+package com.xeno.config.gui;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,17 +20,14 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui;
 
-import net.minecraft.client.gui.ComponentPath;
+
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.navigation.FocusNavigationEvent;
-import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.narration.NarratableEntry.NarrationPriority;
 import net.minecraft.util.Util;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public abstract class GuiElement implements GuiEventListener, NarratableEntry {
    protected int width;
@@ -39,6 +38,9 @@ public abstract class GuiElement implements GuiEventListener, NarratableEntry {
    protected long hoverStartTime;
    protected int hoverTime;
    protected long hoverStopTime;
+
+   public GuiElement() {
+   }
 
    public void setPosition(int x, int y) {
       this.x = x;
@@ -100,45 +102,22 @@ public abstract class GuiElement implements GuiEventListener, NarratableEntry {
       return Math.max(1.0F - delta / time, 0.0F);
    }
 
-   @Nullable
-   @Override
-   public ComponentPath nextFocusPath(FocusNavigationEvent focusNavigationEvent) {
-      return GuiEventListener.super.nextFocusPath(focusNavigationEvent);
-   }
-
-   @Override
    public boolean isMouseOver(double mouseX, double mouseY) {
       return mouseX >= this.x && mouseY >= this.y && mouseX <= this.x + this.width && mouseY <= this.y + this.height;
    }
 
-   @Nullable
-   @Override
-   public ComponentPath getCurrentFocusPath() {
-      return GuiEventListener.super.getCurrentFocusPath();
-   }
-
-   @NotNull
-   @Override
-   public ScreenRectangle getRectangle() {
-      return GuiEventListener.super.getRectangle();
-   }
-
-   @Override
    public void setFocused(boolean bl) {
    }
 
-   @Override
    public boolean isFocused() {
       return false;
    }
 
    @NotNull
-   @Override
-   public NarratableEntry.NarrationPriority narrationPriority() {
-      return NarratableEntry.NarrationPriority.NONE;
+   public NarrationPriority narrationPriority() {
+      return NarrationPriority.NONE;
    }
 
-   @Override
    public void updateNarration(NarrationElementOutput narrationElementOutput) {
    }
 }

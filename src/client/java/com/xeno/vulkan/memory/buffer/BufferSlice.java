@@ -1,3 +1,5 @@
+package com.xeno.vulkan.memory.buffer;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,12 +20,15 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.memory.buffer;
+
 
 public class BufferSlice {
    Buffer buffer;
    long offset;
    int size;
+
+   public BufferSlice() {
+   }
 
    public void set(Buffer buffer, long offset, int size) {
       this.buffer = buffer;

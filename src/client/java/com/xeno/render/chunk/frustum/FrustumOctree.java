@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.frustum;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.frustum;
+
 
 import java.util.Arrays;
 import com.xeno.render.chunk.ChunkArea;
@@ -27,6 +29,9 @@ import org.joml.Vector3i;
 
 public class FrustumOctree {
    static final int LEVELS = 2;
+
+   public FrustumOctree() {
+   }
 
    public static void updateFrustumVisibility(VFrustum frustum, ChunkArea[] chunkAreas) {
       int width = 1 << ChunkAreaManager.AREA_SH_XZ + 4;

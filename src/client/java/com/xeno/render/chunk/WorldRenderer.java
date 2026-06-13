@@ -1,3 +1,5 @@
+package com.xeno.render.chunk;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk;
+
 
 import com.google.common.collect.Sets;
 import com.mojang.blaze3d.opengl.GlStateManager;
@@ -42,7 +44,7 @@ import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
-import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.client.renderer.feature.ModelFeatureRenderer.CrumblingOverlay;
 import net.minecraft.client.renderer.state.GameRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.texture.AbstractTexture;
@@ -69,6 +71,7 @@ import com.xeno.render.profiling.BuildTimeProfiler;
 import com.xeno.render.profiling.Profiler;
 import com.xeno.render.shader.PipelineManager;
 import com.xeno.render.vertex.TerrainRenderType;
+import com.xeno.vulkan.Drawer;
 import com.xeno.vulkan.Renderer;
 import com.xeno.vulkan.VRenderSystem;
 import com.xeno.vulkan.memory.MemoryTypes;
@@ -195,7 +198,7 @@ public class WorldRenderer {
       }
 
       profiler.pop();
-      double entityDistanceScaling = this.minecraft.options.entityDistanceScaling().get();
+      double entityDistanceScaling = (Double)this.minecraft.options.entityDistanceScaling().get();
       Entity.setViewScale(Mth.clamp(this.renderDistance / 8.0, 1.0, 2.5) * entityDistanceScaling);
       mcProfiler.popPush("cull");
       mcProfiler.popPush("update");
@@ -301,12 +304,12 @@ public class WorldRenderer {
    }
 
    public void renderSectionLayer(TerrainRenderType renderType, double camX, double camY, double camZ, Matrix4f modelView, Matrix4f projection) {
-      Renderer.getInstance().getMainPass().rebindMainTarget();
+      Renderer renderer = Renderer.getInstance();
+      renderer.getMainPass().rebindMainTarget();
       this.sortTranslucentSections(camX, camY, camZ);
       ProfilerFiller mcProfiler = net.minecraft.util.profiling.Profiler.get();
       Zone zone = mcProfiler.zone(() -> "render_" + renderType);
       boolean isTranslucent = renderType == TerrainRenderType.TRANSLUCENT;
-      boolean indirectDraw = Initializer.CONFIG.indirectDraw;
       if (!isTranslucent) {
          GlStateManager._disableBlend();
       } else {
@@ -323,7 +326,6 @@ public class WorldRenderer {
       VRenderSystem.setPolygonModeGL(6914);
       VRenderSystem.applyMVP(modelView, projection);
       VRenderSystem.setPrimitiveTopologyGL(4);
-      Renderer renderer = Renderer.getInstance();
       GraphicsPipeline pipeline = PipelineManager.getTerrainShader(renderType);
       renderer.bindGraphicsPipeline(pipeline);
       TextureManager textureManager = Minecraft.getInstance().getTextureManager();
@@ -343,13 +345,14 @@ public class WorldRenderer {
       int atlasTexWidth = texView.getWidth(0);
       int atlasTexHeight = texView.getHeight(0);
       VRenderSystem.setTextureSize(atlasTexWidth, atlasTexHeight);
-      VRenderSystem.setCurrentTime((int)System.currentTimeMillis());
       long currentTimeMs = System.currentTimeMillis();
-      float fadeTime = Minecraft.getInstance().options.chunkSectionFadeInTime().get().floatValue();
+      VRenderSystem.setCurrentTime((int)currentTimeMs);
+      float fadeTime = ((Double)Minecraft.getInstance().options.chunkSectionFadeInTime().get()).floatValue();
       int fadeTimeMs = (int)(fadeTime * 1000.0F);
       float fadeTimeInv = fadeTime > 0.0F ? 1.0F / (fadeTime * 1000.0F) : 1.0F;
-      IndexBuffer indexBuffer = Renderer.getDrawer().getQuadsIndexBuffer().getIndexBuffer();
-      Renderer.getDrawer().bindIndexBuffer(Renderer.getCommandBuffer(), indexBuffer, indexBuffer.indexType.value);
+      Drawer drawer = Renderer.getDrawer();
+      IndexBuffer indexBuffer = drawer.getQuadsIndexBuffer().getIndexBuffer();
+      drawer.bindIndexBuffer(Renderer.getCommandBuffer(), indexBuffer, indexBuffer.indexType.value);
       int currentFrame = Renderer.getCurrentFrame();
       Set<TerrainRenderType> allowedRenderTypes = Initializer.CONFIG.uniqueOpaqueLayer
          ? TerrainRenderType.COMPACT_RENDER_TYPES
@@ -357,28 +360,24 @@ public class WorldRenderer {
       if (allowedRenderTypes.contains(renderType)) {
          renderType.setCutoutUniform();
 
-         for (ChunkArea chunkArea : this.sectionGraph.getChunkAreaQueue()) {
+         for (Iterator<ChunkArea> chunkAreaIter = this.sectionGraph.getChunkAreaQueue().iterator(); chunkAreaIter.hasNext(); ) {
+            ChunkArea chunkArea = chunkAreaIter.next();
             StaticQueue<RenderSection> queue = chunkArea.sectionQueue;
             DrawBuffers drawBuffers = chunkArea.drawBuffers;
             if (drawBuffers.getAreaBuffer(renderType) != null && queue.size() > 0) {
-               drawBuffers.bindBuffers(Renderer.getCommandBuffer(), pipeline, renderType, camX, camY, camZ, currentTimeMs, fadeTimeMs, fadeTimeInv);
-               renderer.uploadAndBindUBOs(pipeline);
-               if (indirectDraw) {
-                  drawBuffers.buildDrawBatchesIndirect(this.cameraPos, this.indirectBuffers[currentFrame], queue, renderType);
-               } else {
-                  drawBuffers.buildDrawBatchesDirect(this.cameraPos, queue, renderType);
-               }
+                drawBuffers.bindBuffers(Renderer.getCommandBuffer(), pipeline, renderType, camX, camY, camZ, currentTimeMs, fadeTimeMs, fadeTimeInv);
+                renderer.uploadAndBindUBOs(pipeline);
+                if (Initializer.CONFIG.gpuDrivenRenderer) {
+                   drawBuffers.buildDrawBatchesGpu(this.cameraPos, queue, renderType, currentFrame);
+                } else {
+                   drawBuffers.buildDrawBatchesIndirect(this.cameraPos, this.indirectBuffers[currentFrame], queue, renderType);
+                }
             }
          }
       }
 
       if (renderType == TerrainRenderType.CUTOUT || renderType == TerrainRenderType.TRIPWIRE) {
          this.indirectBuffers[currentFrame].submitUploads();
-      }
-
-      if (!indirectDraw) {
-         VRenderSystem.setModelOffset(0.0F, 0.0F, 0.0F);
-         renderer.pushConstants(pipeline);
       }
 
       zone.close();
@@ -425,11 +424,11 @@ public class WorldRenderer {
             for (BlockEntity blockEntity : list) {
                BlockPos blockPos = blockEntity.getBlockPos();
                SortedSet<BlockDestructionProgress> sortedSet = (SortedSet<BlockDestructionProgress>)destructionProgress.get(blockPos.asLong());
-               ModelFeatureRenderer.CrumblingOverlay crumblingOverlay;
+               CrumblingOverlay crumblingOverlay;
                if (sortedSet != null && !sortedSet.isEmpty()) {
                   poseStack.pushPose();
                   poseStack.translate(blockPos.getX() - camX, blockPos.getY() - camY, blockPos.getZ() - camZ);
-                  crumblingOverlay = new ModelFeatureRenderer.CrumblingOverlay(sortedSet.last().getProgress(), poseStack.last());
+                  crumblingOverlay = new CrumblingOverlay(sortedSet.last().getProgress(), poseStack.last());
                   poseStack.popPose();
                } else {
                   crumblingOverlay = null;

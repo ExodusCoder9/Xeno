@@ -1,3 +1,5 @@
+package com.xeno.config.option;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.option;
+
 
 import com.mojang.blaze3d.platform.Window;
 import java.util.ArrayList;
@@ -52,15 +54,18 @@ public abstract class Options {
    private static final Window window = minecraft.getWindow();
    private static final net.minecraft.client.Options mcOptions = minecraft.options;
 
+   public Options() {
+   }
+
    public static List<OptionPage> getOptionPages() {
       List<OptionPage> optionPages = new ArrayList<>();
-      OptionPage page = new OptionPage(Component.translatable("Xeno.options.pages.video").getString(), getVideoOpts());
+      OptionPage page = new OptionPage(Component.translatable("xeno.options.pages.video").getString(), getVideoOpts());
       optionPages.add(page);
-      page = new OptionPage(Component.translatable("Xeno.options.pages.graphics").getString(), getGraphicsOpts());
+      page = new OptionPage(Component.translatable("xeno.options.pages.graphics").getString(), getGraphicsOpts());
       optionPages.add(page);
-      page = new OptionPage(Component.translatable("Xeno.options.pages.optimizations").getString(), getOptimizationOpts());
+      page = new OptionPage(Component.translatable("xeno.options.pages.optimizations").getString(), getOptimizationOpts());
       optionPages.add(page);
-      page = new OptionPage(Component.translatable("Xeno.options.pages.other").getString(), getOtherOpts());
+      page = new OptionPage(Component.translatable("xeno.options.pages.other").getString(), getOtherOpts());
       optionPages.add(page);
       return optionPages;
    }
@@ -78,17 +83,17 @@ public abstract class Options {
 
       VideoModeManager.selectedVideoMode = videoMode;
       List<Integer> refreshRates = videoModeSet.getRefreshRates();
-      Option<WindowMode> windowModeOption = new CyclingOption<>(Component.translatable("Xeno.options.windowMode"), WindowMode.values(), value -> {
+      Option<WindowMode> windowModeOption = new CyclingOption<>(Component.translatable("xeno.options.windowMode"), WindowMode.values(), value -> {
          boolean exclusiveFullscreen = value == WindowMode.EXCLUSIVE_FULLSCREEN;
          mcOptions.fullscreen().set(exclusiveFullscreen);
          config.windowMode = value.mode;
          fullscreenDirty = true;
       }, () -> WindowMode.fromValue(config.windowMode)).setTranslator(value -> Component.translatable(WindowMode.getComponentName(value)));
       CyclingOption<Integer> refreshRateOption = (CyclingOption<Integer>)new CyclingOption<>(
-            Component.translatable("Xeno.options.refreshRate"), refreshRates.toArray(new Integer[0]), value -> {
+            Component.translatable("xeno.options.refreshRate"), refreshRates.toArray(new Integer[0]), value -> {
                VideoModeManager.selectedVideoMode.refreshRate = value;
                VideoModeManager.applySelectedVideoMode();
-               if (mcOptions.fullscreen().get()) {
+               if ((Boolean)mcOptions.fullscreen().get()) {
                   fullscreenDirty = true;
                }
             }, () -> VideoModeManager.selectedVideoMode.refreshRate
@@ -98,7 +103,7 @@ public abstract class Options {
       Option<VideoModeSet> resolutionOption = new CyclingOption<>(Component.translatable("options.fullscreen.resolution"), resolutions, value -> {
             VideoModeManager.selectedVideoMode = value.getVideoMode(refreshRateOption.getNewValue());
             VideoModeManager.applySelectedVideoMode();
-            if (mcOptions.fullscreen().get()) {
+            if ((Boolean)mcOptions.fullscreen().get()) {
                fullscreenDirty = true;
             }
          }, () -> {
@@ -135,17 +140,17 @@ public abstract class Options {
                      mcOptions.framerateLimit().set(value);
                      minecraft.getFramerateLimitTracker().setFramerateLimit(value);
                   },
-                  () -> mcOptions.framerateLimit().get()
+                  () -> (Integer)mcOptions.framerateLimit().get()
                ),
                new SwitchOption(Component.translatable("options.vsync"), value -> {
                   mcOptions.enableVsync().set(value);
                   window.updateVsync(value);
-               }, () -> mcOptions.enableVsync().get()),
+               }, () -> (Boolean)mcOptions.enableVsync().get()),
                new CyclingOption<>(
                      Component.translatable("options.inactivityFpsLimit"),
                      InactivityFpsLimit.values(),
                      value -> mcOptions.inactivityFpsLimit().set(value),
-                     () -> mcOptions.inactivityFpsLimit().get()
+                     () -> (InactivityFpsLimit)mcOptions.inactivityFpsLimit().get()
                   )
                   .setTranslator(InactivityFpsLimit::caption)
             }
@@ -163,7 +168,7 @@ public abstract class Options {
                      mcOptions.guiScale().set(value);
                      minecraft.resizeGui();
                   },
-                  () -> mcOptions.guiScale().get()
+                  () -> (Integer)mcOptions.guiScale().get()
                ),
                new RangeOption(Component.translatable("options.gamma"), 0, 100, 1, value -> {
                   return Component.translatable(switch (value) {
@@ -172,7 +177,7 @@ public abstract class Options {
                      case 100 -> "options.gamma.max";
                      default -> String.valueOf(value);
                   });
-               }, value -> mcOptions.gamma().set(value.intValue() * 0.01), () -> (int)(mcOptions.gamma().get() * 100.0))
+               }, value -> mcOptions.gamma().set(value.intValue() * 0.01), () -> (int)((Double)mcOptions.gamma().get() * 100.0))
             }
          ),
          new OptionBlock(
@@ -182,13 +187,13 @@ public abstract class Options {
                      Component.translatable("options.attackIndicator"),
                      AttackIndicatorStatus.values(),
                      value -> mcOptions.attackIndicator().set(value),
-                     () -> mcOptions.attackIndicator().get()
+                     () -> (AttackIndicatorStatus)mcOptions.attackIndicator().get()
                   )
                   .setTranslator(AttackIndicatorStatus::caption),
                new SwitchOption(
                   Component.translatable("options.autosaveIndicator"),
                   value -> mcOptions.showAutosaveIndicator().set(value),
-                  () -> mcOptions.showAutosaveIndicator().get()
+                  () -> (Boolean)mcOptions.showAutosaveIndicator().get()
                )
             }
          )
@@ -200,7 +205,7 @@ public abstract class Options {
             Component.translatable("options.textureFiltering"),
             TextureFilteringMethod.values(),
             value -> {
-               TextureFilteringMethod oldValue = mcOptions.textureFiltering().get();
+               TextureFilteringMethod oldValue = (TextureFilteringMethod)mcOptions.textureFiltering().get();
                if (oldValue == TextureFilteringMethod.ANISOTROPIC && value != TextureFilteringMethod.ANISOTROPIC
                   || value == TextureFilteringMethod.ANISOTROPIC && oldValue != TextureFilteringMethod.ANISOTROPIC) {
                   minecraft.delayTextureReload();
@@ -209,7 +214,7 @@ public abstract class Options {
 
                mcOptions.textureFiltering().set(value);
             },
-            () -> mcOptions.textureFiltering().get()
+            () -> (TextureFilteringMethod)mcOptions.textureFiltering().get()
          )
          .setTranslator(TextureFilteringMethod::caption)
          .setTooltip(value -> {
@@ -217,19 +222,20 @@ public abstract class Options {
                case NONE -> Component.translatable("options.textureFiltering.none.tooltip");
                case RGSS -> Component.translatable("options.textureFiltering.rgss.tooltip");
                case ANISOTROPIC -> Component.translatable("options.textureFiltering.anisotropic.tooltip");
+               default -> throw new MatchException(null, null);
             };
          })
          .setImpact(PerformanceImpact.MEDIUM);
       Option<Integer> maxAnisotropyOption = new RangeOption(Component.translatable("options.maxAnisotropy"), 1, 3, 1, value -> {
-            Integer oldValue = mcOptions.maxAnisotropyBit().get();
+            Integer oldValue = (Integer)mcOptions.maxAnisotropyBit().get();
             if (mcOptions.textureFiltering().get() == TextureFilteringMethod.ANISOTROPIC && !oldValue.equals(value)) {
                minecraft.delayTextureReload();
                WorldRenderer.getInstance().resetSampler();
             }
 
             mcOptions.maxAnisotropyBit().set(value);
-         }, () -> mcOptions.maxAnisotropyBit().get())
-         .setTranslator(value -> Component.translatable("options.multiplier", Integer.toString(1 << value)))
+         }, () -> (Integer)mcOptions.maxAnisotropyBit().get())
+         .setTranslator(value -> Component.translatable("options.multiplier", new Object[]{Integer.toString(1 << value)}))
          .setTooltip(v -> Component.translatable("options.maxAnisotropy.tooltip"));
       maxAnisotropyOption.setActivationFn(() -> texFilteringOption.getNewValue() == TextureFilteringMethod.ANISOTROPIC);
       texFilteringOption.setOnChange(maxAnisotropyOption::updateActiveState);
@@ -243,7 +249,7 @@ public abstract class Options {
                      32,
                      1,
                      value -> mcOptions.renderDistance().set(value),
-                     () -> mcOptions.renderDistance().get()
+                     () -> (Integer)mcOptions.renderDistance().get()
                   )
                   .setTooltip(v -> Component.literal("Chunk render distance"))
                   .setImpact(PerformanceImpact.HIGH),
@@ -253,13 +259,13 @@ public abstract class Options {
                   32,
                   1,
                   value -> mcOptions.simulationDistance().set(value),
-                  () -> mcOptions.simulationDistance().get()
+                  () -> (Integer)mcOptions.simulationDistance().get()
                ),
                new CyclingOption<>(
                      Component.translatable("options.prioritizeChunkUpdates"),
                      PrioritizeChunkUpdates.values(),
                      value -> mcOptions.prioritizeChunkUpdates().set(value),
-                     () -> mcOptions.prioritizeChunkUpdates().get()
+                     () -> (PrioritizeChunkUpdates)mcOptions.prioritizeChunkUpdates().get()
                   )
                   .setTranslator(PrioritizeChunkUpdates::caption)
             }
@@ -271,7 +277,7 @@ public abstract class Options {
                      Component.translatable("options.graphics.preset"),
                      new GraphicsPreset[]{GraphicsPreset.FAST, GraphicsPreset.FANCY, GraphicsPreset.CUSTOM},
                      value -> mcOptions.graphicsPreset().set(value),
-                     () -> mcOptions.graphicsPreset().get()
+                     () -> (GraphicsPreset)mcOptions.graphicsPreset().get()
                   )
                   .setTranslator(g -> Component.translatable(g.getKey())),
                texFilteringOption,
@@ -280,7 +286,7 @@ public abstract class Options {
                      Component.translatable("options.particles"),
                      new ParticleStatus[]{ParticleStatus.MINIMAL, ParticleStatus.DECREASED, ParticleStatus.ALL},
                      value -> mcOptions.particles().set(value),
-                     () -> mcOptions.particles().get()
+                     () -> (ParticleStatus)mcOptions.particles().get()
                   )
                   .setImpact(PerformanceImpact.MEDIUM)
                   .setTranslator(ParticleStatus::caption),
@@ -288,7 +294,7 @@ public abstract class Options {
                      Component.translatable("options.renderClouds"),
                      CloudStatus.values(),
                      value -> mcOptions.cloudStatus().set(value),
-                     () -> mcOptions.cloudStatus().get()
+                     () -> (CloudStatus)mcOptions.cloudStatus().get()
                   )
                   .setTranslator(CloudStatus::caption),
                new RangeOption(
@@ -297,10 +303,12 @@ public abstract class Options {
                   128,
                   1,
                   value -> mcOptions.cloudRange().set(value),
-                  () -> mcOptions.cloudRange().get()
+                  () -> (Integer)mcOptions.cloudRange().get()
                ),
                new SwitchOption(
-                     Component.translatable("options.cutoutLeaves"), value -> mcOptions.cutoutLeaves().set(value), () -> mcOptions.cutoutLeaves().get()
+                     Component.translatable("options.cutoutLeaves"),
+                     value -> mcOptions.cutoutLeaves().set(value),
+                     () -> (Boolean)mcOptions.cutoutLeaves().get()
                   )
                   .setTooltip(value -> Component.translatable("options.cutoutLeaves.tooltip")),
                new RangeOption(
@@ -309,7 +317,7 @@ public abstract class Options {
                      40,
                      1,
                      value -> mcOptions.chunkSectionFadeInTime().set(value.intValue() / 20.0),
-                     () -> (int)(mcOptions.chunkSectionFadeInTime().get() * 20.0)
+                     () -> (int)((Double)mcOptions.chunkSectionFadeInTime().get() * 20.0)
                   )
                   .setTranslator(value -> Component.literal(String.valueOf(value.intValue() / 20.0F)))
                   .setTooltip(v -> Component.translatable("options.chunkFade.tooltip")),
@@ -322,11 +330,11 @@ public abstract class Options {
                      return Component.translatable(switch (value) {
                         case 0 -> "options.off";
                         case 1 -> "options.on";
-                        case 2 -> "Xeno.options.ao.subBlock";
-                        default -> "Xeno.options.unknown";
+                        case 2 -> "xeno.options.ao.subBlock";
+                        default -> "xeno.options.unknown";
                      });
                   })
-                  .setTooltip(value -> value == 2 ? Component.translatable("Xeno.options.ao.subBlock.tooltip") : Component.empty())
+                  .setTooltip(value -> value == 2 ? Component.translatable("xeno.options.ao.subBlock.tooltip") : Component.empty())
                   .setImpact(PerformanceImpact.LOW),
                new RangeOption(
                   Component.translatable("options.biomeBlendRadius"),
@@ -338,7 +346,7 @@ public abstract class Options {
                      mcOptions.biomeBlendRadius().set(value);
                      minecraft.levelRenderer.allChanged();
                   },
-                  () -> mcOptions.biomeBlendRadius().get()
+                  () -> (Integer)mcOptions.biomeBlendRadius().get()
                )
             }
          ),
@@ -346,7 +354,9 @@ public abstract class Options {
             "",
             new Option[]{
                new SwitchOption(
-                     Component.translatable("options.entityShadows"), value -> mcOptions.entityShadows().set(value), () -> mcOptions.entityShadows().get()
+                     Component.translatable("options.entityShadows"),
+                     value -> mcOptions.entityShadows().set(value),
+                     () -> (Boolean)mcOptions.entityShadows().get()
                   )
                   .setImpact(PerformanceImpact.LOW),
                new RangeOption(
@@ -355,7 +365,7 @@ public abstract class Options {
                      20,
                      1,
                      value -> mcOptions.entityDistanceScaling().set(value.intValue() / 4.0),
-                     () -> (int)(mcOptions.entityDistanceScaling().get() * 4.0)
+                     () -> (int)((Double)mcOptions.entityDistanceScaling().get() * 4.0)
                   )
                   .setImpact(PerformanceImpact.HIGH)
                   .setTranslator(value -> Component.literal(String.valueOf(value.intValue() / 4.0))),
@@ -363,17 +373,17 @@ public abstract class Options {
                   mcOptions.mipmapLevels().set(value);
                   minecraft.updateMaxMipLevel(value);
                   minecraft.delayTextureReload();
-               }, () -> mcOptions.mipmapLevels().get()).setTranslator(v -> Component.literal(String.valueOf(v))).setImpact(PerformanceImpact.LOW),
+               }, () -> (Integer)mcOptions.mipmapLevels().get()).setTranslator(v -> Component.literal(String.valueOf(v))).setImpact(PerformanceImpact.LOW),
                new RangeOption(
                      Component.translatable("options.weatherRadius"),
                      3,
                      10,
                      1,
                      value -> mcOptions.weatherRadius().set(value),
-                     () -> mcOptions.weatherRadius().get()
+                     () -> (Integer)mcOptions.weatherRadius().get()
                   )
                   .setTooltip(value -> Component.translatable("options.weatherRadius.tooltip")),
-               new SwitchOption(Component.translatable("options.vignette"), value -> mcOptions.vignette().set(value), () -> mcOptions.vignette().get())
+               new SwitchOption(Component.translatable("options.vignette"), value -> mcOptions.vignette().set(value), () -> (Boolean)mcOptions.vignette().get())
                   .setTooltip(value -> Component.translatable("options.vignette.tooltip"))
             }
          )
@@ -386,41 +396,50 @@ public abstract class Options {
             "",
             new Option[]{
                new CyclingOption<>(
-                     Component.translatable("Xeno.options.advCulling"),
+                     Component.translatable("xeno.options.advCulling"),
                      new Integer[]{1, 2, 3, 10},
                      value -> config.advCulling = value,
                      () -> config.advCulling
                   )
                   .setTranslator(v -> {
                      return Component.translatable(switch (v) {
-                        case 1 -> "Xeno.options.advCulling.aggressive";
-                        case 2 -> "Xeno.options.advCulling.normal";
-                        case 3 -> "Xeno.options.advCulling.conservative";
-                        default -> "Xeno.options.unknown";
+                        case 1 -> "xeno.options.advCulling.aggressive";
+                        case 2 -> "xeno.options.advCulling.normal";
+                        case 3 -> "xeno.options.advCulling.conservative";
+                        default -> "xeno.options.unknown";
                         case 10 -> "options.off";
                      });
                   })
-                  .setTooltip(v -> v <= 3 ? Component.translatable("Xeno.options.advCulling.tooltip") : Component.empty())
+                  .setTooltip(v -> v <= 3 ? Component.translatable("xeno.options.advCulling.tooltip") : Component.empty())
                   .setImpact(PerformanceImpact.HIGH),
-               new SwitchOption(Component.translatable("Xeno.options.entityCulling"), v -> config.entityCulling = v, () -> config.entityCulling)
-                  .setTooltip(v -> Component.translatable("Xeno.options.entityCulling.tooltip"))
+               new SwitchOption(Component.translatable("xeno.options.entityCulling"), v -> config.entityCulling = v, () -> config.entityCulling)
+                  .setTooltip(v -> Component.translatable("xeno.options.entityCulling.tooltip"))
                   .setImpact(PerformanceImpact.HIGH),
-               new SwitchOption(Component.translatable("Xeno.options.uniqueOpaqueLayer"), v -> {
+               new SwitchOption(Component.translatable("xeno.options.uniqueOpaqueLayer"), v -> {
                      config.uniqueOpaqueLayer = v;
                      TerrainRenderType.updateMapping();
                      minecraft.levelRenderer.allChanged();
                   }, () -> config.uniqueOpaqueLayer)
-                  .setTooltip(v -> Component.translatable("Xeno.options.uniqueOpaqueLayer.tooltip"))
+                  .setTooltip(v -> Component.translatable("xeno.options.uniqueOpaqueLayer.tooltip"))
                   .setImpact(PerformanceImpact.HIGH),
-               new SwitchOption(Component.translatable("Xeno.options.backfaceCulling"), v -> {
+               new SwitchOption(Component.translatable("xeno.options.backfaceCulling"), v -> {
                   config.backFaceCulling = v;
                   minecraft.levelRenderer.allChanged();
-               }, () -> config.backFaceCulling).setTooltip(v -> Component.translatable("Xeno.options.backfaceCulling.tooltip")).setImpact(
+               }, () -> config.backFaceCulling).setTooltip(v -> Component.translatable("xeno.options.backfaceCulling.tooltip")).setImpact(
                   PerformanceImpact.HIGH
                ),
-               new SwitchOption(Component.translatable("Xeno.options.indirectDraw"), v -> config.indirectDraw = v, () -> config.indirectDraw)
-                  .setTooltip(v -> Component.translatable("Xeno.options.indirectDraw.tooltip"))
-                  .setImpact(PerformanceImpact.HIGH)
+               new SwitchOption(Component.translatable("xeno.options.greedyMeshing"), v -> {
+                  config.greedyMeshing = v;
+                  minecraft.levelRenderer.allChanged();
+               }, () -> config.greedyMeshing).setTooltip(v -> Component.translatable("xeno.options.greedyMeshing.tooltip")).setImpact(
+                  PerformanceImpact.HIGH
+               ).setActivationFn(() -> false),
+               new SwitchOption(Component.translatable("xeno.options.gpuDrivenRenderer"), v -> {
+                  config.gpuDrivenRenderer = v;
+                  minecraft.levelRenderer.allChanged();
+               }, () -> config.gpuDrivenRenderer).setTooltip(v -> Component.translatable("xeno.options.gpuDrivenRenderer.tooltip")).setImpact(
+                  PerformanceImpact.HIGH
+               ).setActivationFn(() -> false)
             }
          )
       };
@@ -431,38 +450,38 @@ public abstract class Options {
          new OptionBlock(
             "",
             new Option[]{
-               new RangeOption(Component.translatable("Xeno.options.builderThreads"), 0, Runtime.getRuntime().availableProcessors() - 1, 1, value -> {
+               new RangeOption(Component.translatable("xeno.options.builderThreads"), 0, Runtime.getRuntime().availableProcessors() - 1, 1, value -> {
                      config.builderThreads = value;
                      WorldRenderer.getInstance().getTaskDispatcher().createThreads(value);
                   }, () -> config.builderThreads)
-                  .setTranslator(v -> v == 0 ? Component.translatable("Xeno.options.builderThreads.auto") : Component.literal(String.valueOf(v))),
-               new RangeOption(Component.translatable("Xeno.options.frameQueue"), 2, 5, 1, value -> {
+                  .setTranslator(v -> v == 0 ? Component.translatable("xeno.options.builderThreads.auto") : Component.literal(String.valueOf(v))),
+               new RangeOption(Component.translatable("xeno.options.frameQueue"), 2, 5, 1, value -> {
                   config.frameQueueSize = value;
                   Renderer.scheduleSwapChainUpdate();
-               }, () -> config.frameQueueSize).setTooltip(v -> Component.translatable("Xeno.options.frameQueue.tooltip")),
+               }, () -> config.frameQueueSize).setTooltip(v -> Component.translatable("xeno.options.frameQueue.tooltip")),
                new SwitchOption(
-                  Component.translatable("Xeno.options.textureAnimations"), v -> config.textureAnimations = v, () -> config.textureAnimations
+                  Component.translatable("xeno.options.textureAnimations"), v -> config.textureAnimations = v, () -> config.textureAnimations
                )
             }
          ),
          new OptionBlock(
             "",
             new Option[]{
-               new SwitchOption(Component.translatable("Xeno.options.wayland"), v -> config.useWayland = v, () -> config.useWayland)
+               new SwitchOption(Component.translatable("xeno.options.wayland"), v -> config.useWayland = v, () -> config.useWayland)
                   .setActivationFn(Platform::isLinux)
-                  .setTooltip(v -> Component.translatable("Xeno.options.wayland.tooltip")),
+                  .setTooltip(v -> Component.translatable("xeno.options.wayland.tooltip")),
                new CyclingOption<>(
-                     Component.translatable("Xeno.options.deviceSelector"),
+                     Component.translatable("xeno.options.deviceSelector"),
                      IntStream.range(-1, DeviceManager.suitableDevices.size()).boxed().toArray(Integer[]::new),
                      value -> config.device = value,
                      () -> config.device
                   )
                   .setTranslator(
-                     v -> Component.translatable(v == -1 ? "Xeno.options.deviceSelector.auto" : DeviceManager.suitableDevices.get(v).deviceName)
+                     v -> Component.translatable(v == -1 ? "xeno.options.deviceSelector.auto" : DeviceManager.suitableDevices.get(v).deviceName)
                   )
                   .setTooltip(
                      v -> Component.literal(
-                        Component.translatable("Xeno.options.deviceSelector.tooltip").getString() + ": " + DeviceManager.device.deviceName
+                        Component.translatable("xeno.options.deviceSelector.tooltip").getString() + ": " + DeviceManager.device.deviceName
                      )
                   )
             }

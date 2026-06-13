@@ -1,3 +1,5 @@
+package com.xeno.vulkan.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.shader;
+
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -197,6 +199,9 @@ public class PipelineConfig {
       public List<PipelineConfig.ImageDescriptorInfo> imageDescriptors = new ArrayList<>();
       public PipelineConfig.UB pushConstantsInfo;
 
+      public Builder() {
+      }
+
       public PipelineConfig.Builder withShader(SPIRVUtils.ShaderKind shaderKind, String path) {
          this.shaderPaths.put(shaderKind, path);
          return this;
@@ -232,6 +237,8 @@ public class PipelineConfig {
    }
 
    public record ImageDescriptorInfo(int binding, String type, String name, int imageIdx) {
+      public ImageDescriptorInfo {
+      }
    }
 
    public static class UB {
@@ -279,5 +286,7 @@ public class PipelineConfig {
    }
 
    public record Uniform(String type, String name) {
+      public Uniform {
+      }
    }
 }

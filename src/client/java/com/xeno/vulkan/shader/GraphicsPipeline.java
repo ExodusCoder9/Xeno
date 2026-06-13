@@ -1,3 +1,5 @@
+package com.xeno.vulkan.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,11 +20,12 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.shader;
+
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
+import com.mojang.blaze3d.vertex.VertexFormatElement.Type;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.nio.ByteBuffer;
@@ -259,7 +262,7 @@ public class GraphicsPipeline extends Pipeline {
          posDescription.binding(0);
          posDescription.location(i);
          VertexFormatElement formatElement = elements.get(i);
-         VertexFormatElement.Type type = formatElement.type();
+         Type type = formatElement.type();
          int count = formatElement.count();
 
          offset = switch (type) {
@@ -363,16 +366,16 @@ public class GraphicsPipeline extends Pipeline {
                      throw new IllegalStateException("Unexpected value: " + count);
                }
             }
-             case INT -> {
-                yield switch (count) {
-                   case 1:
-                      posDescription.format(99);
-                      posDescription.offset(offset);
-                      yield 4;
-                   default:
-                      throw new IllegalStateException("Unexpected value: " + count);
-                };
-             }
+            case INT -> {
+               switch (count) {
+                  case 1:
+                     posDescription.format(99);
+                     posDescription.offset(offset);
+                     yield 4;
+                  default:
+                     throw new IllegalStateException("Unexpected value: " + count);
+               }
+            }
          };
          posDescription.offset(((VertexFormatMixed)vertexFormat).getOffset(i));
       }

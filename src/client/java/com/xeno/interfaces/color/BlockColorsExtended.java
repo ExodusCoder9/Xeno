@@ -1,3 +1,5 @@
+package com.xeno.interfaces.color;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.interfaces.color;
+
 
 import net.minecraft.client.color.block.BlockColors;
 import com.xeno.render.chunk.build.color.BlockColorRegistry;

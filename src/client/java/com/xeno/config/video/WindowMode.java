@@ -1,3 +1,5 @@
+package com.xeno.config.video;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.video;
+
 
 public enum WindowMode {
    WINDOWED(0),
@@ -42,8 +44,8 @@ public enum WindowMode {
 
    public static String getComponentName(WindowMode windowMode) {
       return switch (windowMode) {
-         case WINDOWED -> "Xeno.options.windowMode.windowed";
-         case WINDOWED_FULLSCREEN -> "Xeno.options.windowMode.windowedFullscreen";
+         case WINDOWED -> "xeno.options.windowMode.windowed";
+         case WINDOWED_FULLSCREEN -> "xeno.options.windowMode.windowedFullscreen";
          case EXCLUSIVE_FULLSCREEN -> "options.fullscreen";
       };
    }

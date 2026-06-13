@@ -1,3 +1,5 @@
+package com.xeno.render.vertex;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.vertex;
+
 
 import java.util.EnumSet;
 import java.util.function.Function;
@@ -26,6 +28,7 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import com.xeno.Initializer;
 import com.xeno.interfaces.ExtendedRenderType;
+import com.xeno.vulkan.VRenderSystem;
 
 public enum TerrainRenderType {
    SOLID(0.0F),
@@ -44,7 +47,7 @@ public enum TerrainRenderType {
    }
 
    public void setCutoutUniform() {
-      com.xeno.vulkan.VRenderSystem.alphaCutout = this.alphaCutout;
+      VRenderSystem.alphaCutout = this.alphaCutout;
    }
 
    public static TerrainRenderType get(RenderType renderType) {
@@ -56,6 +59,7 @@ public enum TerrainRenderType {
          case SOLID -> SOLID;
          case CUTOUT -> CUTOUT;
          case TRANSLUCENT -> TRANSLUCENT;
+         default -> throw new MatchException(null, null);
       };
    }
 

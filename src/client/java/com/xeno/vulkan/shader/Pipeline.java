@@ -1,3 +1,5 @@
+package com.xeno.vulkan.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,14 +20,13 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.shader;
+
 
 import com.mojang.blaze3d.vertex.VertexFormat;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -66,9 +67,6 @@ public abstract class Pipeline {
    protected List<UBO> buffers;
    protected List<ImageDescriptor> imageDescriptors;
    protected PushConstants pushConstants;
-   private final Map<String, UBO> uboNameMap = new HashMap<>();
-   private final Map<Integer, UBO> uboBindingMap = new HashMap<>();
-   private boolean mapsBuilt = false;
 
    private static long createPipelineCache() {
       MemoryStack stack = MemoryStack.stackPush();
@@ -247,37 +245,23 @@ public abstract class Pipeline {
    }
 
    public UBO getUBO(int binding) {
-      this.buildMaps();
-      return this.uboBindingMap.get(binding);
+      return this.getUBO(ubo -> ubo.binding == binding);
    }
 
    public UBO getUBO(String name) {
-      this.buildMaps();
-      return this.uboNameMap.get(name);
+      return this.getUBO(ubo -> ubo.name.equals(name));
    }
 
    public UBO getUBO(Predicate<UBO> fn) {
+      UBO ubo = null;
+
       for (UBO ubo1 : this.buffers) {
          if (fn.test(ubo1)) {
-            return ubo1;
+            ubo = ubo1;
          }
       }
 
-      return null;
-   }
-
-   private void buildMaps() {
-      if (!this.mapsBuilt && this.buffers != null) {
-         this.uboNameMap.clear();
-         this.uboBindingMap.clear();
-
-         for (UBO ubo : this.buffers) {
-            this.uboNameMap.put(ubo.name, ubo);
-            this.uboBindingMap.put(ubo.binding, ubo);
-         }
-
-         this.mapsBuilt = true;
-      }
+      return ubo;
    }
 
    public ImageDescriptor getImageDescriptor(String name) {

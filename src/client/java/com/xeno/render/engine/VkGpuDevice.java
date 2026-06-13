@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,9 +20,10 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
+
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBuffer.Usage;
 import com.mojang.blaze3d.opengl.GlConst;
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlRenderPipeline;
@@ -102,26 +105,22 @@ public class VkGpuDevice implements GpuDeviceBackend {
       return this.debugLabels;
    }
 
-   @Override
    public CommandEncoderBackend createCommandEncoder() {
       return this.encoder;
    }
 
-   @Override
    public GpuSampler createSampler(
       AddressMode addressMode, AddressMode addressMode2, FilterMode filterMode, FilterMode filterMode2, int maxAnisotropy, OptionalDouble maxLod
    ) {
       return new VkSampler(addressMode, addressMode2, filterMode, filterMode2, maxAnisotropy, maxLod);
    }
 
-   @Override
    public GpuTexture createTexture(
       @Nullable Supplier<String> supplier, int usage, TextureFormat textureFormat, int width, int height, int layers, int mipLevels
    ) {
       return this.createTexture(this.debugLabels.exists() && supplier != null ? supplier.get() : null, usage, textureFormat, width, height, layers, mipLevels);
    }
 
-   @Override
    public GpuTexture createTexture(@Nullable String string, int usage, TextureFormat textureFormat, int width, int height, int layers, int mipLevels) {
       if (mipLevels < 1) {
          throw new IllegalArgumentException("mipLevels must be at least 1");
@@ -162,12 +161,10 @@ public class VkGpuDevice implements GpuDeviceBackend {
       return gpuTexture;
    }
 
-   @Override
    public GpuTextureView createTextureView(GpuTexture gpuTexture) {
       return this.createTextureView(gpuTexture, 0, gpuTexture.getMipLevels());
    }
 
-   @Override
    public GpuTextureView createTextureView(GpuTexture gpuTexture, int startLevel, int levels) {
       if (gpuTexture.isClosed()) {
          throw new IllegalArgumentException("Can't create texture view with closed texture");
@@ -186,8 +183,7 @@ public class VkGpuDevice implements GpuDeviceBackend {
       }
    }
 
-   @Override
-   public GpuBuffer createBuffer(@Nullable Supplier<String> supplier, @GpuBuffer.Usage int usage, long size) {
+   public GpuBuffer createBuffer(@Nullable Supplier<String> supplier, @Usage int usage, long size) {
       if (size <= 0L) {
          throw new IllegalArgumentException("Buffer size must be greater than zero");
       } else {
@@ -195,7 +191,6 @@ public class VkGpuDevice implements GpuDeviceBackend {
       }
    }
 
-   @Override
    public GpuBuffer createBuffer(@Nullable Supplier<String> supplier, int usage, ByteBuffer byteBuffer) {
       if (!byteBuffer.hasRemaining()) {
          throw new IllegalArgumentException("Buffer source must not be empty");
@@ -206,37 +201,30 @@ public class VkGpuDevice implements GpuDeviceBackend {
       return glBuffer;
    }
 
-   @Override
    public String getImplementationInformation() {
       return "Vulkan " + Vulkan.getDevice().vkVersion + ", " + Vulkan.getDevice().vendorIdString;
    }
 
-   @Override
    public List<String> getLastDebugMessages() {
       return Collections.emptyList();
    }
 
-   @Override
    public boolean isDebuggingEnabled() {
       return false;
    }
 
-   @Override
    public String getRenderer() {
       return DeviceManager.device.deviceName;
    }
 
-   @Override
    public String getVendor() {
       return Vulkan.getDevice().vendorIdString;
    }
 
-   @Override
    public String getBackendName() {
       return "Vulkan";
    }
 
-   @Override
    public String getVersion() {
       return Vulkan.getDevice().vkVersion;
    }
@@ -257,17 +245,14 @@ public class VkGpuDevice implements GpuDeviceBackend {
       return jx;
    }
 
-   @Override
    public int getMaxTextureSize() {
       return this.maxSupportedTextureSize;
    }
 
-   @Override
    public int getUniformOffsetAlignment() {
       return this.uniformOffsetAlignment;
    }
 
-   @Override
    public void clearPipelineCache() {
       for (GlRenderPipeline glRenderPipeline : this.pipelineCache.values()) {
          if (glRenderPipeline.program() != GlProgram.INVALID_PROGRAM) {
@@ -286,31 +271,25 @@ public class VkGpuDevice implements GpuDeviceBackend {
       this.shaderCache.clear();
    }
 
-   @Override
    public List<String> getEnabledExtensions() {
       return new ArrayList<>(this.enabledExtensions);
    }
 
-   @Override
    public int getMaxSupportedAnisotropy() {
       return 16;
    }
 
-   @Override
    public void close() {
       this.clearPipelineCache();
    }
 
-   @Override
    public void setVsync(boolean enabled) {
    }
 
-   @Override
    public void presentFrame() {
       Renderer.getInstance().endFrame();
    }
 
-   @Override
    public boolean isZZeroToOne() {
       return true;
    }
@@ -328,6 +307,7 @@ public class VkGpuDevice implements GpuDeviceBackend {
          String shaderExtension = switch (shaderType) {
             case VERTEX -> ".vsh";
             case FRAGMENT -> ".fsh";
+            default -> throw new MatchException(null, null);
          };
          String shaderName = resourceLocation.getPath() + shaderExtension;
          if (ShaderLoadUtil.REMAPPED_SHADERS.contains(shaderName)) {
@@ -343,7 +323,6 @@ public class VkGpuDevice implements GpuDeviceBackend {
       });
    }
 
-   @Override
    public CompiledRenderPipeline precompilePipeline(RenderPipeline renderPipeline, @Nullable ShaderSource shaderSourceGetter) {
       shaderSourceGetter = shaderSourceGetter == null ? this.defaultShaderSource : shaderSourceGetter;
 
@@ -436,6 +415,9 @@ public class VkGpuDevice implements GpuDeviceBackend {
 
    @Environment(EnvType.CLIENT)
    record ShaderCompilationKey(Identifier id, ShaderType type, ShaderDefines defines) {
+      ShaderCompilationKey {
+      }
+
       @Override
       public String toString() {
          String string = this.id + " (" + this.type + ")";
@@ -450,7 +432,6 @@ public class VkGpuDevice implements GpuDeviceBackend {
          this.renderPipeline = renderPipeline;
       }
 
-      @Override
       public boolean isValid() {
          return true;
       }

@@ -1,3 +1,5 @@
+package com.xeno.render.vertex;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,9 +20,10 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.vertex;
+
 
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.IndexType;
 import com.xeno.render.util.SortUtil;
 import com.xeno.vulkan.util.MemoryAccess;
 import org.joml.Vector3f;
@@ -36,6 +39,9 @@ public class QuadSorter {
    private int indexCount;
    private float[] distances;
    private int[] sortingPointsIndices;
+
+   public QuadSorter() {
+   }
 
    public void setQuadSortOrigin(float x, float y, float z) {
       this.sortX = x;
@@ -100,7 +106,7 @@ public class QuadSorter {
       this.sortingPointsIndices = new int[pointCount];
    }
 
-   public void putSortedQuadIndices(TerrainBufferBuilder bufferBuilder, VertexFormat.IndexType indexType) {
+   public void putSortedQuadIndices(TerrainBufferBuilder bufferBuilder, IndexType indexType) {
       float[] distances = this.distances;
       int[] sortingPointsIndices = this.sortingPointsIndices;
 
@@ -129,7 +135,7 @@ public class QuadSorter {
       }
    }
 
-   public void putSortedQuadIndices(TerrainBuilder bufferBuilder, VertexFormat.IndexType indexType) {
+   public void putSortedQuadIndices(TerrainBuilder bufferBuilder, IndexType indexType) {
       float[] distances = new float[this.sortingPoints.length];
       int[] sortingPoints = new int[this.sortingPoints.length];
 

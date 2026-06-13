@@ -1,3 +1,5 @@
+package com.xeno.vulkan.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.shader;
+
 
 import java.util.Objects;
 import com.xeno.vulkan.VRenderSystem;
@@ -123,6 +125,9 @@ public class PipelineState {
       public static final int CULL_MODE_BITS = 2;
       public static final int CULL_MODE_MASK = 3;
 
+      public AssemblyRasterState() {
+      }
+
       public static int encode(boolean cull, int topology, int polygonMode) {
          int state = polygonMode | topology << 3;
          return state | (cull ? 2 : 0) << 7;
@@ -219,6 +224,9 @@ public class PipelineState {
       public static final int OP_MASK = 15;
       public static final int FACTOR_MASK = 31;
 
+      public BlendState() {
+      }
+
       public static int getState(PipelineState.BlendInfo blendInfo) {
          int s = 0;
          s |= blendInfo.enabled ? 16777216 : 0;
@@ -263,6 +271,9 @@ public class PipelineState {
    }
 
    public abstract static class ColorMask {
+      public ColorMask() {
+      }
+
       public static int getColorMask(boolean r, boolean g, boolean b, boolean a) {
          return (r ? 1 : 0) | (g ? 2 : 0) | (b ? 4 : 0) | (a ? 8 : 0);
       }
@@ -273,6 +284,9 @@ public class PipelineState {
       public static final int DEPTH_MASK_BIT = 2;
       public static final int DEPTH_FUN_OFFSET = 2;
       public static final int DEPTH_FUN_BITS = 4;
+
+      public DepthState() {
+      }
 
       public static boolean depthTest(int i) {
          return (i & 1) != 0;
@@ -310,6 +324,9 @@ public class PipelineState {
       public static final int ENABLE_BIT = 1;
       public static final int FUN_OFFSET = 1;
       public static final int FUN_BITS = 5;
+
+      public LogicOpState() {
+      }
 
       public static boolean enable(int i) {
          return (i & 1) != 0;

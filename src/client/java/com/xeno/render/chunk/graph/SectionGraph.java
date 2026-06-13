@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.graph;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.graph;
+
 
 import com.google.common.collect.Lists;
 import java.util.List;

@@ -1,3 +1,5 @@
+package com.xeno.render.shader;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.shader;
+
 
 import com.google.common.collect.Sets;
 import com.google.gson.JsonElement;
@@ -47,6 +49,9 @@ public abstract class ShaderLoadUtil {
    public static final Set<String> REMAPPED_SHADERS = Sets.newHashSet(
       new String[]{"core/screenquad.vsh", "core/rendertype_item_entity_translucent_cull.vsh", "core/animate_sprite.vsh", "core/animate_sprite_blit.fsh"}
    );
+
+   public ShaderLoadUtil() {
+   }
 
    public static String resolveShaderPath(String path) {
       return resolveShaderPath(SHADERS_PATH, path);
@@ -122,6 +127,7 @@ public abstract class ShaderLoadUtil {
       String shaderExtension = switch (type) {
          case VERTEX -> ".vsh";
          case FRAGMENT -> ".fsh";
+         default -> throw new MatchException(null, null);
       };
       String path = resourceLocation.getPath();
       String[] splitPath = splitPath(path);
@@ -151,6 +157,7 @@ public abstract class ShaderLoadUtil {
       String shaderExtension = switch (type) {
          case VERTEX -> ".vsh";
          case FRAGMENT -> ".fsh";
+         default -> throw new MatchException(null, null);
       };
       String[] splitPath = splitPath(path);
       String shaderName = "%s%s".formatted(splitPath[1], shaderExtension);

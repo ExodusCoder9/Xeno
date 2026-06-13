@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.buffer;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.buffer;
+
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.nio.ByteBuffer;
@@ -42,14 +44,17 @@ public class UploadManager {
    CommandPool.CommandBuffer commandBuffer;
    LongOpenHashSet dstBuffers = new LongOpenHashSet();
 
+   public UploadManager() {
+   }
+
    public static void createInstance() {
       INSTANCE = new UploadManager();
    }
 
    public void submitUploads() {
       if (this.commandBuffer != null) {
-          this.queue.submitCommands(this.commandBuffer, true);
-          Synchronization.INSTANCE.addCommandBuffer(this.commandBuffer, true);
+         this.queue.submitCommands(this.commandBuffer);
+         Synchronization.INSTANCE.addCommandBuffer(this.commandBuffer);
          this.commandBuffer = null;
          this.dstBuffers.clear();
       }
@@ -67,7 +72,7 @@ public class UploadManager {
             org.lwjgl.vulkan.VkMemoryBarrier.Buffer barrier = VkMemoryBarrier.calloc(1, stack);
             barrier.sType$Default();
             barrier.srcAccessMask(4096);
-            barrier.dstAccessMask(2048);
+            barrier.dstAccessMask(4096);
             VK10.vkCmdPipelineBarrier(commandBuffer, 4096, 4096, 0, barrier, null, null);
          } catch (Throwable var13) {
             if (stack != null) {

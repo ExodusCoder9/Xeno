@@ -1,3 +1,5 @@
+package com.xeno.render.vertex;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.vertex;
+
 
 import com.xeno.vulkan.util.MemoryAccess;
 
@@ -43,6 +45,9 @@ public interface VertexBuilder {
       public static final float POS_OFFSET = -4.0F;
       public static final float POS_OFFSET_CONV = -8192.0F;
       public static final float UV_CONV_MUL = 32768.0F;
+
+      public CompressedVertexBuilder() {
+      }
 
       @Override
       public void vertex(long ptr, float x, float y, float z, int color, float u, float v, int light, int packedNormal) {
@@ -98,6 +103,9 @@ public interface VertexBuilder {
 
    class DefaultVertexBuilder implements VertexBuilder {
       private static final int VERTEX_SIZE = 32;
+
+      public DefaultVertexBuilder() {
+      }
 
       @Override
       public void vertex(long ptr, float x, float y, float z, int color, float u, float v, int light, int packedNormal) {

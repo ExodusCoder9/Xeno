@@ -1,3 +1,5 @@
+package com.xeno.vulkan.memory.buffer;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.memory.buffer;
+
 
 import java.nio.ByteBuffer;
 import com.xeno.vulkan.Vulkan;
@@ -141,14 +143,12 @@ public class Buffer {
       this.allocation = allocation;
    }
 
-   public void setDataPtr(long dataPtr) {
-      this.dataPtr = dataPtr;
-   }
-
    public Buffer.BufferInfo getBufferInfo() {
       return new Buffer.BufferInfo(this.id, this.allocation, this.bufferSize, this.type.getType());
    }
 
    public record BufferInfo(long id, long allocation, long bufferSize, MemoryType.Type type) {
+      public BufferInfo {
+      }
    }
 }

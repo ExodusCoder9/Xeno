@@ -1,3 +1,5 @@
+package com.xeno.vulkan.device;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,12 +20,14 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.device;
 
+
+import java.nio.IntBuffer;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VK11;
 import org.lwjgl.vulkan.VkExtensionProperties;
@@ -72,15 +76,35 @@ public class Device {
    }
 
    public Set<String> getUnsupportedExtensions(Set<String> requiredExtensions) {
-      int[] extensionCount = new int[1];
-      VK10.vkEnumerateDeviceExtensionProperties(this.physicalDevice, (String)null, extensionCount, null);
-      Buffer availableExtensions = VkExtensionProperties.malloc(extensionCount[0]);
-      VK10.vkEnumerateDeviceExtensionProperties(this.physicalDevice, (String)null, extensionCount, availableExtensions);
-      Set<String> extensions = availableExtensions.stream().<String>map(VkExtensionProperties::extensionNameString).collect(Collectors.toSet());
-      availableExtensions.free();
-      Set<String> unsupportedExtensions = new HashSet<>(requiredExtensions);
-      unsupportedExtensions.removeAll(extensions);
-      return unsupportedExtensions;
+      MemoryStack stack = MemoryStack.stackPush();
+
+      Set var7;
+      try {
+         IntBuffer extensionCount = stack.ints(0);
+         VK10.vkEnumerateDeviceExtensionProperties(this.physicalDevice, (String)null, extensionCount, null);
+         Buffer availableExtensions = VkExtensionProperties.malloc(extensionCount.get(0), stack);
+         VK10.vkEnumerateDeviceExtensionProperties(this.physicalDevice, (String)null, extensionCount, availableExtensions);
+         Set<String> extensions = availableExtensions.stream().<String>map(VkExtensionProperties::extensionNameString).collect(Collectors.toSet());
+         Set<String> unsupportedExtensions = new HashSet<>(requiredExtensions);
+         unsupportedExtensions.removeAll(extensions);
+         var7 = unsupportedExtensions;
+      } catch (Throwable var9) {
+         if (stack != null) {
+            try {
+               stack.close();
+            } catch (Throwable var8) {
+               var9.addSuppressed(var8);
+            }
+         }
+
+         throw var9;
+      }
+
+      if (stack != null) {
+         stack.close();
+      }
+
+      return var7;
    }
 
    public boolean isDrawIndirectSupported() {

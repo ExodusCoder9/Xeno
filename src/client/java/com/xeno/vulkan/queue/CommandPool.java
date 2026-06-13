@@ -1,3 +1,5 @@
+package com.xeno.vulkan.queue;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.queue;
+
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.nio.LongBuffer;
@@ -53,7 +55,7 @@ public class CommandPool {
          VkCommandPoolCreateInfo poolInfo = VkCommandPoolCreateInfo.calloc(stack);
          poolInfo.sType(39);
          poolInfo.queueFamilyIndex(queueFamily);
-         poolInfo.flags(2 | 4);
+         poolInfo.flags(2);
          LongBuffer pCommandPool = stack.mallocLong(1);
          if (VK10.vkCreateCommandPool(Vulkan.getVkDevice(), poolInfo, null, pCommandPool) != 0) {
             throw new RuntimeException("Failed to create command pool");
@@ -78,6 +80,9 @@ public class CommandPool {
    }
 
    public CommandPool.CommandBuffer getCommandBuffer() {
+      if (!this.availableCmdBuffers.isEmpty()) {
+         return this.availableCmdBuffers.poll();
+      }
       MemoryStack stack = MemoryStack.stackPush();
 
       CommandPool.CommandBuffer var2;

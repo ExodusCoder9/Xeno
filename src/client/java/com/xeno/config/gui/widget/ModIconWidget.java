@@ -1,3 +1,5 @@
+package com.xeno.config.gui.widget;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.gui.widget;
+
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -47,15 +49,16 @@ public class ModIconWidget extends VAbstractWidget {
       int backgroundColor = ColorUtil.ARGB.multiplyAlpha(VGuiConstants.COLOR_BLACK, 0.6F);
       int width = this.width;
       int height = this.height;
-      GuiRenderer.fill(this.x, this.y, this.x + width, this.y + height, backgroundColor);
-      int textOffset = 6;
-      if (this.icon != null) {
-         int size = this.height - 4;
-         int iconX = this.x + 4;
-         int iconY = this.y + (height - size) / 2;
-         GuiRenderer.guiGraphics.blit(RenderPipelines.GUI_TEXTURED, this.icon, iconX, iconY, 0.0F, 0.0F, size, size, size, size);
-         textOffset = 6 + this.height;
-      }
-      GuiRenderer.drawString(Minecraft.getInstance().font, (Component)this.name, this.x + textOffset, this.y + this.height / 2 - 4, -1);
+       GuiRenderer.fill(this.x, this.y, this.x + width, this.y + height, backgroundColor);
+       if (this.icon != null) {
+          int size = this.height - 4;
+          int iconX = this.x + 4;
+          int iconY = this.y + (height - size) / 2;
+          GuiRenderer.guiGraphics.blit(RenderPipelines.GUI_TEXTURED, this.icon, iconX, iconY, 0.0F, 0.0F, size, size, size, size);
+       }
+       int size = this.height;
+      Component var10001 = (Component)this.name;
+      int var10002 = this.x + 6 + size;
+      GuiRenderer.drawString(Minecraft.getInstance().font, var10001, var10002, this.y + this.height / 2 - 4, -1);
    }
 }

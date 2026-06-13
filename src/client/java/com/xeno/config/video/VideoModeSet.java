@@ -1,3 +1,5 @@
+package com.xeno.config.video;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.config.video;
+
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.List;

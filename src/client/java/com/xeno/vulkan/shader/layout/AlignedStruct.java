@@ -1,3 +1,5 @@
+package com.xeno.vulkan.shader.layout;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.shader.layout;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +65,9 @@ public abstract class AlignedStruct {
    public static class Builder {
       final List<Uniform.Info> uniforms = new ArrayList<>();
       protected int currentOffset = 0;
+
+      public Builder() {
+      }
 
       public AlignedStruct.Builder addUniform(String type, String name, int count) {
          Uniform.Info info = Uniform.createUniformInfo(type, name, count);

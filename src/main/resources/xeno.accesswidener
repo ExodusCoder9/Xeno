@@ -20,4 +20,3 @@ accessible class net/minecraft/client/renderer/ShaderManager$CompilationCache
 accessible field com/mojang/blaze3d/systems/GpuDevice backend Lcom/mojang/blaze3d/systems/GpuDeviceBackend;
 accessible field com/mojang/blaze3d/systems/CommandEncoder backend Lcom/mojang/blaze3d/systems/CommandEncoderBackend;
 accessible field com/mojang/blaze3d/systems/RenderPass backend Lcom/mojang/blaze3d/systems/RenderPassBackend;
-

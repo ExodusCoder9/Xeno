@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
+
 
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.opengl.GlTexture;
@@ -52,7 +54,6 @@ public class VkGpuTexture extends GlTexture {
       this.glTexture = glTexture;
    }
 
-   @Override
    public void close() {
       if (!this.closed) {
          this.closed = true;
@@ -60,12 +61,10 @@ public class VkGpuTexture extends GlTexture {
       }
    }
 
-   @Override
    public boolean isClosed() {
       return this.closed;
    }
 
-   @Override
    public int glId() {
       return this.id;
    }
@@ -127,6 +126,7 @@ public class VkGpuTexture extends GlTexture {
          case RED8 -> 9;
          case RED8I -> 14;
          case DEPTH32 -> 126;
+         default -> throw new MatchException(null, null);
       };
    }
 

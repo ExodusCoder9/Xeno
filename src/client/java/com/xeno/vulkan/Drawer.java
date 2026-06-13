@@ -1,3 +1,5 @@
+package com.xeno.vulkan;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,10 +20,12 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan;
+
 
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
+import java.nio.LongBuffer;
 import java.util.Arrays;
 import com.xeno.render.engine.VkGpuBuffer;
 import com.xeno.vulkan.memory.MemoryManager;
@@ -31,14 +35,19 @@ import com.xeno.vulkan.memory.buffer.IndexBuffer;
 import com.xeno.vulkan.memory.buffer.UniformBuffer;
 import com.xeno.vulkan.memory.buffer.VertexBuffer;
 import com.xeno.vulkan.memory.buffer.index.AutoIndexBuffer;
-import org.lwjgl.system.MemoryStack;
+import com.xeno.vulkan.util.MemoryAccess;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkCommandBuffer;
 
 public class Drawer {
    private static final int INITIAL_VB_SIZE = 4000000;
    private static final int INITIAL_IB_SIZE = 1000000;
-    private static final int INITIAL_UB_SIZE = 1000000;
+   private static final int INITIAL_UB_SIZE = 200000;
+   private static final LongBuffer buffers = MemoryUtil.memAllocLong(1);
+   private static final LongBuffer offsets = MemoryUtil.memAllocLong(1);
+   private static final long pBuffers = MemoryUtil.memAddress0(buffers);
+   private static final long pOffsets = MemoryUtil.memAddress0(offsets);
    private int framesNum;
    private VertexBuffer[] vertexBuffers;
    private IndexBuffer[] indexBuffers;
@@ -51,6 +60,9 @@ public class Drawer {
    private final AutoIndexBuffer triangleStripIndexBuffer = new AutoIndexBuffer(10000, AutoIndexBuffer.DrawType.TRIANGLE_STRIP);
    private UniformBuffer[] uniformBuffers;
    private int currentFrame;
+
+   public Drawer() {
+   }
 
    public void setCurrentFrame(int currentFrame) {
       this.currentFrame = currentFrame;
@@ -75,7 +87,7 @@ public class Drawer {
       }
 
       this.uniformBuffers = new UniformBuffer[framesNum];
-      Arrays.setAll(this.uniformBuffers, i -> new UniformBuffer(1000000, MemoryTypes.HOST_MEM));
+      Arrays.setAll(this.uniformBuffers, i -> new UniformBuffer(200000, MemoryTypes.HOST_MEM));
       this.getGpuBuffers().createBuffers(this.vertexBuffers, this.indexBuffers);
    }
 
@@ -85,11 +97,11 @@ public class Drawer {
       this.uniformBuffers[currentFrame].reset();
    }
 
-   public void draw(ByteBuffer vertexData, VertexFormat.Mode mode, VertexFormat vertexFormat, int vertexCount) {
+   public void draw(ByteBuffer vertexData, Mode mode, VertexFormat vertexFormat, int vertexCount) {
       this.draw(vertexData, null, mode, vertexFormat, vertexCount);
    }
 
-   public void draw(ByteBuffer vertexData, ByteBuffer indexData, VertexFormat.Mode mode, VertexFormat vertexFormat, int vertexCount) {
+   public void draw(ByteBuffer vertexData, ByteBuffer indexData, Mode mode, VertexFormat vertexFormat, int vertexCount) {
       VertexBuffer vertexBuffer = this.vertexBuffers[this.currentFrame];
       int size = vertexFormat.getVertexSize() * vertexCount;
       vertexBuffer.copyBuffer(vertexData, size);
@@ -116,15 +128,18 @@ public class Drawer {
 
    public void drawIndexed(Buffer vertexBuffer, Buffer indexBuffer, int indexCount, int indexType) {
       VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
-      MemoryStack stack = MemoryStack.stackGet();
-      VK10.vkCmdBindVertexBuffers(commandBuffer, 0, stack.longs(vertexBuffer.getId()), stack.longs(vertexBuffer.getOffset()));
+      MemoryAccess.memPutLong(pBuffers, vertexBuffer.getId());
+      MemoryAccess.memPutLong(pOffsets, vertexBuffer.getOffset());
+      VK10.nvkCmdBindVertexBuffers(commandBuffer, 0, 1, pBuffers, pOffsets);
       this.bindIndexBuffer(commandBuffer, indexBuffer, indexType);
       VK10.vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
    }
 
    public void draw(VertexBuffer vertexBuffer, int vertexCount) {
       VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
-      VK10.vkCmdBindVertexBuffers(commandBuffer, 0, MemoryStack.stackGet().longs(vertexBuffer.getId()), MemoryStack.stackGet().longs(vertexBuffer.getOffset()));
+      MemoryAccess.memPutLong(pBuffers, vertexBuffer.getId());
+      MemoryAccess.memPutLong(pOffsets, vertexBuffer.getOffset());
+      VK10.nvkCmdBindVertexBuffers(commandBuffer, 0, 1, pBuffers, pOffsets);
       VK10.vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
    }
 
@@ -174,7 +189,7 @@ public class Drawer {
       return this.uniformBuffers[this.currentFrame];
    }
 
-   public AutoIndexBuffer getAutoIndexBuffer(VertexFormat.Mode mode, int vertexCount) {
+   public AutoIndexBuffer getAutoIndexBuffer(Mode mode, int vertexCount) {
       return switch (mode) {
          case QUADS -> {
             int indexCount = vertexCount * 3 / 2;
@@ -186,6 +201,7 @@ public class Drawer {
          case DEBUG_LINE_STRIP -> this.debugLineStripIndexBuffer;
          case POINTS -> null;
          case TRIANGLES, DEBUG_LINES -> null;
+         default -> throw new MatchException(null, null);
       };
    }
 
@@ -196,6 +212,9 @@ public class Drawer {
    public class GpuBuffers {
       VkGpuBuffer[] vertexBuffers;
       VkGpuBuffer[] indexBuffers;
+
+      public GpuBuffers() {
+      }
 
       public void createBuffers(VertexBuffer[] vertexBuffers, IndexBuffer[] indexBuffers) {
          this.vertexBuffers = new VkGpuBuffer[vertexBuffers.length];

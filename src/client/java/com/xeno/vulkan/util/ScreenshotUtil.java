@@ -1,3 +1,5 @@
+package com.xeno.vulkan.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,9 +20,10 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.util;
+
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBuffer.MappedView;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.CommandEncoder;
@@ -33,6 +36,9 @@ import com.xeno.render.engine.VkGpuTexture;
 import com.xeno.vulkan.Renderer;
 
 public abstract class ScreenshotUtil {
+   public ScreenshotUtil() {
+   }
+
    public static void takeScreenshot(RenderTarget renderTarget, int mipLevel, Consumer<NativeImage> consumer) {
       int width = renderTarget.width;
       int height = renderTarget.height;
@@ -41,12 +47,14 @@ public abstract class ScreenshotUtil {
          throw new IllegalStateException("Tried to capture screenshot of an incomplete framebuffer");
       }
 
-      Renderer.getInstance().flushAndWaitCmds();
+      Renderer.getInstance().flushCmds();
       int pixelSize = TextureFormat.RGBA8.pixelSize();
       GpuBuffer gpuBuffer = RenderSystem.getDevice().createBuffer(() -> "Screenshot buffer", 9, width * height * pixelSize);
       CommandEncoder commandEncoder = RenderSystem.getDevice().createCommandEncoder();
       RenderSystem.getDevice().createCommandEncoder().copyTextureToBuffer(gpuTexture, gpuBuffer, 0L, () -> {
-         try (GpuBuffer.MappedView readView = commandEncoder.mapBuffer(gpuBuffer, true, false)) {
+         MappedView readView = commandEncoder.mapBuffer(gpuBuffer, true, false);
+
+         try {
             NativeImage nativeImage = new NativeImage(width, height, false);
             VkGpuTexture colorAttachment = (VkGpuTexture)Renderer.getInstance().getMainPass().getColorAttachment();
             boolean isBgraFormat = colorAttachment.getVulkanImage().format == 44;
@@ -85,6 +93,20 @@ public abstract class ScreenshotUtil {
             }
 
             consumer.accept(nativeImage);
+         } catch (Throwable t$) {
+            if (readView != null) {
+               try {
+                  readView.close();
+               } catch (Throwable x2) {
+                  t$.addSuppressed(x2);
+               }
+            }
+
+            throw t$;
+         }
+
+         if (readView != null) {
+            readView.close();
          }
 
          gpuBuffer.close();

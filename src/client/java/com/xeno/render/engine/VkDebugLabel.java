@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,11 +20,11 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
+
 
 import com.mojang.blaze3d.opengl.GlProgram;
 import com.mojang.blaze3d.opengl.GlShaderModule;
-import com.mojang.blaze3d.opengl.VertexArrayCache;
+import com.mojang.blaze3d.opengl.VertexArrayCache.VertexArray;
 import com.mojang.logging.LogUtils;
 import java.util.Set;
 import net.fabricmc.api.EnvType;
@@ -32,6 +34,9 @@ import org.slf4j.Logger;
 @Environment(EnvType.CLIENT)
 public class VkDebugLabel {
    private static final Logger LOGGER = LogUtils.getLogger();
+
+   public VkDebugLabel() {
+   }
 
    public void applyLabel(VkGpuBuffer glBuffer) {
    }
@@ -45,7 +50,7 @@ public class VkDebugLabel {
    public void applyLabel(GlProgram glProgram) {
    }
 
-   public void applyLabel(VertexArrayCache.VertexArray vertexArray) {
+   public void applyLabel(VertexArray vertexArray) {
    }
 
    public static VkDebugLabel create(boolean bl, Set<String> set) {

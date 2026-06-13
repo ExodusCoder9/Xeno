@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.cull;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.cull;
+
 
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
@@ -37,6 +39,9 @@ public enum QuadFacing {
    public static final QuadFacing[] VALUES = values();
    public static final int COUNT = VALUES.length;
 
+   QuadFacing() {
+   }
+
    public static QuadFacing fromDirection(Direction direction) {
       return switch (direction) {
          case DOWN -> Y_NEG;
@@ -45,6 +50,7 @@ public enum QuadFacing {
          case SOUTH -> Z_POS;
          case WEST -> X_NEG;
          case EAST -> X_POS;
+         default -> throw new MatchException(null, null);
       };
    }
 

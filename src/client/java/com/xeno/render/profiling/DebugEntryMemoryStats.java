@@ -1,3 +1,5 @@
+package com.xeno.render.profiling;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.profiling;
+
 
 import java.util.List;
 import net.minecraft.client.gui.components.debug.DebugScreenDisplayer;
@@ -33,7 +35,9 @@ import org.jetbrains.annotations.Nullable;
 public class DebugEntryMemoryStats implements DebugScreenEntry {
    private static final Identifier GROUP = Identifier.withDefaultNamespace("vk_memory");
 
-   @Override
+   public DebugEntryMemoryStats() {
+   }
+
    public void display(DebugScreenDisplayer debugScreenDisplayer, @Nullable Level level, @Nullable LevelChunk levelChunk, @Nullable LevelChunk levelChunk2) {
       ChunkAreaManager chunkAreaManager = WorldRenderer.getInstance().getChunkAreaManager();
       if (chunkAreaManager != null) {

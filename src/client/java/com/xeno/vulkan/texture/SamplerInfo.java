@@ -1,3 +1,5 @@
+package com.xeno.vulkan.texture;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.texture;
+
 
 public class SamplerInfo {
    final int encodedState;
@@ -92,7 +94,7 @@ public class SamplerInfo {
    }
 
    public int getCompareOp() {
-      return this.encodedState >> 8 & 3;
+      return this.encodedState >> 9 & 3;
    }
 
    public boolean hasReductionMode() {

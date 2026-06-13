@@ -1,3 +1,5 @@
+package com.xeno.gl;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.gl;
+
 
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.nio.ByteBuffer;

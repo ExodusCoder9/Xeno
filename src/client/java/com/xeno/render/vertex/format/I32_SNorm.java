@@ -1,3 +1,5 @@
+package com.xeno.render.vertex.format;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,10 +20,13 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.vertex.format;
+
 
 public abstract class I32_SNorm {
    private static final float NORM_INV = 0.007874016F;
+
+   public I32_SNorm() {
+   }
 
    public static int packNormal(float x, float y, float z) {
       x *= 127.0F;

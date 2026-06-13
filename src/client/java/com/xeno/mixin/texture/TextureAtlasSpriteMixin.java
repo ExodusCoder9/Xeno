@@ -47,12 +47,14 @@ public class TextureAtlasSpriteMixin {
    private int y;
 
    @Overwrite
-   public void uploadSpriteUbo(ByteBuffer byteBuffer, int i, int maxMipLevel, int width, int height, int uboSize) {
+    public void uploadSpriteUbo(ByteBuffer byteBuffer, int i, int maxMipLevel, int width, int height, int uboSize) {
+      Matrix4f ortho = new Matrix4f();
+      Matrix4f xform = new Matrix4f();
       for (int n = 0; n <= maxMipLevel; n++) {
          Std140Builder.intoBuffer(MemoryUtil.memSlice(byteBuffer, i + n * uboSize, uboSize))
-            .putMat4f(new Matrix4f().ortho2D(0.0F, width >> n, height >> n, 0.0F))
+            .putMat4f(ortho.setOrtho2D(0.0F, width >> n, height >> n, 0.0F))
             .putMat4f(
-               new Matrix4f()
+               xform.identity()
                   .translate(this.x >> n, this.y >> n, 0.0F)
                   .scale(this.contents.width() + this.padding * 2 >> n, this.contents.height() + this.padding * 2 >> n, 1.0F)
             )

@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.util;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,15 +20,18 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.util;
+
 
 import java.util.Arrays;
 import java.util.Iterator;
 import com.xeno.render.chunk.ChunkArea;
 
-public record AreaSetQueue(int size, int[] set, StaticQueue<ChunkArea> queue) implements Iterable<ChunkArea> {
+public record AreaSetQueue(int size, int[] set, StaticQueue<ChunkArea> queue) {
    public AreaSetQueue(int size) {
       this(size, new int[(int)Math.ceil(size / 32.0F)], new StaticQueue<>(size));
+   }
+
+   public AreaSetQueue {
    }
 
    public void add(ChunkArea chunkArea) {

@@ -1,3 +1,5 @@
+package com.xeno.vulkan.memory;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.vulkan.memory;
+
 
 import java.nio.ByteBuffer;
 import com.xeno.vulkan.memory.buffer.Buffer;
@@ -51,5 +53,8 @@ public abstract class MemoryType {
    public enum Type {
       DEVICE_LOCAL,
       HOST_LOCAL;
+
+      Type() {
+      }
    }
 }

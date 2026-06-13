@@ -1,3 +1,5 @@
+package com.xeno.render.chunk.frustum;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,7 +20,7 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.chunk.frustum;
+
 
 import net.minecraft.world.phys.AABB;
 import org.joml.FrustumIntersection;
@@ -32,6 +34,9 @@ public class VFrustum {
    private double camZ;
    private final FrustumIntersection frustum = new FrustumIntersection();
    private final Matrix4f matrix = new Matrix4f();
+
+   public VFrustum() {
+   }
 
    public VFrustum offsetToFullyIncludeCameraCube(int offset) {
       double d0 = Math.floor(this.camX / offset) * offset;

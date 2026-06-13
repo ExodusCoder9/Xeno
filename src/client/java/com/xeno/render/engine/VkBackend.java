@@ -1,3 +1,5 @@
+package com.xeno.render.engine;
+
 /*
  * Original Codebase: Copyright XCollateral (VulkanMod)
  * Refactored Codebase: Copyright ExodusCoder9 (Xeno)
@@ -18,9 +20,9 @@
  *
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
-package com.xeno.render.engine;
 
-import com.mojang.blaze3d.GLFWErrorCapture;
+
+import com.mojang.blaze3d.GLFWErrorCapture.Error;
 import com.mojang.blaze3d.shaders.GpuDebugOptions;
 import com.mojang.blaze3d.shaders.ShaderSource;
 import com.mojang.blaze3d.systems.BackendCreationException;
@@ -28,20 +30,19 @@ import com.mojang.blaze3d.systems.GpuBackend;
 import com.mojang.blaze3d.systems.GpuDevice;
 
 public class VkBackend implements GpuBackend {
-   @Override
+   public VkBackend() {
+   }
+
    public String getName() {
       return "Vulkan";
    }
 
-   @Override
    public void setWindowHints() {
    }
 
-   @Override
-   public void handleWindowCreationErrors(GLFWErrorCapture.Error error) throws BackendCreationException {
+   public void handleWindowCreationErrors(Error error) throws BackendCreationException {
    }
 
-   @Override
    public GpuDevice createDevice(long window, ShaderSource defaultShaderSource, GpuDebugOptions debugOptions) {
       return new GpuDevice(new VkGpuDevice(window, defaultShaderSource, debugOptions));
    }
