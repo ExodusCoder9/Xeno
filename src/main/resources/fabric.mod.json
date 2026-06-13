@@ -3,7 +3,7 @@
 	"id": "xeno",
 	"version": "${version}",
 	"name": "Xeno",
-	"description": "A high-performance Vulkan rendering Mod for Minecraft, providing enhanced frame rates and reduced CPU overhead through GPU-driven rendering techniques.",
+	"description": "A high-performance Vulkan rendering Mod for Minecraft, providing enhanced frame rates and reduced CPU overhead through certain rendering techniques.",
 	"authors": [
 		"ExodusCoder9"
 	],
