@@ -36,9 +36,9 @@ dependencies {
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
 	// LWJGL addons for Vulkan rendering backend (bundled into mod JAR)
-	include "org.lwjgl:lwjgl-shaderc:3.4.1"
-	include "org.lwjgl:lwjgl-vma:3.4.1"
-	include "org.lwjgl:lwjgl-vulkan:3.4.1"
+	implementation include("org.lwjgl:lwjgl-shaderc:3.4.1")
+	implementation include("org.lwjgl:lwjgl-vma:3.4.1")
+	implementation include("org.lwjgl:lwjgl-vulkan:3.4.1")
 
 	// Platform-specific native runtimes
 	runtimeOnly "org.lwjgl:lwjgl-shaderc:3.4.1:natives-windows"
