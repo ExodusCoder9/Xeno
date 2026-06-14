@@ -32,8 +32,8 @@ import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkDevice;
 
 public class Synchronization {
-   private static final int ALLOCATION_SIZE = 50;
-   public static final Synchronization INSTANCE = new Synchronization(50);
+   private static final int ALLOCATION_SIZE = 500;
+   public static final Synchronization INSTANCE = new Synchronization(ALLOCATION_SIZE);
    private final LongBuffer fences;
    private int idx = 0;
    private final ObjectArrayList<CommandPool.CommandBuffer> fenceCbs = new ObjectArrayList();
@@ -59,7 +59,7 @@ public class Synchronization {
    }
 
    public synchronized void addFence(long fence) {
-      if (this.idx == 50) {
+      if (this.idx >= ALLOCATION_SIZE) {
          this.waitFences();
       }
 

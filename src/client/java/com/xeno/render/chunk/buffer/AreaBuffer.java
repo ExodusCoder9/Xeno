@@ -24,6 +24,9 @@ package com.xeno.render.chunk.buffer;
 
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.nio.ByteBuffer;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.TreeMap;
 import com.xeno.Initializer;
 import com.xeno.render.chunk.util.Util;
 import com.xeno.vulkan.memory.MemoryManager;
@@ -41,6 +44,7 @@ public class AreaBuffer {
    private final int usage;
    private final int elementSize;
    private final Int2ReferenceOpenHashMap<AreaBuffer.Segment> usedSegments = new Int2ReferenceOpenHashMap();
+   private final TreeMap<Integer, LinkedList<Segment>> freeSegmentsBySize = new TreeMap<>();
    AreaBuffer.Segment first;
    AreaBuffer.Segment last;
    private Buffer buffer;
@@ -147,7 +151,7 @@ public class AreaBuffer {
 
    public AreaBuffer.Segment reallocate(int uploadSize) {
       int oldSize = this.size;
-      int minIncrement = this.size >> 3;
+      int minIncrement = this.size >> 1;
       minIncrement = (int)Util.align(minIncrement, this.elementSize);
       int increment = Math.max(minIncrement, uploadSize);
       if (increment < uploadSize) {

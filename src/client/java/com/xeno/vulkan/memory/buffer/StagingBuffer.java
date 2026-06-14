@@ -26,17 +26,16 @@ import java.nio.ByteBuffer;
 import com.xeno.render.chunk.buffer.UploadManager;
 import com.xeno.render.chunk.util.Util;
 import com.xeno.render.texture.ImageUploadHelper;
-import com.xeno.vulkan.Renderer;
 import com.xeno.vulkan.Synchronization;
 import com.xeno.vulkan.memory.MemoryTypes;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.system.libc.LibCString;
 
 public class StagingBuffer extends Buffer {
-   private static final long DEFAULT_SIZE = 134217728L;
+   private static final long DEFAULT_SIZE = 268435456L;
 
    public StagingBuffer() {
-      this(134217728L);
+      this(DEFAULT_SIZE);
    }
 
    public StagingBuffer(long size) {
@@ -75,7 +74,6 @@ public class StagingBuffer extends Buffer {
    private void submitUploads() {
       UploadManager.INSTANCE.submitUploads();
       ImageUploadHelper.INSTANCE.submitCommands(false);
-      Renderer.getInstance().flushCmds();
       Synchronization.INSTANCE.waitFences();
       this.reset();
    }

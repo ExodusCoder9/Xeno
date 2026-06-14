@@ -91,8 +91,6 @@ public class UploadManager {
          if (stack != null) {
             stack.close();
          }
-
-         this.dstBuffers.clear();
       }
 
       TransferQueue.uploadBufferCmd(commandBuffer, stagingBuffer.getId(), stagingBuffer.getOffset(), buffer.getId(), dstOffset, bufferSize);

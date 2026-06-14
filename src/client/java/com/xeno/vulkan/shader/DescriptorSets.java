@@ -318,7 +318,7 @@ public class DescriptorSets {
    }
 
    public void resetIdx() {
-      this.currentIdx = -1;
+      this.currentIdx = 0;
    }
 
    public void cleanUp() {

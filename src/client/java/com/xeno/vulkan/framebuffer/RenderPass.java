@@ -172,10 +172,18 @@ public class RenderPass {
       renderArea.offset().set(0, 0);
       renderArea.extent().set(this.framebuffer.getWidth(), this.framebuffer.getHeight());
       renderPassInfo.renderArea(renderArea);
-      org.lwjgl.vulkan.VkClearValue.Buffer clearValues = VkClearValue.malloc(2, stack);
-      ((VkClearValue)clearValues.get(0)).color().float32(VRenderSystem.clearColor);
-      ((VkClearValue)clearValues.get(1)).depthStencil().set(1.0F, 0);
-      renderPassInfo.pClearValues(clearValues);
+      boolean needsColorClear = this.colorAttachmentInfo != null && this.colorAttachmentInfo.loadOp == 1;
+      boolean needsDepthClear = this.depthAttachmentInfo != null && this.depthAttachmentInfo.loadOp == 1;
+      if (needsColorClear || needsDepthClear) {
+         org.lwjgl.vulkan.VkClearValue.Buffer clearValues = VkClearValue.malloc(2, stack);
+         if (needsColorClear) {
+            ((VkClearValue)clearValues.get(0)).color().float32(VRenderSystem.clearColor);
+         }
+         if (needsDepthClear) {
+            ((VkClearValue)clearValues.get(1)).depthStencil().set(1.0F, 0);
+         }
+         renderPassInfo.pClearValues(clearValues);
+      }
       VK10.vkCmdBeginRenderPass(commandBuffer, renderPassInfo, 0);
       Renderer.getInstance().setBoundRenderPass(this);
    }
@@ -223,9 +231,8 @@ public class RenderPass {
       VkRect2D renderArea = VkRect2D.malloc(stack);
       renderArea.offset().set(0, 0);
       renderArea.extent().set(this.framebuffer.getWidth(), this.framebuffer.getHeight());
-      org.lwjgl.vulkan.VkClearValue.Buffer clearValues = VkClearValue.malloc(2, stack);
-      ((VkClearValue)clearValues.get(0)).color().float32(VRenderSystem.clearColor);
-      ((VkClearValue)clearValues.get(1)).depthStencil().set(1.0F, 0);
+      boolean needsColorClear = this.colorAttachmentInfo != null && this.colorAttachmentInfo.loadOp == 1;
+      boolean needsDepthClear = this.depthAttachmentInfo != null && this.depthAttachmentInfo.loadOp == 1;
       VkRenderingInfo renderingInfo = VkRenderingInfo.calloc(stack);
       renderingInfo.sType(1000044000);
       renderingInfo.renderArea(renderArea);
@@ -237,7 +244,11 @@ public class RenderPass {
          colorAttachment.imageLayout(2);
          colorAttachment.loadOp(this.colorAttachmentInfo.loadOp);
          colorAttachment.storeOp(this.colorAttachmentInfo.storeOp);
-         colorAttachment.clearValue((VkClearValue)clearValues.get(0));
+         if (needsColorClear) {
+            org.lwjgl.vulkan.VkClearValue.Buffer clearValues = VkClearValue.malloc(1, stack);
+            ((VkClearValue)clearValues.get(0)).color().float32(VRenderSystem.clearColor);
+            colorAttachment.clearValue((VkClearValue)clearValues.get(0));
+         }
          renderingInfo.pColorAttachments(colorAttachment);
       }
 
@@ -248,7 +259,11 @@ public class RenderPass {
          depthAttachment.imageLayout(3);
          depthAttachment.loadOp(this.depthAttachmentInfo.loadOp);
          depthAttachment.storeOp(this.depthAttachmentInfo.storeOp);
-         depthAttachment.clearValue((VkClearValue)clearValues.get(1));
+         if (needsDepthClear) {
+            org.lwjgl.vulkan.VkClearValue.Buffer clearValues = VkClearValue.malloc(1, stack);
+            ((VkClearValue)clearValues.get(0)).depthStencil().set(1.0F, 0);
+            depthAttachment.clearValue((VkClearValue)clearValues.get(0));
+         }
          renderingInfo.pDepthAttachment(depthAttachment);
       }
 

@@ -96,7 +96,9 @@ public class DefaultMainPass implements MainPass {
    public void begin(VkCommandBuffer commandBuffer, MemoryStack stack) {
       Framebuffer framebuffer = this.mainFramebuffer;
       VulkanImage colorAttachment = framebuffer.getColorAttachment();
-      colorAttachment.transitionImageLayout(stack, commandBuffer, 2);
+      if (colorAttachment.getCurrentLayout() != 2) {
+         colorAttachment.transitionImageLayout(stack, commandBuffer, 2);
+      }
       Renderer.getInstance().beginRenderPass(this.mainRenderPass, framebuffer);
       Renderer.setViewport(0, 0, framebuffer.getWidth(), framebuffer.getHeight(), stack);
       Buffer pScissor = framebuffer.scissor(stack);
