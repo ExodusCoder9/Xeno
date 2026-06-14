@@ -36,7 +36,6 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkBufferMemoryBarrier;
 import org.lwjgl.vulkan.VkCommandBuffer;
-import org.lwjgl.vulkan.VkMemoryBarrier;
 
 public class UploadManager {
    public static UploadManager INSTANCE;
@@ -69,11 +68,14 @@ public class UploadManager {
          MemoryStack stack = MemoryStack.stackPush();
 
          try {
-            org.lwjgl.vulkan.VkMemoryBarrier.Buffer barrier = VkMemoryBarrier.calloc(1, stack);
-            barrier.sType$Default();
-            barrier.srcAccessMask(4096);
-            barrier.dstAccessMask(4096);
-            VK10.vkCmdPipelineBarrier(commandBuffer, 4096, 4096, 0, barrier, null, null);
+            VkBufferMemoryBarrier.Buffer barriers = VkBufferMemoryBarrier.calloc(1, stack);
+            VkBufferMemoryBarrier bufBarrier = barriers.get(0);
+            bufBarrier.sType$Default();
+            bufBarrier.buffer(buffer.getId());
+            bufBarrier.srcAccessMask(VK10.VK_ACCESS_TRANSFER_WRITE_BIT);
+            bufBarrier.dstAccessMask(VK10.VK_ACCESS_TRANSFER_WRITE_BIT);
+            bufBarrier.size(-1L);
+            VK10.vkCmdPipelineBarrier(commandBuffer, VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, 0, null, barriers, null);
          } catch (Throwable var13) {
             if (stack != null) {
                try {
@@ -106,16 +108,14 @@ public class UploadManager {
       MemoryStack stack = MemoryStack.stackPush();
 
       try {
-         org.lwjgl.vulkan.VkMemoryBarrier.Buffer barrier = VkMemoryBarrier.calloc(1, stack);
-         barrier.sType$Default();
-         org.lwjgl.vulkan.VkBufferMemoryBarrier.Buffer bufferMemoryBarriers = VkBufferMemoryBarrier.calloc(1, stack);
-         VkBufferMemoryBarrier bufferMemoryBarrier = (VkBufferMemoryBarrier)bufferMemoryBarriers.get(0);
+         VkBufferMemoryBarrier.Buffer bufferMemoryBarriers = VkBufferMemoryBarrier.calloc(1, stack);
+         VkBufferMemoryBarrier bufferMemoryBarrier = bufferMemoryBarriers.get(0);
          bufferMemoryBarrier.sType$Default();
          bufferMemoryBarrier.buffer(src.getId());
-         bufferMemoryBarrier.srcAccessMask(4096);
-         bufferMemoryBarrier.dstAccessMask(2048);
+         bufferMemoryBarrier.srcAccessMask(VK10.VK_ACCESS_TRANSFER_WRITE_BIT);
+         bufferMemoryBarrier.dstAccessMask(VK10.VK_ACCESS_TRANSFER_READ_BIT);
          bufferMemoryBarrier.size(-1L);
-         VK10.vkCmdPipelineBarrier(commandBuffer, 4096, 4096, 0, barrier, bufferMemoryBarriers, null);
+         VK10.vkCmdPipelineBarrier(commandBuffer, VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, VK10.VK_PIPELINE_STAGE_TRANSFER_BIT, 0, null, bufferMemoryBarriers, null);
       } catch (Throwable var15) {
          if (stack != null) {
             try {

@@ -44,8 +44,9 @@ public class Config {
    public int builderThreads = 0;
    public boolean backFaceCulling = true;
    public boolean greedyMeshing = false;
-   public boolean gpuDrivenRenderer = false;
-   public boolean textureAnimations = true;
+    public boolean gpuDrivenRenderer = false;
+    public boolean entityBatching = false;
+    public boolean textureAnimations = true;
    private static Path CONFIG_PATH;
    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().excludeFieldsWithModifiers(new int[]{2}).create();
 
@@ -81,6 +82,8 @@ public class Config {
          config = new Config();
          config.write();
       }
+
+      config.gpuDrivenRenderer = false;
 
       return config;
    }

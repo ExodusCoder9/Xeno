@@ -30,7 +30,10 @@ import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.phys.Vec3;
+import com.xeno.Initializer;
+import com.xeno.render.entity.EntityBatcher;
 import com.xeno.render.profiling.Profiler;
+import com.xeno.vulkan.Renderer;
 import org.joml.Matrix4fc;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -99,10 +102,26 @@ public class LevelRendererMixin {
       profiler.pop();
    }
 
-   @Inject(method = "submitEntities", at = @At("HEAD"))
-   private void profilerTerrain2(PoseStack poseStack, LevelRenderState levelRenderState, SubmitNodeCollector output, CallbackInfo ci) {
-      Profiler profiler = Profiler.getMainProfiler();
-      profiler.pop();
-      profiler.push("entities");
-   }
+    @Inject(method = "submitEntities", at = @At("HEAD"))
+    private void profilerTerrain2(PoseStack poseStack, LevelRenderState levelRenderState, SubmitNodeCollector output, CallbackInfo ci) {
+       Profiler profiler = Profiler.getMainProfiler();
+       profiler.pop();
+       profiler.push("entities");
+       if (Initializer.CONFIG.entityBatching) {
+          EntityBatcher batcher = Renderer.getEntityBatcher();
+          if (batcher != null) {
+             batcher.setCapturing(true);
+          }
+       }
+    }
+
+    @Inject(method = "submitEntities", at = @At("RETURN"))
+    private void afterSubmitEntities(PoseStack poseStack, LevelRenderState levelRenderState, SubmitNodeCollector output, CallbackInfo ci) {
+       if (Initializer.CONFIG.entityBatching) {
+          EntityBatcher batcher = Renderer.getEntityBatcher();
+          if (batcher != null) {
+             batcher.flush();
+          }
+       }
+    }
 }

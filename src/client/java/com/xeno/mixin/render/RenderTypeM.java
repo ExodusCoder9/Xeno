@@ -36,10 +36,13 @@ import java.util.Map.Entry;
 import java.util.function.Consumer;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import com.xeno.Initializer;
 import com.xeno.interfaces.ExtendedRenderType;
 import com.xeno.render.engine.VkCommandEncoder;
 import com.xeno.render.engine.VkRenderPass;
+import com.xeno.render.entity.EntityBatcher;
 import com.xeno.render.vertex.TerrainRenderType;
+import com.xeno.vulkan.Drawer;
 import com.xeno.vulkan.Renderer;
 import com.xeno.vulkan.VRenderSystem;
 import org.joml.Matrix4fStack;
@@ -81,9 +84,15 @@ public class RenderTypeM implements ExtendedRenderType {
       return this.terrainRenderType;
    }
 
-   @Overwrite
-   public void draw(MeshData meshData) {
-      Matrix4fStack matrix4fStack = RenderSystem.getModelViewStack();
+    @Overwrite
+    public void draw(MeshData meshData) {
+       EntityBatcher batcher = Renderer.getEntityBatcher();
+       if (Initializer.CONFIG.entityBatching && batcher != null && batcher.isCapturing()) {
+          this.drawBatched(meshData, batcher);
+          return;
+       }
+
+       Matrix4fStack matrix4fStack = RenderSystem.getModelViewStack();
       RenderSetupAccessor renderSetupAccessor = (RenderSetupAccessor)(Object)this.state;
       Consumer<Matrix4fStack> consumer = renderSetupAccessor.layeringTransform().getModifier();
       if (consumer != null) {
@@ -145,8 +154,66 @@ public class RenderTypeM implements ExtendedRenderType {
          meshData.close();
       }
 
-      if (consumer != null) {
-         matrix4fStack.popMatrix();
-      }
-   }
+       if (consumer != null) {
+          matrix4fStack.popMatrix();
+       }
+    }
+
+    @Unique
+    private void drawBatched(MeshData meshData, EntityBatcher batcher) {
+       Matrix4fStack matrix4fStack = RenderSystem.getModelViewStack();
+       RenderSetupAccessor renderSetupAccessor = (RenderSetupAccessor)(Object)this.state;
+       Consumer<Matrix4fStack> consumer = renderSetupAccessor.layeringTransform().getModifier();
+       if (consumer != null) {
+          matrix4fStack.pushMatrix();
+          consumer.accept(matrix4fStack);
+       }
+
+       GpuBufferSlice gpuBufferSlice = RenderSystem.getDynamicUniforms()
+          .writeTransform(
+             RenderSystem.getModelViewMatrix(), new Vector4f(1.0F, 1.0F, 1.0F, 1.0F), new Vector3f(), renderSetupAccessor.textureTransform().getMatrix()
+          );
+       Map<String, RenderSetup.TextureAndSampler> map = this.state.getTextures();
+
+       Drawer drawer = Renderer.getDrawer();
+       Drawer.DrawData drawData = drawer.uploadData(
+          meshData.vertexBuffer(), meshData.indexBuffer(),
+          meshData.drawState().mode(), meshData.drawState().format(),
+          meshData.drawState().vertexCount()
+       );
+
+       RenderTarget renderTarget = renderSetupAccessor.outputTarget().getRenderTarget();
+       GpuTextureView gpuTextureView = RenderSystem.outputColorTextureOverride != null
+          ? RenderSystem.outputColorTextureOverride
+          : renderTarget.getColorTextureView();
+       GpuTextureView gpuTextureView2 = renderTarget.useDepth
+          ? (RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : renderTarget.getDepthTextureView())
+          : null;
+
+       ScissorState scissorState = RenderSystem.getScissorStateForRenderTypeDraws();
+
+       batcher.record(new EntityBatcher.RecordedDraw(
+          renderSetupAccessor.pipeline(),
+          gpuTextureView,
+          gpuTextureView2,
+          this.name,
+          map,
+          gpuBufferSlice,
+          drawData.vertexBuffer(),
+          drawData.vertexOffset(),
+          drawData.indexBuffer(),
+          drawData.indexOffset(),
+          drawData.indexCount(),
+          drawData.indexType(),
+          scissorState
+       ));
+
+       if (meshData != null) {
+          meshData.close();
+       }
+
+       if (consumer != null) {
+          matrix4fStack.popMatrix();
+       }
+    }
 }

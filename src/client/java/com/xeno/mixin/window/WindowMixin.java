@@ -39,6 +39,7 @@ import com.xeno.vulkan.Renderer;
 import com.xeno.vulkan.VRenderSystem;
 import com.xeno.vulkan.Vulkan;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWVidMode;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -202,8 +203,23 @@ public abstract class WindowMixin {
          this.isResized = true;
          this.wasOnFullscreen = true;
       } else {
-         this.x = this.windowedX;
-         this.y = this.windowedY;
+         int x = this.windowedX;
+         int y = this.windowedY;
+         long mon = GLFW.glfwGetPrimaryMonitor();
+         if (mon != 0L) {
+            int[] mx = new int[1];
+            int[] my = new int[1];
+            GLFW.glfwGetMonitorPos(mon, mx, my);
+            GLFWVidMode mode = GLFW.glfwGetVideoMode(mon);
+            int minX = mx[0] - this.windowedWidth + 32;
+            int minY = my[0] - this.windowedHeight + 32;
+            int maxX = mx[0] + mode.width() - 32;
+            int maxY = my[0] + mode.height() - 32;
+            x = Math.max(minX, Math.min(x, maxX));
+            y = Math.max(minY, Math.min(y, maxY));
+         }
+         this.x = x;
+         this.y = y;
          this.width = this.windowedWidth;
          this.height = this.windowedHeight;
          this.isResized = true;

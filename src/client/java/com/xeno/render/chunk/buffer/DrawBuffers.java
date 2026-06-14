@@ -66,6 +66,8 @@ public class DrawBuffers {
    final int[] sectionIndices = new int[512];
    final int[] masks = new int[512];
    final long[] buildTimes = new long[512];
+   final int[] activeSlots = new int[512];
+   int activeSlotCount = 0;
    long latestBuildTime = 0L;
    long lastFadeUpdate = -1L;
 
@@ -159,7 +161,11 @@ public class DrawBuffers {
       MemoryAccess.memPutInt(this.sectionDataBuffer.getPointer() + ptrOffset, encodedOffset);
       if (section.getCompiledSection() == CompiledSection.UNCOMPILED) {
          long buildTime = System.currentTimeMillis();
-         this.buildTimes[section.inAreaIndex] = buildTime;
+         int idx = section.inAreaIndex;
+         if (this.buildTimes[idx] == 0L) {
+            this.activeSlots[this.activeSlotCount++] = idx;
+         }
+         this.buildTimes[idx] = buildTime;
          if (buildTime > this.latestBuildTime) {
             this.latestBuildTime = buildTime;
          }
@@ -168,13 +174,13 @@ public class DrawBuffers {
 
    private void updateFadeUniform(long currentTime, int fadeTimeMs, float fadeTimeInv) {
       if (this.lastFadeUpdate < this.latestBuildTime + fadeTimeMs) {
-         int ptrOffset = 2048;
+         long basePtr = this.sectionDataBuffer.getPointer() + 2048;
 
-         for (int i = 0; i < 512; i++) {
-            long delta = currentTime - this.buildTimes[i];
+         for (int i = 0; i < this.activeSlotCount; i++) {
+            int idx = this.activeSlots[i];
+            long delta = currentTime - this.buildTimes[idx];
             float fade = fadeTimeMs > 0 ? Mth.clamp((float)delta * fadeTimeInv, 0.0F, 1.0F) : 1.0F;
-            MemoryAccess.memPutFloat(this.sectionDataBuffer.getPointer() + ptrOffset, fade);
-            ptrOffset += 4;
+            MemoryAccess.memPutFloat(basePtr + idx * 4L, fade);
          }
 
          this.lastFadeUpdate = currentTime;

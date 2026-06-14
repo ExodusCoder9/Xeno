@@ -100,13 +100,37 @@ public class MemoryManager {
       this.currentFrame = frame;
    }
 
-   public void freeAllBuffers() {
-      for (int frame = 0; frame < Frames; frame++) {
-         this.freeBuffers(frame);
-         this.freeImages(frame);
-         this.doFrameOps(frame);
-      }
-   }
+    public void freeAllBuffers() {
+       for (int frame = 0; frame < Frames; frame++) {
+          this.freeBuffers(frame);
+          this.freeImages(frame);
+          this.doFrameOps(frame);
+       }
+       // Safety net: free any remaining tracked buffers not in freeable lists
+       synchronized (this) {
+          if (!buffers.isEmpty()) {
+             Initializer.LOGGER.warn("Freeing {} untracked buffer(s) at shutdown", buffers.size());
+             long[] keys = buffers.keySet().toLongArray();
+             for (long key : keys) {
+                Buffer buf = buffers.get(key);
+                if (buf != null) {
+                   Vma.vmaDestroyBuffer(ALLOCATOR, key, buf.getAllocation());
+                   buffers.remove(key);
+                }
+             }
+          }
+          if (!images.isEmpty()) {
+             Initializer.LOGGER.warn("Freeing {} untracked image(s) at shutdown", images.size());
+             long[] keys = images.keySet().toLongArray();
+             for (long key : keys) {
+                VulkanImage img = images.get(key);
+                if (img != null) {
+                   img.doFree();
+                }
+             }
+          }
+       }
+    }
 
    public void createBuffer(long size, int usage, int properties, LongBuffer pBuffer, PointerBuffer pBufferMemory) {
       MemoryStack stack = MemoryStack.stackPush();

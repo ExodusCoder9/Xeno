@@ -31,6 +31,7 @@ import com.xeno.render.chunk.RenderSection;
 import com.xeno.render.chunk.cull.QuadFacing;
 import com.xeno.render.shader.ShaderLoadUtil;
 import com.xeno.render.vertex.TerrainRenderType;
+import com.xeno.vulkan.Renderer;
 import com.xeno.vulkan.Vulkan;
 import com.xeno.vulkan.device.DeviceManager;
 import com.xeno.vulkan.memory.MemoryManager;
@@ -120,8 +121,8 @@ public class GpuDrawBatcher {
             SPIRVUtils.SPIRV spirv = SPIRVUtils.compileShader("gpu_cull", shaderSrc, SPIRVUtils.ShaderKind.COMPUTE_SHADER);
             ByteBuffer spirvCode = spirv.bytecode();
 
-            VkShaderModuleCreateInfo moduleInfo = VkShaderModuleCreateInfo.calloc(stack);
-            moduleInfo.sType(16);
+             VkShaderModuleCreateInfo moduleInfo = VkShaderModuleCreateInfo.calloc(stack);
+            moduleInfo.sType(VK10.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO);
             moduleInfo.pCode(spirvCode);
             LongBuffer pModule = stack.mallocLong(1);
             VK10.vkCreateShaderModule(Vulkan.getVkDevice(), moduleInfo, null, pModule);
@@ -129,33 +130,33 @@ public class GpuDrawBatcher {
             spirv.free();
 
             VkDescriptorSetLayoutBinding.Buffer bindings = VkDescriptorSetLayoutBinding.calloc(4, stack);
-            bindings.get(0).binding(0).descriptorType(6).descriptorCount(1).stageFlags(32);
-            bindings.get(1).binding(1).descriptorType(7).descriptorCount(1).stageFlags(32);
-            bindings.get(2).binding(2).descriptorType(7).descriptorCount(1).stageFlags(32);
-            bindings.get(3).binding(3).descriptorType(7).descriptorCount(1).stageFlags(32);
+            bindings.get(0).binding(0).descriptorType(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER).descriptorCount(1).stageFlags(VK10.VK_SHADER_STAGE_COMPUTE_BIT);
+            bindings.get(1).binding(1).descriptorType(VK10.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).descriptorCount(1).stageFlags(VK10.VK_SHADER_STAGE_COMPUTE_BIT);
+            bindings.get(2).binding(2).descriptorType(VK10.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).descriptorCount(1).stageFlags(VK10.VK_SHADER_STAGE_COMPUTE_BIT);
+            bindings.get(3).binding(3).descriptorType(VK10.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).descriptorCount(1).stageFlags(VK10.VK_SHADER_STAGE_COMPUTE_BIT);
 
             VkDescriptorSetLayoutCreateInfo layoutInfo = VkDescriptorSetLayoutCreateInfo.calloc(stack);
-            layoutInfo.sType(35);
+            layoutInfo.sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
             layoutInfo.pBindings(bindings);
             LongBuffer pLayout = stack.mallocLong(1);
             VK10.vkCreateDescriptorSetLayout(Vulkan.getVkDevice(), layoutInfo, null, pLayout);
             descriptorSetLayout = pLayout.get(0);
 
             VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkPipelineLayoutCreateInfo.calloc(stack);
-            pipelineLayoutInfo.sType(39);
+            pipelineLayoutInfo.sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
             pipelineLayoutInfo.pSetLayouts(stack.longs(descriptorSetLayout));
             LongBuffer pPipelineLayout = stack.mallocLong(1);
             VK10.vkCreatePipelineLayout(Vulkan.getVkDevice(), pipelineLayoutInfo, null, pPipelineLayout);
             pipelineLayout = pPipelineLayout.get(0);
 
             VkPipelineShaderStageCreateInfo stageInfo = VkPipelineShaderStageCreateInfo.calloc(stack);
-            stageInfo.sType(18);
-            stageInfo.stage(32);
+            stageInfo.sType(VK10.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
+            stageInfo.stage(VK10.VK_SHADER_STAGE_COMPUTE_BIT);
             stageInfo.module(shaderModule);
             stageInfo.pName(stack.UTF8("main"));
 
             VkComputePipelineCreateInfo.Buffer computeInfoBuf = VkComputePipelineCreateInfo.calloc(1, stack);
-            computeInfoBuf.get(0).sType(29).stage(stageInfo).layout(pipelineLayout);
+            computeInfoBuf.get(0).sType(VK10.VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO).stage(stageInfo).layout(pipelineLayout);
 
             LongBuffer pPipeline = stack.mallocLong(1);
             VK10.vkCreateComputePipelines(Vulkan.getVkDevice(), 0L, computeInfoBuf, null, pPipeline);
@@ -172,20 +173,20 @@ public class GpuDrawBatcher {
         long drawParamSize = (long)MAX_DRAW_PARAMS * DRAW_PARAM_STRIDE;
         long outputSize = (long)MAX_OUTPUT_COMMANDS * OUTPUT_STRIDE;
 
-        sectionBuffer = new Buffer("GpuSectionSSBO", 128 | 2, MemoryTypes.HOST_MEM);
+        sectionBuffer = new Buffer("GpuSectionSSBO", VK10.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT, MemoryTypes.HOST_MEM);
         sectionBuffer.createBuffer(sectionSize);
         sectionMapped = MemoryUtil.memFloatBuffer(sectionBuffer.getDataPtr(), (int)(sectionSize / 4));
 
-        drawParamBuffer = new Buffer("GpuDrawParamSSBO", 128 | 2, MemoryTypes.HOST_MEM);
+        drawParamBuffer = new Buffer("GpuDrawParamSSBO", VK10.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT, MemoryTypes.HOST_MEM);
         drawParamBuffer.createBuffer(drawParamSize);
         drawParamMapped = MemoryUtil.memIntBuffer(drawParamBuffer.getDataPtr(), (int)(drawParamSize / 4));
 
-        outputBuffer = new Buffer("GpuOutputSSBO", 128 | 256, MemoryTypes.GPU_MEM);
+        outputBuffer = new Buffer("GpuOutputSSBO", VK10.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK10.VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, MemoryTypes.GPU_MEM);
         outputBuffer.createBuffer(outputSize);
 
         LongBuffer pBuf = MemoryUtil.memAllocLong(1);
         PointerBuffer pAlloc = MemoryUtil.memAllocPointer(1);
-        MemoryManager.getInstance().createBuffer(32, 4, 11, pBuf, pAlloc);
+        MemoryManager.getInstance().createBuffer(32, VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 11, pBuf, pAlloc);
         uniformBufferId = pBuf.get(0);
         uniformBufferAlloc = pAlloc.get(0);
         uniformMappedPtr = MemoryManager.getInstance().Map(uniformBufferAlloc).get(0);
@@ -197,12 +198,12 @@ public class GpuDrawBatcher {
         MemoryStack stack = MemoryStack.stackPush();
         try {
             VkDescriptorPoolSize.Buffer poolSizeBuf = VkDescriptorPoolSize.calloc(2, stack);
-            poolSizeBuf.get(0).type(6).descriptorCount(1);
-            poolSizeBuf.get(1).type(7).descriptorCount(3);
+            poolSizeBuf.get(0).type(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER).descriptorCount(2);
+            poolSizeBuf.get(1).type(VK10.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).descriptorCount(6);
 
             VkDescriptorPoolCreateInfo poolInfo = VkDescriptorPoolCreateInfo.calloc(stack);
-            poolInfo.sType(33);
-            poolInfo.maxSets(4);
+            poolInfo.sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
+            poolInfo.maxSets(2);
             poolInfo.pPoolSizes(poolSizeBuf);
             LongBuffer pPool = stack.mallocLong(1);
             VK10.vkCreateDescriptorPool(Vulkan.getVkDevice(), poolInfo, null, pPool);
@@ -214,7 +215,7 @@ public class GpuDrawBatcher {
             layouts.put(1, descriptorSetLayout);
 
             VkDescriptorSetAllocateInfo allocInfo = VkDescriptorSetAllocateInfo.calloc(stack);
-            allocInfo.sType(34);
+            allocInfo.sType(VK10.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO);
             allocInfo.descriptorPool(descriptorPool);
             allocInfo.pSetLayouts(layouts);
             LongBuffer pSets = stack.mallocLong(2);
@@ -237,10 +238,10 @@ public class GpuDrawBatcher {
         bufferInfos.get(3).buffer(outputBuffer.getId()).offset(0).range(outputBuffer.getBufferSize());
 
         VkWriteDescriptorSet.Buffer writes = VkWriteDescriptorSet.calloc(4, stack);
-        writes.get(0).sType(49).dstSet(descriptorSets[frame]).dstBinding(0).descriptorCount(1).descriptorType(6).pBufferInfo(bufferInfos.position(0));
-        writes.get(1).sType(49).dstSet(descriptorSets[frame]).dstBinding(1).descriptorCount(1).descriptorType(7).pBufferInfo(bufferInfos.position(1));
-        writes.get(2).sType(49).dstSet(descriptorSets[frame]).dstBinding(2).descriptorCount(1).descriptorType(7).pBufferInfo(bufferInfos.position(2));
-        writes.get(3).sType(49).dstSet(descriptorSets[frame]).dstBinding(3).descriptorCount(1).descriptorType(7).pBufferInfo(bufferInfos.position(3));
+        writes.get(0).sType(VK10.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET).dstSet(descriptorSets[frame]).dstBinding(0).descriptorCount(1).descriptorType(VK10.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER).pBufferInfo(bufferInfos.position(0));
+        writes.get(1).sType(VK10.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET).dstSet(descriptorSets[frame]).dstBinding(1).descriptorCount(1).descriptorType(VK10.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).pBufferInfo(bufferInfos.position(1));
+        writes.get(2).sType(VK10.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET).dstSet(descriptorSets[frame]).dstBinding(2).descriptorCount(1).descriptorType(VK10.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).pBufferInfo(bufferInfos.position(2));
+        writes.get(3).sType(VK10.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET).dstSet(descriptorSets[frame]).dstBinding(3).descriptorCount(1).descriptorType(VK10.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).pBufferInfo(bufferInfos.position(3));
 
         VK10.vkUpdateDescriptorSets(Vulkan.getVkDevice(), writes, null);
     }
@@ -269,15 +270,21 @@ public class GpuDrawBatcher {
         MemoryUtil.memPutFloat(uniformMappedPtr, (float)cameraPos.x);
         MemoryUtil.memPutFloat(uniformMappedPtr + 4, (float)cameraPos.y);
         MemoryUtil.memPutFloat(uniformMappedPtr + 8, (float)cameraPos.z);
-        MemoryUtil.memPutInt(uniformMappedPtr + 12, sectionCount);
-        MemoryUtil.memPutInt(uniformMappedPtr + 16, renderType.ordinal());
-        MemoryUtil.memPutInt(uniformMappedPtr + 20, (Initializer.CONFIG.backFaceCulling && renderType != TerrainRenderType.TRANSLUCENT) ? 1 : 0);
+        // std140: vec3 has 16-byte alignment → padding at offsets 12-15
+        MemoryUtil.memPutInt(uniformMappedPtr + 16, sectionCount);
+        MemoryUtil.memPutInt(uniformMappedPtr + 20, renderType.ordinal());
+        MemoryUtil.memPutInt(uniformMappedPtr + 24, (Initializer.CONFIG.backFaceCulling && renderType != TerrainRenderType.TRANSLUCENT) ? 1 : 0);
 
-        VK10.vkCmdBindPipeline(cmdBuffer, 1, computePipeline);
+        Renderer renderer = Renderer.getInstance();
+
+        // End the render pass — compute dispatch + barrier must be outside it
+        renderer.endRenderPass(cmdBuffer);
+
+        VK10.vkCmdBindPipeline(cmdBuffer, VK10.VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
         MemoryStack bindStack = MemoryStack.stackPush();
         try {
             LongBuffer dsBuf = bindStack.longs(descriptorSets[currentFrame % descriptorSets.length]);
-            VK10.vkCmdBindDescriptorSets(cmdBuffer, 1, pipelineLayout, 0, dsBuf, null);
+            VK10.vkCmdBindDescriptorSets(cmdBuffer, VK10.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, dsBuf, null);
         } finally {
             bindStack.close();
         }
@@ -288,16 +295,19 @@ public class GpuDrawBatcher {
         MemoryStack barrierStack = MemoryStack.stackPush();
         try {
             VkBufferMemoryBarrier.Buffer bufBarrier = VkBufferMemoryBarrier.calloc(1, barrierStack);
-            bufBarrier.sType(44);
-            bufBarrier.srcAccessMask(4096);
-            bufBarrier.dstAccessMask(1048576);
+            bufBarrier.sType(VK10.VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER);
+            bufBarrier.srcAccessMask(VK10.VK_ACCESS_SHADER_WRITE_BIT);
+            bufBarrier.dstAccessMask(VK10.VK_ACCESS_INDIRECT_COMMAND_READ_BIT);
             bufBarrier.buffer(outputBuffer.getId());
             bufBarrier.offset(0);
             bufBarrier.size(outputBuffer.getBufferSize());
-            VK10.vkCmdPipelineBarrier(cmdBuffer, 32, 2, 0, null, bufBarrier, null);
+            VK10.vkCmdPipelineBarrier(cmdBuffer, VK10.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK10.VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, null, bufBarrier, null);
         } finally {
             barrierStack.close();
         }
+
+        // Restart render pass with LOAD load op to preserve any already-rendered content
+        renderer.getMainPass().rebindMainTarget();
 
         VK10.vkCmdDrawIndexedIndirect(cmdBuffer, outputBuffer.getId(), 0, sectionCount * FACINGS_PER_RENDER_TYPE, OUTPUT_STRIDE);
 

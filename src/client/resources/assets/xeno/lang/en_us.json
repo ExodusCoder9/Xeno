@@ -61,5 +61,9 @@
 
   "xeno.options.textureAnimations": "Animated Textures",
 
+  "xeno.options.entityBatching": "Entity Draw Call Batching",
+  "xeno.options.entityBatching.tooltip": "Groups entity draw calls by shader pipeline to reduce render pass creation overhead. Increases CPU memory usage per frame.",
+
+
   "xeno.options.searchFieldPlaceholder": "Search Settings"
 }

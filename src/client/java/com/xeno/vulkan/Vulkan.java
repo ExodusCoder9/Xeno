@@ -41,6 +41,8 @@ import com.xeno.vulkan.memory.buffer.StagingBuffers;
 import com.xeno.vulkan.queue.Queue;
 import com.xeno.vulkan.shader.Pipeline;
 import com.xeno.vulkan.texture.SamplerManager;
+import com.xeno.Initializer;
+import com.xeno.vulkan.util.VUtil;
 import com.xeno.vulkan.util.VkResult;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFWVulkan;
@@ -66,9 +68,9 @@ import org.lwjgl.vulkan.VkLayerProperties;
 import org.lwjgl.vulkan.VkLayerProperties.Buffer;
 
 public class Vulkan {
-   public static final boolean ENABLE_VALIDATION_LAYERS = false;
+    public static final boolean ENABLE_VALIDATION_LAYERS = false;
    public static final boolean DYNAMIC_RENDERING = true;
-   public static final Set<String> VALIDATION_LAYERS = null;
+   public static final Set<String> VALIDATION_LAYERS = Set.of("VK_LAYER_KHRONOS_validation");
    public static final Set<String> REQUIRED_EXTENSION = getRequiredExtensionSet();
    public static long window;
    public static Set<String> instanceExtensions;
@@ -94,18 +96,14 @@ public class Vulkan {
 
    private static int debugCallback(int messageSeverity, int messageType, long pCallbackData, long pUserData) {
       VkDebugUtilsMessengerCallbackDataEXT callbackData = VkDebugUtilsMessengerCallbackDataEXT.create(pCallbackData);
-      String s;
-      if ((messageSeverity & 4096) != 0) {
-         s = "\u001b[35m" + callbackData.pMessageString();
+      String msg = callbackData.pMessageString();
+      if ((messageSeverity & EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
+         Initializer.LOGGER.error("[Vulkan] {}", msg);
+      } else if ((messageSeverity & EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) != 0) {
+         Initializer.LOGGER.warn("[Vulkan] {}", msg);
       } else {
-         s = callbackData.pMessageString();
+         Initializer.LOGGER.info("[Vulkan] {}", msg);
       }
-
-      System.err.println(s);
-      if ((messageSeverity & 4096) != 0) {
-         System.nanoTime();
-      }
-
       return 0;
    }
 
@@ -174,6 +172,9 @@ public class Vulkan {
 
    private static void createInstance() {
       instanceExtensions = querySupportedInstanceExtension();
+      if (ENABLE_VALIDATION_LAYERS && !checkValidationLayerSupport()) {
+         throw new RuntimeException("Validation layers requested but not available");
+      }
       MemoryStack stack = MemoryStack.stackPush();
 
       try {
@@ -188,6 +189,9 @@ public class Vulkan {
          createInfo.sType(1);
          createInfo.pApplicationInfo(appInfo);
          createInfo.ppEnabledExtensionNames(getRequiredInstanceExtensions());
+         if (ENABLE_VALIDATION_LAYERS) {
+            createInfo.ppEnabledLayerNames(VUtil.asPointerBuffer(VALIDATION_LAYERS));
+         }
          PointerBuffer instancePtr = stack.mallocPointer(1);
          int result = VK10.vkCreateInstance(createInfo, null, instancePtr);
          checkResult(result, "Failed to create instance");
@@ -241,12 +245,36 @@ public class Vulkan {
 
    private static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo) {
       debugCreateInfo.sType(1000128004);
-      debugCreateInfo.messageSeverity(4352);
-      debugCreateInfo.messageType(7);
+      debugCreateInfo.messageSeverity(
+         EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+         EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+         EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+         EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+      );
+      debugCreateInfo.messageType(
+         EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+         EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+         EXTDebugUtils.VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
+      );
       debugCreateInfo.pfnUserCallback(Vulkan::debugCallback);
    }
 
    private static void setupDebugMessenger() {
+      if (!ENABLE_VALIDATION_LAYERS) return;
+      MemoryStack stack = MemoryStack.stackPush();
+      try {
+         VkDebugUtilsMessengerCreateInfoEXT createInfo = VkDebugUtilsMessengerCreateInfoEXT.calloc(stack);
+         populateDebugMessengerCreateInfo(createInfo);
+         LongBuffer pMessenger = stack.mallocLong(1);
+         int result = createDebugUtilsMessengerEXT(instance, createInfo, null, pMessenger);
+         if (result != 0) {
+            Initializer.LOGGER.warn("Failed to set up debug messenger: {}", VkResult.decode(result));
+         } else {
+            debugMessenger = pMessenger.get(0);
+         }
+      } finally {
+         stack.close();
+      }
    }
 
    public static void setDebugLabel(MemoryStack stack, int objectType, long handle, String label) {
@@ -343,6 +371,10 @@ public class Vulkan {
       List<String> otherExtensions = new ArrayList<>();
       if (Util.getPlatform() == OS.OSX && instanceExtensions.contains("VK_KHR_portability_enumeration")) {
          otherExtensions.add("VK_KHR_portability_enumeration");
+      }
+
+      if (ENABLE_VALIDATION_LAYERS) {
+         otherExtensions.add("VK_EXT_debug_utils");
       }
 
       if (otherExtensions.isEmpty()) {

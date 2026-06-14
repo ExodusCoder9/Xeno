@@ -36,6 +36,7 @@ import com.xeno.Initializer;
 import com.xeno.gl.VkGlFramebuffer;
 import com.xeno.mixin.window.WindowAccessor;
 import com.xeno.render.chunk.WorldRenderer;
+import com.xeno.render.entity.EntityBatcher;
 import com.xeno.render.chunk.buffer.UploadManager;
 import com.xeno.render.profiling.Profiler;
 import com.xeno.render.shader.PipelineManager;
@@ -83,8 +84,9 @@ public class Renderer {
    private final Set<Pipeline> usedPipelines = new ObjectOpenHashSet();
    private Pipeline boundPipeline;
    private long boundPipelineHandle;
-   private Drawer drawer;
-   private SwapChain swapChain;
+    private Drawer drawer;
+    private EntityBatcher entityBatcher;
+    private SwapChain swapChain;
    private int framesNum;
    private List<VkCommandBuffer> mainCommandBuffers;
    private long[] imageAvailableSemaphores;
@@ -93,12 +95,13 @@ public class Renderer {
    private List<CommandPool.CommandBuffer> transferCbs;
    private Framebuffer boundFramebuffer;
    private RenderPass boundRenderPass;
-   private static int currentFrame = 0;
-   private static int imageIndex;
-   private static int lastReset = -1;
-   private VkCommandBuffer currentCmdBuffer;
-   private boolean recordingCmds = false;
-   int recursion = 0;
+    private static int currentFrame = 0;
+    private static int imageIndex;
+    private static int lastReset = -1;
+    private VkCommandBuffer currentCmdBuffer;
+    private boolean recordingCmds = false;
+    private boolean consumedAcquireSemaphore = false;
+    int recursion = 0;
    MainPass mainPass;
    private final List<Runnable> onResizeCallbacks = new ObjectArrayList();
 
@@ -111,9 +114,13 @@ public class Renderer {
       return INSTANCE;
    }
 
-   public static Drawer getDrawer() {
-      return INSTANCE.drawer;
-   }
+    public static Drawer getDrawer() {
+       return INSTANCE.drawer;
+    }
+
+    public static EntityBatcher getEntityBatcher() {
+       return INSTANCE.entityBatcher;
+    }
 
    public static int getCurrentFrame() {
       return currentFrame;
@@ -140,8 +147,9 @@ public class Renderer {
       this.swapChain = new SwapChain();
       this.mainPass = DefaultMainPass.create();
       this.drawer = new Drawer();
-      this.drawer.createResources(this.framesNum);
-      Uniforms.setupDefaultUniforms();
+       this.drawer.createResources(this.framesNum);
+       this.entityBatcher = new EntityBatcher();
+       Uniforms.setupDefaultUniforms();
       PipelineManager.init();
       UploadManager.createInstance();
       this.allocateCommandBuffers();
@@ -359,147 +367,161 @@ public class Renderer {
       }
    }
 
-   private void submitFrame() {
-      MemoryStack stack = MemoryStack.stackPush();
+    private void submitFrame() {
+       MemoryStack stack = MemoryStack.stackPush();
 
-      label80: {
-         try {
-            VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack);
-            submitInfo.sType(4);
-            int waitSemaphoreCount = Synchronization.INSTANCE.getWaitSemaphoreCount();
-            int totalWaitSemaphores = waitSemaphoreCount;
-            if (this.swapChain.isAcquired()) {
-               totalWaitSemaphores++;
-            }
+       label80: {
+          try {
+             VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack);
+             submitInfo.sType(4);
+             int waitSemaphoreCount = Synchronization.INSTANCE.getWaitSemaphoreCount();
+             int totalWaitSemaphores = waitSemaphoreCount;
+             if (this.swapChain.isAcquired() && !this.consumedAcquireSemaphore) {
+                totalWaitSemaphores++;
+             }
 
-            LongBuffer waitSemaphores = stack.mallocLong(totalWaitSemaphores);
-            IntBuffer waitDstStageMask = stack.mallocInt(totalWaitSemaphores);
-            Synchronization.INSTANCE.getWaitSemaphores(waitSemaphores);
+             LongBuffer waitSemaphores = stack.mallocLong(totalWaitSemaphores);
+             IntBuffer waitDstStageMask = stack.mallocInt(totalWaitSemaphores);
+             Synchronization.INSTANCE.getWaitSemaphores(waitSemaphores);
 
-            for (int i = 0; i < waitSemaphoreCount; i++) {
-               waitDstStageMask.put(i, 1);
-            }
+             for (int i = 0; i < waitSemaphoreCount; i++) {
+                waitDstStageMask.put(i, 1);
+             }
 
-            if (this.swapChain.isAcquired()) {
-               waitSemaphores.put(totalWaitSemaphores - 1, this.imageAvailableSemaphores[currentFrame]);
-               waitDstStageMask.put(totalWaitSemaphores - 1, 1024);
-            }
+             if (this.swapChain.isAcquired() && !this.consumedAcquireSemaphore) {
+                waitSemaphores.put(totalWaitSemaphores - 1, this.imageAvailableSemaphores[currentFrame]);
+                waitDstStageMask.put(totalWaitSemaphores - 1, 1024);
+             }
 
-            waitSemaphores.position(0);
-            waitSemaphores.limit(totalWaitSemaphores);
-            submitInfo.pWaitSemaphores(waitSemaphores);
-            submitInfo.waitSemaphoreCount(waitSemaphores.limit());
-            submitInfo.pWaitDstStageMask(waitDstStageMask);
-            submitInfo.pCommandBuffers(stack.pointers(this.currentCmdBuffer));
-            if (this.swapChain.isAcquired()) {
-               submitInfo.pSignalSemaphores(stack.longs(this.renderFinishedSemaphores[imageIndex]));
-            }
+             waitSemaphores.position(0);
+             waitSemaphores.limit(totalWaitSemaphores);
+             submitInfo.pWaitSemaphores(waitSemaphores);
+             submitInfo.waitSemaphoreCount(waitSemaphores.limit());
+             submitInfo.pWaitDstStageMask(waitDstStageMask);
+             submitInfo.pCommandBuffers(stack.pointers(this.currentCmdBuffer));
+             if (this.swapChain.isAcquired()) {
+                submitInfo.pSignalSemaphores(stack.longs(this.renderFinishedSemaphores[imageIndex]));
+             }
 
-            VK10.vkResetFences(device, this.inFlightFences[currentFrame]);
-            int vkResult;
-            if ((vkResult = VK10.vkQueueSubmit(DeviceManager.getGraphicsQueue().vkQueue(), submitInfo, this.inFlightFences[currentFrame])) != 0) {
-               VK10.vkResetFences(device, this.inFlightFences[currentFrame]);
-               throw new RuntimeException("Failed to submit draw command buffer: %s".formatted(VkResult.decode(vkResult)));
-            }
+             VK10.vkResetFences(device, this.inFlightFences[currentFrame]);
+             int vkResult;
+             if ((vkResult = VK10.vkQueueSubmit(DeviceManager.getGraphicsQueue().vkQueue(), submitInfo, this.inFlightFences[currentFrame])) != 0) {
+                VK10.vkResetFences(device, this.inFlightFences[currentFrame]);
+                throw new RuntimeException("Failed to submit draw command buffer: %s".formatted(VkResult.decode(vkResult)));
+             }
 
-            Synchronization.INSTANCE.scheduleCbReset();
-            if (this.swapChain.isAcquired()) {
-               VkPresentInfoKHR presentInfo = VkPresentInfoKHR.calloc(stack);
-               presentInfo.sType(1000001001);
-               presentInfo.pWaitSemaphores(stack.longs(this.renderFinishedSemaphores[imageIndex]));
-               presentInfo.swapchainCount(1);
-               presentInfo.pSwapchains(stack.longs(this.swapChain.getId()));
-               presentInfo.pImageIndices(stack.ints(imageIndex));
-               vkResult = KHRSwapchain.vkQueuePresentKHR(DeviceManager.getPresentQueue().vkQueue(), presentInfo);
-               if (vkResult == -1000001004 || vkResult == 1000001003 || swapChainUpdate) {
-                  swapChainUpdate = true;
-                  break label80;
-               }
+             Synchronization.INSTANCE.scheduleCbReset();
+             if (this.swapChain.isAcquired()) {
+                VkPresentInfoKHR presentInfo = VkPresentInfoKHR.calloc(stack);
+                presentInfo.sType(1000001001);
+                presentInfo.pWaitSemaphores(stack.longs(this.renderFinishedSemaphores[imageIndex]));
+                presentInfo.swapchainCount(1);
+                presentInfo.pSwapchains(stack.longs(this.swapChain.getId()));
+                presentInfo.pImageIndices(stack.ints(imageIndex));
+                vkResult = KHRSwapchain.vkQueuePresentKHR(DeviceManager.getPresentQueue().vkQueue(), presentInfo);
+                if (vkResult == -1000001004 || vkResult == 1000001003 || swapChainUpdate) {
+                   swapChainUpdate = true;
+                   break label80;
+                }
 
-               if (vkResult != 0) {
-                  throw new RuntimeException("Failed to present rendered frame: %s".formatted(VkResult.decode(vkResult)));
-               }
-            }
+                if (vkResult != 0) {
+                   throw new RuntimeException("Failed to present rendered frame: %s".formatted(VkResult.decode(vkResult)));
+                }
+             }
 
-            Vulkan.getStagingBuffers().endFrame(currentFrame);
-            currentFrame = (currentFrame + 1) % this.framesNum;
-            this.swapChain.setAcquired(false);
-         } catch (Throwable var10) {
-            if (stack != null) {
-               try {
-                  stack.close();
-               } catch (Throwable var9) {
-                  var10.addSuppressed(var9);
-               }
-            }
+             Vulkan.getStagingBuffers().endFrame(currentFrame);
+             currentFrame = (currentFrame + 1) % this.framesNum;
+             this.swapChain.setAcquired(false);
+             this.consumedAcquireSemaphore = false;
+          } catch (Throwable var10) {
+             if (stack != null) {
+                try {
+                   stack.close();
+                } catch (Throwable var9) {
+                   var9.addSuppressed(var9);
+                }
+             }
 
-            throw var10;
-         }
+             throw var10;
+          }
 
-         if (stack != null) {
-            stack.close();
-         }
+          if (stack != null) {
+             stack.close();
+          }
 
-         return;
-      }
+          return;
+       }
 
-      if (stack != null) {
-         stack.close();
-      }
-   }
+        if (stack != null) {
+           stack.close();
+        }
+     }
 
-   public void flushCmds() {
-      if (this.recordingCmds) {
-         MemoryStack stack = MemoryStack.stackPush();
+     public void flushCmds() {
+       if (this.recordingCmds) {
+          MemoryStack stack = MemoryStack.stackPush();
 
-         try {
-            this.endRenderPass(this.currentCmdBuffer);
-            VK10.vkEndCommandBuffer(this.currentCmdBuffer);
-            VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack);
-            submitInfo.sType(4);
-            submitInfo.pCommandBuffers(stack.pointers(this.currentCmdBuffer));
-            int waitSemaphoreCount = Synchronization.INSTANCE.getWaitSemaphoreCount();
-            LongBuffer waitSemaphores = stack.mallocLong(waitSemaphoreCount);
-            IntBuffer waitDstStageMask = stack.mallocInt(waitSemaphoreCount);
-            Synchronization.INSTANCE.getWaitSemaphores(waitSemaphores);
+          try {
+             this.endRenderPass(this.currentCmdBuffer);
+             VK10.vkEndCommandBuffer(this.currentCmdBuffer);
+             VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack);
+             submitInfo.sType(4);
+             int waitSemaphoreCount = Synchronization.INSTANCE.getWaitSemaphoreCount();
+             int totalWaitSemaphores = waitSemaphoreCount;
+             if (this.swapChain.isAcquired()) {
+                totalWaitSemaphores++;
+             }
 
-            for (int i = 0; i < waitSemaphoreCount; i++) {
-               waitDstStageMask.put(i, 1);
-            }
+             LongBuffer waitSemaphores = stack.mallocLong(totalWaitSemaphores);
+             IntBuffer waitDstStageMask = stack.mallocInt(totalWaitSemaphores);
+             Synchronization.INSTANCE.getWaitSemaphores(waitSemaphores);
 
-            waitSemaphores.position(0);
-            waitSemaphores.limit(waitSemaphoreCount);
-            submitInfo.pWaitSemaphores(waitSemaphores);
-            submitInfo.waitSemaphoreCount(waitSemaphores.limit());
-            submitInfo.pWaitDstStageMask(waitDstStageMask);
-            this.submitUploads();
-            this.waitFences();
-            VK10.vkResetFences(device, this.inFlightFences[currentFrame]);
-            int vkResult;
-            if ((vkResult = VK10.vkQueueSubmit(DeviceManager.getGraphicsQueue().vkQueue(), submitInfo, this.inFlightFences[currentFrame])) != 0) {
-               VK10.vkResetFences(device, this.inFlightFences[currentFrame]);
-               throw new RuntimeException("Failed to submit draw command buffer: %s".formatted(VkResult.decode(vkResult)));
-            }
+             for (int i = 0; i < waitSemaphoreCount; i++) {
+                waitDstStageMask.put(i, 1);
+             }
 
-            VK10.vkWaitForFences(device, this.inFlightFences[currentFrame], true, -1L);
-            this.beginMainRenderPass(stack);
-         } catch (Throwable var9) {
-            if (stack != null) {
-               try {
-                  stack.close();
-               } catch (Throwable var8) {
-                  var9.addSuppressed(var8);
-               }
-            }
+             if (this.swapChain.isAcquired()) {
+                waitSemaphores.put(totalWaitSemaphores - 1, this.imageAvailableSemaphores[currentFrame]);
+                waitDstStageMask.put(totalWaitSemaphores - 1, 1024);
+             }
 
-            throw var9;
-         }
+             waitSemaphores.position(0);
+             waitSemaphores.limit(totalWaitSemaphores);
+             submitInfo.pWaitSemaphores(waitSemaphores);
+             submitInfo.waitSemaphoreCount(waitSemaphores.limit());
+             submitInfo.pWaitDstStageMask(waitDstStageMask);
+             submitInfo.pCommandBuffers(stack.pointers(this.currentCmdBuffer));
+             this.submitUploads();
+             this.waitFences();
+             VK10.vkResetFences(device, this.inFlightFences[currentFrame]);
+             int vkResult;
+             if ((vkResult = VK10.vkQueueSubmit(DeviceManager.getGraphicsQueue().vkQueue(), submitInfo, this.inFlightFences[currentFrame])) != 0) {
+                VK10.vkResetFences(device, this.inFlightFences[currentFrame]);
+                throw new RuntimeException("Failed to submit draw command buffer: %s".formatted(VkResult.decode(vkResult)));
+             }
 
-         if (stack != null) {
-            stack.close();
-         }
-      }
-   }
+             VK10.vkWaitForFences(device, this.inFlightFences[currentFrame], true, -1L);
+             if (this.swapChain.isAcquired()) {
+                this.consumedAcquireSemaphore = true;
+             }
+             this.beginMainRenderPass(stack);
+          } catch (Throwable var9) {
+             if (stack != null) {
+                try {
+                   stack.close();
+                } catch (Throwable var8) {
+                   var9.addSuppressed(var8);
+                }
+             }
+
+             throw var9;
+          }
+
+          if (stack != null) {
+             stack.close();
+          }
+       }
+    }
 
    public void submitUploads() {
       CommandPool.CommandBuffer transferCb = this.transferCbs.get(currentFrame);

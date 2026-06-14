@@ -165,9 +165,44 @@ public class Drawer {
       this.debugLineStripIndexBuffer.freeBuffer();
    }
 
-   public AutoIndexBuffer getQuadsIndexBuffer() {
-      return this.quadsIndexBuffer;
-   }
+    public record DrawData(VertexBuffer vertexBuffer, long vertexOffset, Buffer indexBuffer, long indexOffset, int indexCount, int indexType) {}
+
+    public DrawData uploadData(ByteBuffer vertexData, ByteBuffer indexData, Mode mode, VertexFormat vertexFormat, int vertexCount) {
+       VertexBuffer vertexBuffer = this.vertexBuffers[this.currentFrame];
+       int size = vertexFormat.getVertexSize() * vertexCount;
+       vertexBuffer.copyBuffer(vertexData, size);
+       long vertexOffset = vertexBuffer.getOffset();
+       if (indexData != null) {
+          IndexBuffer indexBuffer = this.indexBuffers[this.currentFrame];
+          indexBuffer.copyBuffer(indexData, indexData.remaining());
+          int indexCount = vertexCount * 3 / 2;
+          return new DrawData(vertexBuffer, vertexOffset, indexBuffer, indexBuffer.getOffset(), indexCount, indexBuffer.indexType.value);
+       }
+       AutoIndexBuffer autoIndexBuffer = this.getAutoIndexBuffer(mode, vertexCount);
+       if (autoIndexBuffer != null) {
+          int indexCount = autoIndexBuffer.getIndexCount(vertexCount);
+          autoIndexBuffer.checkCapacity(vertexCount);
+          return new DrawData(vertexBuffer, vertexOffset, autoIndexBuffer.getIndexBuffer(), 0L, indexCount, autoIndexBuffer.getIndexBuffer().indexType.value);
+       }
+       return new DrawData(vertexBuffer, vertexOffset, null, -1L, vertexCount, 0);
+    }
+
+    public void drawPrepared(VertexBuffer vertexBuffer, long vertexOffset, Buffer indexBuffer, long indexOffset, int indexCount, int indexType) {
+       VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
+       MemoryAccess.memPutLong(pBuffers, vertexBuffer.getId());
+       MemoryAccess.memPutLong(pOffsets, vertexOffset);
+       VK10.nvkCmdBindVertexBuffers(commandBuffer, 0, 1, pBuffers, pOffsets);
+       if (indexBuffer != null && indexOffset >= 0L) {
+          VK10.vkCmdBindIndexBuffer(commandBuffer, indexBuffer.getId(), indexOffset, indexType);
+          VK10.vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+       } else {
+          VK10.vkCmdDraw(commandBuffer, indexCount, 1, 0, 0);
+       }
+    }
+
+    public AutoIndexBuffer getQuadsIndexBuffer() {
+       return this.quadsIndexBuffer;
+    }
 
    public AutoIndexBuffer getLinesIndexBuffer() {
       return this.linesIndexBuffer;

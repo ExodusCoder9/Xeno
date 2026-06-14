@@ -433,13 +433,18 @@ public abstract class Options {
                   minecraft.levelRenderer.allChanged();
                }, () -> config.greedyMeshing).setTooltip(v -> Component.translatable("xeno.options.greedyMeshing.tooltip")).setImpact(
                   PerformanceImpact.HIGH
-               ).setActivationFn(() -> false),
-               new SwitchOption(Component.translatable("xeno.options.gpuDrivenRenderer"), v -> {
-                  config.gpuDrivenRenderer = v;
-                  minecraft.levelRenderer.allChanged();
-               }, () -> config.gpuDrivenRenderer).setTooltip(v -> Component.translatable("xeno.options.gpuDrivenRenderer.tooltip")).setImpact(
-                  PerformanceImpact.HIGH
-               ).setActivationFn(() -> false)
+                ).setActivationFn(() -> false),
+                new SwitchOption(Component.translatable("xeno.options.gpuDrivenRenderer"), v -> {
+                    config.gpuDrivenRenderer = v;
+                    minecraft.levelRenderer.allChanged();
+                 }, () -> config.gpuDrivenRenderer).setTooltip(v -> Component.translatable("xeno.options.gpuDrivenRenderer.tooltip")).setImpact(
+                    PerformanceImpact.HIGH
+                 ).setActivationFn(() -> false),
+                 new SwitchOption(Component.translatable("xeno.options.entityBatching"), v -> {
+                    config.entityBatching = v;
+                 }, () -> config.entityBatching).setTooltip(v -> Component.translatable("xeno.options.entityBatching.tooltip")).setImpact(
+                    PerformanceImpact.HIGH
+                 )
             }
          )
       };

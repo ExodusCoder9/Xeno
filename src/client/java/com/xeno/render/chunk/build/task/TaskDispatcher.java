@@ -52,7 +52,7 @@ public class TaskDispatcher {
    }
 
    public void createThreads() {
-      int n = Math.max((Runtime.getRuntime().availableProcessors() - 1) / 2, 1);
+      int n = Math.max(Runtime.getRuntime().availableProcessors() - 2, 1);
       this.createThreads(n);
    }
 
@@ -69,7 +69,7 @@ public class TaskDispatcher {
       }
 
       if (n == 0) {
-         n = Math.max((Runtime.getRuntime().availableProcessors() - 1) / 2, 1);
+         n = Math.max(Runtime.getRuntime().availableProcessors() - 2, 1);
       }
 
       this.threads = new Thread[n];

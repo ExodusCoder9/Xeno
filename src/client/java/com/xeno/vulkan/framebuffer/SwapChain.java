@@ -115,7 +115,7 @@ public class SwapChain extends Framebuffer {
             createInfo.imageColorSpace(surfaceFormat.colorSpace());
             createInfo.imageExtent(extent);
             createInfo.imageArrayLayers(1);
-            createInfo.imageUsage(20);
+            createInfo.imageUsage(21);
             Queue.QueueFamilyIndices indices = Queue.getQueueFamilies();
             if (indices.graphicsFamily != indices.presentFamily) {
                createInfo.imageSharingMode(1);

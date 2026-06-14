@@ -26,6 +26,7 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import org.joml.FrustumIntersection;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -209,21 +210,21 @@ public class SectionGraph {
 
    private boolean notInFrustum(RenderSection renderSection) {
       byte frustumRes = renderSection.getChunkArea().inFrustum(renderSection.frustumIndex);
-      if (frustumRes > -1) {
+      if (frustumRes == FrustumIntersection.OUTSIDE) {
          return true;
-      } else {
-         return frustumRes == -1
-            ? !this.frustum
-               .testFrustum(
-                  renderSection.xOffset,
-                  renderSection.yOffset,
-                  renderSection.zOffset,
-                  renderSection.xOffset + 16,
-                  renderSection.yOffset + 16,
-                  renderSection.zOffset + 16
-               )
-            : false;
       }
+      if (frustumRes == FrustumIntersection.INTERSECT) {
+         return !this.frustum
+            .testFrustum(
+               renderSection.xOffset,
+               renderSection.yOffset,
+               renderSection.zOffset,
+               renderSection.xOffset + 16,
+               renderSection.yOffset + 16,
+               renderSection.zOffset + 16
+            );
+      }
+      return false;
    }
 
    private void visitAdjacentNodes(RenderSection renderSection, byte dirs) {
