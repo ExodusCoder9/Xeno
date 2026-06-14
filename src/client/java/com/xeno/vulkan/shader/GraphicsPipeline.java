@@ -56,7 +56,7 @@ import org.lwjgl.vulkan.VkVertexInputBindingDescription;
 import org.lwjgl.vulkan.VkPipelineShaderStageCreateInfo.Buffer;
 
 public class GraphicsPipeline extends Pipeline {
-   private final Object2LongMap<PipelineState> graphicsPipelines = new Object2LongOpenHashMap();
+   private final Object2LongMap<PipelineState> graphicsPipelines = new Object2LongOpenHashMap<>();
    private final VertexFormat vertexFormat;
    private final GraphicsPipeline.VertexInputDescription vertexInputDescription;
    private long vertShaderModule = 0L;
@@ -73,7 +73,7 @@ public class GraphicsPipeline extends Pipeline {
       this.createPipelineLayout();
       this.createShaderModules(builder);
       if (builder.renderPass != null) {
-         this.graphicsPipelines.computeIfAbsent(PipelineState.DEFAULT, this::createGraphicsPipeline);
+         this.graphicsPipelines.put(PipelineState.DEFAULT, this.createGraphicsPipeline(PipelineState.DEFAULT));
       }
 
       this.createDescriptorSets(Renderer.getFramesNum());
@@ -81,7 +81,7 @@ public class GraphicsPipeline extends Pipeline {
    }
 
    public long getHandle(PipelineState state) {
-      return this.graphicsPipelines.computeIfAbsent(state, this::createGraphicsPipeline);
+      return this.graphicsPipelines.computeIfAbsent(state, (java.util.function.ToLongFunction<PipelineState>) this::createGraphicsPipeline);
    }
 
    private long createGraphicsPipeline(PipelineState state) {
@@ -227,6 +227,8 @@ public class GraphicsPipeline extends Pipeline {
       SPIRVUtils.SPIRV fragShaderSPIRV = SPIRVUtils.compileShader(String.format("%s.fsh", this.name), fsh, SPIRVUtils.ShaderKind.FRAGMENT_SHADER);
       this.vertShaderModule = createShaderModule(vertShaderSPIRV.bytecode());
       this.fragShaderModule = createShaderModule(fragShaderSPIRV.bytecode());
+      vertShaderSPIRV.free();
+      fragShaderSPIRV.free();
    }
 
    @Override
@@ -346,14 +348,14 @@ public class GraphicsPipeline extends Pipeline {
                   case 2:
                      posDescription.format(82);
                      posDescription.offset(offset);
-                     yield 8;
+                     yield 4;
                   case 3:
                   default:
                      throw new IllegalStateException("Unexpected value: " + count);
                   case 4:
                      posDescription.format(96);
                      posDescription.offset(offset);
-                     yield 4;
+                     yield 8;
                }
             }
             case UINT -> {

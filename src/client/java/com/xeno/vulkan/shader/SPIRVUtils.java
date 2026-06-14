@@ -128,47 +128,27 @@ public class SPIRVUtils {
          String requested = MemoryUtil.memASCII(requested_source);
 
          try {
-            MemoryStack stack;
-            label56: {
-               stack = MemoryStack.stackPush();
-
-               long var17;
-               try {
-                  ObjectListIterator var14 = SPIRVUtils.includePaths.iterator();
-
-                  Path path;
-                  do {
-                     if (!var14.hasNext()) {
-                        break label56;
-                     }
-
-                     String includePath = (String)var14.next();
-                     path = Paths.get(new URI(String.format("%s%s", includePath, requested)));
-                  } while (!Files.exists(path));
-
-                  byte[] bytes = Files.readAllBytes(path);
-                  var17 = ShadercIncludeResult.malloc(stack).source_name(stack.ASCII(requested)).content(stack.bytes(bytes)).user_data(user_data).address();
-               } catch (Throwable var20) {
-                  if (stack != null) {
-                     try {
-                        stack.close();
-                     } catch (Throwable var19) {
-                        var20.addSuppressed(var19);
-                     }
-                  }
-
-                  throw var20;
+            Path targetPath = null;
+            for (String includePath : SPIRVUtils.includePaths) {
+               Path path = Paths.get(new URI(String.format("%s%s", includePath, requested)));
+               if (Files.exists(path)) {
+                  targetPath = path;
+                  break;
                }
-
-               if (stack != null) {
-                  stack.close();
-               }
-
-               return var17;
             }
 
-            if (stack != null) {
-               stack.close();
+            if (targetPath != null) {
+               byte[] bytes = Files.readAllBytes(targetPath);
+               ShadercIncludeResult includeResult = ShadercIncludeResult.malloc();
+               ByteBuffer sourceName = MemoryUtil.memUTF8(requested);
+               ByteBuffer content = MemoryUtil.memAlloc(bytes.length);
+               content.put(bytes);
+               content.flip();
+
+               includeResult.source_name(sourceName);
+               includeResult.content(content);
+               includeResult.user_data(user_data);
+               return includeResult.address();
             }
          } catch (IOException | URISyntaxException e) {
             throw new RuntimeException(e);
@@ -196,6 +176,10 @@ public class SPIRVUtils {
       }
 
       public void invoke(long user_data, long include_result) {
+         ShadercIncludeResult result = ShadercIncludeResult.create(include_result);
+         MemoryUtil.memFree(result.source_name());
+         MemoryUtil.memFree(result.content());
+         result.free();
       }
    }
 }
