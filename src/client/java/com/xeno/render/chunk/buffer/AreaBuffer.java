@@ -60,6 +60,21 @@ public class AreaBuffer {
       AreaBuffer.Segment s = new AreaBuffer.Segment(0, this.size);
       this.segments++;
       this.last = this.first = s;
+      this.addFreeSegment(s);
+   }
+
+   private void addFreeSegment(Segment segment) {
+      this.freeSegmentsBySize.computeIfAbsent(segment.size, k -> new LinkedList<>()).add(segment);
+   }
+
+   private void removeFreeSegment(Segment segment) {
+      LinkedList<AreaBuffer.Segment> list = this.freeSegmentsBySize.get(segment.size);
+      if (list != null) {
+         list.remove(segment);
+         if (list.isEmpty()) {
+            this.freeSegmentsBySize.remove(segment.size);
+         }
+      }
    }
 
    private Buffer allocateBuffer() {
@@ -75,6 +90,7 @@ public class AreaBuffer {
 
    public AreaBuffer.Segment allocateSegment(int size) {
       AreaBuffer.Segment segment = this.findSegment(size);
+      this.removeFreeSegment(segment);
       if (segment.size - size > 0) {
          AreaBuffer.Segment s1 = new AreaBuffer.Segment(segment.offset + size, segment.size - size);
          this.segments++;
@@ -86,6 +102,7 @@ public class AreaBuffer {
 
          segment.bindNext(s1);
          segment.size = size;
+         this.addFreeSegment(s1);
       }
 
       segment.free = false;
@@ -115,6 +132,7 @@ public class AreaBuffer {
       this.freeSegment(oldOffset);
       int size = byteBuffer.remaining();
       AreaBuffer.Segment segment = this.findSegment(size);
+      this.removeFreeSegment(segment);
       if (segment.size - size > 0) {
          AreaBuffer.Segment s1 = new AreaBuffer.Segment(segment.offset + size, segment.size - size);
          this.segments++;
@@ -126,6 +144,7 @@ public class AreaBuffer {
 
          segment.bindNext(s1);
          segment.size = size;
+         this.addFreeSegment(s1);
       }
 
       segment.free = false;
@@ -138,15 +157,13 @@ public class AreaBuffer {
    }
 
    public AreaBuffer.Segment findSegment(int size) {
+      Map.Entry<Integer, LinkedList<Segment>> entry = this.freeSegmentsBySize.ceilingEntry(size);
       AreaBuffer.Segment segment = null;
-
-      for (AreaBuffer.Segment segment1 = this.first; segment1 != null; segment1 = segment1.next) {
-         if (segment1.isFree() && segment1.size >= size && (segment == null || segment1.size < segment.size)) {
-            segment = segment1;
-         }
+      if (entry != null && !entry.getValue().isEmpty()) {
+         segment = entry.getValue().getFirst();
       }
 
-      return segment != null && segment.size >= size ? segment : this.reallocate(size);
+      return segment != null ? segment : this.reallocate(size);
    }
 
    public AreaBuffer.Segment reallocate(int uploadSize) {
@@ -165,19 +182,23 @@ public class AreaBuffer {
       this.buffer.scheduleFree();
       this.buffer = dst;
       if (this.last.isFree()) {
+         this.removeFreeSegment(this.last);
          this.last.size += increment;
+         this.addFreeSegment(this.last);
       } else {
          int offset = this.last.offset + this.last.size;
          AreaBuffer.Segment segment = new AreaBuffer.Segment(offset, newSize - offset);
          this.segments++;
          this.last.bindNext(segment);
          this.last = segment;
+         this.addFreeSegment(segment);
       }
 
       return this.last;
    }
 
    void moveUsedSegments(Buffer dst) {
+      this.freeSegmentsBySize.clear();
       int usedCount = 0;
       int dstOffset = 0;
       int currOffset = dstOffset;
@@ -239,13 +260,18 @@ public class AreaBuffer {
          segment.paramsPtr = -1L;
          AreaBuffer.Segment next = segment.next;
          if (next != null && next.isFree()) {
+            this.removeFreeSegment(next);
             this.mergeSegments(segment, next);
          }
 
          AreaBuffer.Segment prev = segment.prev;
          if (prev != null && prev.isFree()) {
+            this.removeFreeSegment(prev);
             this.mergeSegments(prev, segment);
+            segment = prev;
          }
+
+         this.addFreeSegment(segment);
       }
    }
 
