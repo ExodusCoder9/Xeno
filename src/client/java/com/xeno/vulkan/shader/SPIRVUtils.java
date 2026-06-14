@@ -25,13 +25,9 @@ package com.xeno.vulkan.shader;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectListIterator;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.system.NativeResource;
@@ -73,9 +69,8 @@ public class SPIRVUtils {
    }
 
    public static void addIncludePath(String path) {
-      URL url = SPIRVUtils.class.getResource(path);
-      if (url != null) {
-         includePaths.add(url.toExternalForm());
+      if (SPIRVUtils.class.getResource(path) != null) {
+         includePaths.add(path);
       }
    }
 
@@ -128,29 +123,25 @@ public class SPIRVUtils {
          String requested = MemoryUtil.memASCII(requested_source);
 
          try {
-            Path targetPath = null;
             for (String includePath : SPIRVUtils.includePaths) {
-               Path path = Paths.get(new URI(String.format("%s%s", includePath, requested)));
-               if (Files.exists(path)) {
-                  targetPath = path;
-                  break;
+               String fullPath = includePath + requested;
+               InputStream stream = SPIRVUtils.class.getResourceAsStream(fullPath);
+               if (stream != null) {
+                  byte[] bytes = stream.readAllBytes();
+                  stream.close();
+                  ShadercIncludeResult includeResult = ShadercIncludeResult.malloc();
+                  ByteBuffer sourceName = MemoryUtil.memUTF8(requested);
+                  ByteBuffer content = MemoryUtil.memAlloc(bytes.length);
+                  content.put(bytes);
+                  content.flip();
+
+                  includeResult.source_name(sourceName);
+                  includeResult.content(content);
+                  includeResult.user_data(user_data);
+                  return includeResult.address();
                }
             }
-
-            if (targetPath != null) {
-               byte[] bytes = Files.readAllBytes(targetPath);
-               ShadercIncludeResult includeResult = ShadercIncludeResult.malloc();
-               ByteBuffer sourceName = MemoryUtil.memUTF8(requested);
-               ByteBuffer content = MemoryUtil.memAlloc(bytes.length);
-               content.put(bytes);
-               content.flip();
-
-               includeResult.source_name(sourceName);
-               includeResult.content(content);
-               includeResult.user_data(user_data);
-               return includeResult.address();
-            }
-         } catch (IOException | URISyntaxException e) {
+         } catch (IOException e) {
             throw new RuntimeException(e);
          }
 

@@ -44,8 +44,8 @@ import com.xeno.vulkan.shader.SPIRVUtils;
 import org.apache.commons.io.IOUtils;
 
 public abstract class ShaderLoadUtil {
-   public static final String RESOURCES_PATH = SPIRVUtils.class.getResource("/assets/xeno").toExternalForm();
-   public static final String SHADERS_PATH = "%s/shaders/".formatted(RESOURCES_PATH);
+   public static final String RESOURCES_PATH = "/assets/xeno";
+   public static final String SHADERS_PATH = "/assets/xeno/shaders/";
    public static final Set<String> REMAPPED_SHADERS = Sets.newHashSet(
       new String[]{"core/screenquad.vsh", "core/rendertype_item_entity_translucent_cull.vsh", "core/animate_sprite.vsh", "core/animate_sprite_blit.fsh"}
    );
@@ -249,12 +249,7 @@ public abstract class ShaderLoadUtil {
    }
 
    public static InputStream getInputStream(String path) {
-      try {
-         Path path1 = Paths.get(new URI(path));
-         return !Files.exists(path1) ? null : Files.newInputStream(path1);
-      } catch (URISyntaxException | IOException e) {
-         throw new RuntimeException(e);
-      }
+      return ShaderLoadUtil.class.getResourceAsStream(path);
    }
 
    public static String injectDefines(String shaderSrc, List<String> defines) {
