@@ -26,9 +26,12 @@ import it.unimi.dsi.fastutil.longs.Long2ReferenceLinkedOpenHashMap;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.DataLayer;
@@ -60,10 +63,11 @@ public class RenderRegionBuilder {
          int maxSecZ = secZ + 1;
          int maxSecY = secY + 1;
          PalettedContainer<BlockState>[] blockData = new PalettedContainer[27];
-         DataLayer[][] lightData = new DataLayer[27][2];
+         DataLayer[] lightData = new DataLayer[54];
          long biomeZoomSeed = BiomeManagerExtended.of(level.getBiomeManager()).getBiomeZoomSeed();
          BiomeData biomeData = new BiomeData(biomeZoomSeed, minSecX, minSecY, minSecZ);
          int minHeightSec = level.getMinY() >> 4;
+         Biome defaultValue = (Biome)level.registryAccess().lookupOrThrow(Registries.BIOME).getOrThrow(Biomes.PLAINS).value();
 
          for (int x = minSecX; x <= maxSecX; x++) {
             for (int z = minSecZ; z <= maxSecZ; z++) {
@@ -80,9 +84,8 @@ public class RenderRegionBuilder {
                   PalettedContainer<BlockState> values = section != null && !section.hasOnlyAir() ? section.getStates().copy() : null;
                   blockData[idx] = values;
                   SectionPos pos = SectionPos.of(x, y, z);
-                  DataLayer[] dataLayers = this.getSectionDataLayers(level, pos);
-                  lightData[idx] = dataLayers;
-                  biomeData.getBiomeData(level, section, relX, relY, relZ);
+                  this.getSectionDataLayers(level, pos, lightData, idx << 1);
+                  biomeData.getBiomeData(level, section, relX, relY, relZ, defaultValue);
                }
             }
          }
@@ -93,14 +96,13 @@ public class RenderRegionBuilder {
       }
    }
 
-   private DataLayer[] getSectionDataLayers(Level level, SectionPos pos) {
-      DataLayer[] dataLayers = new DataLayer[2];
+   private void getSectionDataLayers(Level level, SectionPos pos, DataLayer[] lightData, int offset) {
       DataLayer blockDataLayer = level.getLightEngine().getLayerListener(LightLayer.BLOCK).getDataLayerData(pos);
       if (blockDataLayer == null) {
          blockDataLayer = DEFAULT_BLOCK_LIGHT_DATA_LAYER;
       }
 
-      dataLayers[LightLayer.BLOCK.ordinal()] = blockDataLayer;
+      lightData[offset | LightLayer.BLOCK.ordinal()] = blockDataLayer;
       DataLayer skyDataLayer;
       if (level.dimensionType().hasSkyLight()) {
          skyDataLayer = level.getLightEngine().getLayerListener(LightLayer.SKY).getDataLayerData(pos);
@@ -111,8 +113,7 @@ public class RenderRegionBuilder {
          skyDataLayer = null;
       }
 
-      dataLayers[LightLayer.SKY.ordinal()] = skyDataLayer;
-      return dataLayers;
+      lightData[offset | LightLayer.SKY.ordinal()] = skyDataLayer;
    }
 
    private LevelChunk getLevelChunk(Level level, int x, int z) {

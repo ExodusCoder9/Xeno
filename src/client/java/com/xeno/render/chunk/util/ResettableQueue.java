@@ -56,7 +56,7 @@ public class ResettableQueue<T> implements Iterable<T> {
    }
 
    public void ensureCapacity(int n) {
-      while (this.limit + n > this.capacity) {
+      if (this.limit + n > this.capacity) {
          int newSize = Math.max(this.limit + n, this.capacity * 2);
          this.resize(newSize);
       }

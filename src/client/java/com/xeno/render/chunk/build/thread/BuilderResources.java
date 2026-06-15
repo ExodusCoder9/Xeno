@@ -22,6 +22,7 @@ package com.xeno.render.chunk.build.thread;
  */
 
 
+import net.minecraft.world.level.block.state.BlockState;
 import com.xeno.Initializer;
 import com.xeno.render.chunk.RenderSection;
 import com.xeno.render.chunk.build.RenderRegion;
@@ -42,6 +43,7 @@ public class BuilderResources {
    public final FluidRenderer fluidRenderer;
    public final ArrayLightDataCache lightDataCache = new ArrayLightDataCache();
    public final QuadLightData quadLightData = new QuadLightData();
+   public final BlockState[] blockDataArray = new BlockState[8000];
    private RenderRegion region;
    private int totalBuildTime = 0;
    private int buildCount = 0;

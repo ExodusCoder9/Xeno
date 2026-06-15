@@ -44,7 +44,7 @@ import com.xeno.render.vertex.TerrainRenderType;
 import org.joml.Vector3d;
 
 public class RenderSection {
-   private ChunkArea chunkArea;
+   public ChunkArea chunkArea;
    public byte frustumIndex;
    public short lastFrame = -1;
    private short lastFrame2 = -1;
@@ -57,32 +57,50 @@ public class RenderSection {
    public RenderSection adjWest;
    public RenderSection adjEast;
    private final RenderSection.CompileStatus compileStatus = new RenderSection.CompileStatus();
-   private boolean dirty = true;
+   public boolean dirty = true;
    private boolean playerChanged;
-   private boolean completelyEmpty = true;
-   private boolean containsBlockEntities = false;
+   public boolean completelyEmpty = true;
+   public boolean containsBlockEntities = false;
    public long visibility;
-   public int xOffset;
-   public int yOffset;
-   public int zOffset;
-   public byte mainDir;
-   public byte directions;
-   public byte sourceDirs;
-   public byte steps;
-   public byte directionChanges;
+    public int xOffset;
+    public int yOffset;
+    public int zOffset;
+    public float xOffsetF;
+    public float yOffsetF;
+    public float zOffsetF;
+    public float xOffsetEndF;
+    public float yOffsetEndF;
+    public float zOffsetEndF;
+    public byte mainDir;
+    public byte directions;
+    public byte sourceDirs;
+    public byte steps;
+    public byte directionChanges;
 
-   public RenderSection(int index, int x, int y, int z) {
-      this.xOffset = x;
-      this.yOffset = y;
-      this.zOffset = z;
-   }
+    public RenderSection(int index, int x, int y, int z) {
+       this.xOffset = x;
+       this.yOffset = y;
+       this.zOffset = z;
+       this.xOffsetF = (float)x;
+       this.yOffsetF = (float)y;
+       this.zOffsetF = (float)z;
+       this.xOffsetEndF = (float)(x + 16);
+       this.yOffsetEndF = (float)(y + 16);
+       this.zOffsetEndF = (float)(z + 16);
+    }
 
-   public void setOrigin(int x, int y, int z) {
-      this.reset();
-      this.xOffset = x;
-      this.yOffset = y;
-      this.zOffset = z;
-   }
+    public void setOrigin(int x, int y, int z) {
+       this.reset();
+       this.xOffset = x;
+       this.yOffset = y;
+       this.zOffset = z;
+       this.xOffsetF = (float)x;
+       this.yOffsetF = (float)y;
+       this.zOffsetF = (float)z;
+       this.xOffsetEndF = (float)(x + 16);
+       this.yOffsetEndF = (float)(y + 16);
+       this.zOffsetEndF = (float)(z + 16);
+    }
 
    public void addDir(int direction) {
       this.sourceDirs |= (byte)(1 << direction);

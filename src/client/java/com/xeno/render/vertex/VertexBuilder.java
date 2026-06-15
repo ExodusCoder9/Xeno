@@ -54,14 +54,15 @@ public interface VertexBuilder {
          short sX = (short)(x * 2048.0F + -8192.0F);
          short sY = (short)(y * 2048.0F + -8192.0F);
          short sZ = (short)(z * 2048.0F + -8192.0F);
-         MemoryAccess.memPutShort(ptr + 0L, sX);
-         MemoryAccess.memPutShort(ptr + 2L, sY);
-         MemoryAccess.memPutShort(ptr + 4L, sZ);
          short l = (short)(light >>> 8 & 0xFF00 | light & 0xFF);
-         MemoryAccess.memPutShort(ptr + 6L, l);
-         MemoryAccess.memPutShort(ptr + 8L, (short)(u * 32768.0F));
-         MemoryAccess.memPutShort(ptr + 10L, (short)(v * 32768.0F));
-         MemoryAccess.memPutInt(ptr + 12L, color);
+         short sU = (short)(u * 32768.0F);
+         short sV = (short)(v * 32768.0F);
+
+         long firstPart = ((long)sX & 0xFFFFL) | (((long)sY & 0xFFFFL) << 16) | (((long)sZ & 0xFFFFL) << 32) | (((long)l & 0xFFFFL) << 48);
+         long secondPart = ((long)sU & 0xFFFFL) | (((long)sV & 0xFFFFL) << 16) | (((long)color & 0xFFFFFFFFL) << 32);
+
+         MemoryAccess.memPutLong(ptr + 0L, firstPart);
+         MemoryAccess.memPutLong(ptr + 8L, secondPart);
       }
 
       @Override
@@ -69,8 +70,7 @@ public interface VertexBuilder {
          short sX = (short)(x * 2048.0F + -8192.0F);
          short sY = (short)(y * 2048.0F + -8192.0F);
          short sZ = (short)(z * 2048.0F + -8192.0F);
-         MemoryAccess.memPutShort(ptr + 0L, sX);
-         MemoryAccess.memPutShort(ptr + 2L, sY);
+         MemoryAccess.memPutInt(ptr + 0L, (sY << 16) | (sX & 0xFFFF));
          MemoryAccess.memPutShort(ptr + 4L, sZ);
       }
 
@@ -81,8 +81,9 @@ public interface VertexBuilder {
 
       @Override
       public void uv(long ptr, float u, float v) {
-         MemoryAccess.memPutShort(ptr + 8L, (short)(u * 32768.0F));
-         MemoryAccess.memPutShort(ptr + 10L, (short)(v * 32768.0F));
+         short sU = (short)(u * 32768.0F);
+         short sV = (short)(v * 32768.0F);
+         MemoryAccess.memPutInt(ptr + 8L, (sV << 16) | (sU & 0xFFFF));
       }
 
       @Override
@@ -115,8 +116,7 @@ public interface VertexBuilder {
          MemoryAccess.memPutInt(ptr + 12L, color);
          MemoryAccess.memPutFloat(ptr + 16L, u);
          MemoryAccess.memPutFloat(ptr + 20L, v);
-         MemoryAccess.memPutShort(ptr + 24L, (short)(light & 65535));
-         MemoryAccess.memPutShort(ptr + 26L, (short)(light >> 16 & 65535));
+         MemoryAccess.memPutInt(ptr + 24L, light);
          MemoryAccess.memPutInt(ptr + 28L, packedNormal);
       }
 

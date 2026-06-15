@@ -24,9 +24,6 @@ package com.xeno.render.chunk.buffer;
 
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.nio.ByteBuffer;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.TreeMap;
 import com.xeno.Initializer;
 import com.xeno.render.chunk.util.Util;
 import com.xeno.vulkan.memory.MemoryManager;
@@ -44,7 +41,8 @@ public class AreaBuffer {
    private final int usage;
    private final int elementSize;
    private final Int2ReferenceOpenHashMap<AreaBuffer.Segment> usedSegments = new Int2ReferenceOpenHashMap();
-   private final TreeMap<Integer, LinkedList<Segment>> freeSegmentsBySize = new TreeMap<>();
+   private Segment root;
+   private Segment segmentPool;
    AreaBuffer.Segment first;
    AreaBuffer.Segment last;
    private Buffer buffer;
@@ -52,29 +50,184 @@ public class AreaBuffer {
    int used = 0;
    int segments = 0;
 
+   private Segment obtainSegment(int offset, int size) {
+      if (segmentPool != null) {
+         Segment s = segmentPool;
+         segmentPool = s.next;
+         s.offset = offset;
+         s.size = size;
+         s.free = true;
+         s.paramsPtr = 0L;
+         s.next = null;
+         s.prev = null;
+         s.left = null;
+         s.right = null;
+         s.parent = null;
+         s.sameSizeNext = null;
+         s.sameSizePrev = null;
+         return s;
+      }
+      return new Segment(offset, size);
+   }
+
+   private void releaseSegment(Segment s) {
+      s.next = segmentPool;
+      s.prev = null;
+      s.left = null;
+      s.right = null;
+      s.parent = null;
+      s.sameSizeNext = null;
+      s.sameSizePrev = null;
+      segmentPool = s;
+   }
+
+   private void rotateLeft(Segment x) {
+      Segment y = x.right;
+      x.right = y.left;
+      if (y.left != null) y.left.parent = x;
+      y.parent = x.parent;
+      if (x.parent == null) {
+         root = y;
+      } else if (x == x.parent.left) {
+         x.parent.left = y;
+      } else {
+         x.parent.right = y;
+      }
+      y.left = x;
+      x.parent = y;
+   }
+
+   private void rotateRight(Segment x) {
+      Segment y = x.left;
+      x.left = y.right;
+      if (y.right != null) y.right.parent = x;
+      y.parent = x.parent;
+      if (x.parent == null) {
+         root = y;
+      } else if (x == x.parent.right) {
+         x.parent.right = y;
+      } else {
+         x.parent.left = y;
+      }
+      y.right = x;
+      x.parent = y;
+   }
+
+   private void addFreeSegment(Segment s) {
+      s.left = null;
+      s.right = null;
+      s.parent = null;
+      s.priority = java.util.concurrent.ThreadLocalRandom.current().nextInt();
+      s.sameSizeNext = null;
+      s.sameSizePrev = null;
+
+      if (root == null) {
+         root = s;
+         return;
+      }
+
+      Segment curr = root;
+      Segment parent = null;
+      while (curr != null) {
+         parent = curr;
+         if (s.size == curr.size) {
+            s.sameSizeNext = curr.sameSizeNext;
+            s.sameSizePrev = curr;
+            if (curr.sameSizeNext != null) {
+               curr.sameSizeNext.sameSizePrev = s;
+            }
+            curr.sameSizeNext = s;
+            return;
+         } else if (s.size < curr.size) {
+            curr = curr.left;
+         } else {
+            curr = curr.right;
+         }
+      }
+
+      s.parent = parent;
+      if (s.size < parent.size) {
+         parent.left = s;
+      } else {
+         parent.right = s;
+      }
+
+      while (s.parent != null && s.priority < s.parent.priority) {
+         if (s == s.parent.left) {
+            rotateRight(s.parent);
+         } else {
+            rotateLeft(s.parent);
+         }
+      }
+   }
+
+   private void removeFreeSegment(Segment s) {
+      if (s.sameSizePrev != null) {
+         s.sameSizePrev.sameSizeNext = s.sameSizeNext;
+         if (s.sameSizeNext != null) {
+            s.sameSizeNext.sameSizePrev = s.sameSizePrev;
+         }
+         s.sameSizeNext = null;
+         s.sameSizePrev = null;
+         return;
+      }
+
+      if (s.sameSizeNext != null) {
+         Segment nextNode = s.sameSizeNext;
+         nextNode.left = s.left;
+         if (s.left != null) s.left.parent = nextNode;
+         nextNode.right = s.right;
+         if (s.right != null) s.right.parent = nextNode;
+         nextNode.parent = s.parent;
+         if (s.parent == null) {
+            root = nextNode;
+         } else if (s == s.parent.left) {
+            s.parent.left = nextNode;
+         } else {
+            s.parent.right = nextNode;
+         }
+         nextNode.priority = s.priority;
+         nextNode.sameSizePrev = null;
+         s.left = null;
+         s.right = null;
+         s.parent = null;
+         s.sameSizeNext = null;
+         return;
+      }
+
+      while (s.left != null || s.right != null) {
+         if (s.left == null) {
+            rotateLeft(s);
+         } else if (s.right == null) {
+            rotateRight(s);
+         } else if (s.left.priority < s.right.priority) {
+            rotateRight(s);
+         } else {
+            rotateLeft(s);
+         }
+      }
+
+      if (s.parent == null) {
+         root = null;
+      } else {
+         if (s == s.parent.left) {
+            s.parent.left = null;
+         } else {
+            s.parent.right = null;
+         }
+         s.parent = null;
+      }
+   }
+
    public AreaBuffer(AreaBuffer.Usage usage, int elementCount, int elementSize) {
       this.usage = usage.usage;
       this.elementSize = elementSize;
       this.size = elementCount * elementSize;
       this.buffer = this.allocateBuffer();
-      AreaBuffer.Segment s = new AreaBuffer.Segment(0, this.size);
+      AreaBuffer.Segment s = this.obtainSegment(0, this.size);
       this.segments++;
       this.last = this.first = s;
       this.addFreeSegment(s);
-   }
-
-   private void addFreeSegment(Segment segment) {
-      this.freeSegmentsBySize.computeIfAbsent(segment.size, k -> new LinkedList<>()).add(segment);
-   }
-
-   private void removeFreeSegment(Segment segment) {
-      LinkedList<AreaBuffer.Segment> list = this.freeSegmentsBySize.get(segment.size);
-      if (list != null) {
-         list.remove(segment);
-         if (list.isEmpty()) {
-            this.freeSegmentsBySize.remove(segment.size);
-         }
-      }
    }
 
    private Buffer allocateBuffer() {
@@ -92,7 +245,7 @@ public class AreaBuffer {
       AreaBuffer.Segment segment = this.findSegment(size);
       this.removeFreeSegment(segment);
       if (segment.size - size > 0) {
-         AreaBuffer.Segment s1 = new AreaBuffer.Segment(segment.offset + size, segment.size - size);
+         AreaBuffer.Segment s1 = this.obtainSegment(segment.offset + size, segment.size - size);
          this.segments++;
          if (segment.next != null) {
             s1.bindNext(segment.next);
@@ -134,7 +287,7 @@ public class AreaBuffer {
       AreaBuffer.Segment segment = this.findSegment(size);
       this.removeFreeSegment(segment);
       if (segment.size - size > 0) {
-         AreaBuffer.Segment s1 = new AreaBuffer.Segment(segment.offset + size, segment.size - size);
+         AreaBuffer.Segment s1 = this.obtainSegment(segment.offset + size, segment.size - size);
          this.segments++;
          if (segment.next != null) {
             s1.bindNext(segment.next);
@@ -157,13 +310,19 @@ public class AreaBuffer {
    }
 
    public AreaBuffer.Segment findSegment(int size) {
-      Map.Entry<Integer, LinkedList<Segment>> entry = this.freeSegmentsBySize.ceilingEntry(size);
-      AreaBuffer.Segment segment = null;
-      if (entry != null && !entry.getValue().isEmpty()) {
-         segment = entry.getValue().getFirst();
+      Segment curr = root;
+      Segment best = null;
+      while (curr != null) {
+         if (curr.size == size) {
+            return curr;
+         } else if (curr.size > size) {
+            best = curr;
+            curr = curr.left;
+         } else {
+            curr = curr.right;
+         }
       }
-
-      return segment != null ? segment : this.reallocate(size);
+      return best != null ? best : this.reallocate(size);
    }
 
    public AreaBuffer.Segment reallocate(int uploadSize) {
@@ -187,7 +346,7 @@ public class AreaBuffer {
          this.addFreeSegment(this.last);
       } else {
          int offset = this.last.offset + this.last.size;
-         AreaBuffer.Segment segment = new AreaBuffer.Segment(offset, newSize - offset);
+         AreaBuffer.Segment segment = this.obtainSegment(offset, newSize - offset);
          this.segments++;
          this.last.bindNext(segment);
          this.last = segment;
@@ -198,7 +357,7 @@ public class AreaBuffer {
    }
 
    void moveUsedSegments(Buffer dst) {
-      this.freeSegmentsBySize.clear();
+      this.root = null;
       int usedCount = 0;
       int dstOffset = 0;
       int currOffset = dstOffset;
@@ -208,6 +367,7 @@ public class AreaBuffer {
       int uploadSize = 0;
 
       while (segment != null) {
+         AreaBuffer.Segment next = segment.next;
          if (!segment.isFree()) {
             usedCount++;
             if (segment.offset != srcOffset + uploadSize) {
@@ -236,9 +396,11 @@ public class AreaBuffer {
             }
 
             prevUsed = segment;
+         } else {
+            this.releaseSegment(segment);
          }
 
-         segment = segment.next;
+         segment = next;
       }
 
       if (uploadSize > 0) {
@@ -285,6 +447,7 @@ public class AreaBuffer {
 
       segment.next = next.next;
       this.segments--;
+      this.releaseSegment(next);
    }
 
    private void updateDrawParams(AreaBuffer.Segment segment) {
@@ -354,7 +517,7 @@ public class AreaBuffer {
             }
 
             if (segment.offset != this.used) {
-               LOGGER.error(String.format("last segment offset (%d) does not match buffer used size (%d)", segmentEnd, this.size));
+               LOGGER.error(String.format("last segment offset (%d) does not match buffer used size (%d)", segment.offset, this.size));
             }
          }
 
@@ -370,6 +533,30 @@ public class AreaBuffer {
       if (usedSegments != this.usedSegments.size()) {
          LOGGER.error("Counted used segment do not match used segments map size");
       }
+
+      int totalFreeInTreap = countFreeSegmentsInTreap(root);
+      int totalFreeSegments = 0;
+      Segment curr = first;
+      while (curr != null) {
+         if (curr.isFree()) {
+            totalFreeSegments++;
+         }
+         curr = curr.next;
+      }
+      if (totalFreeSegments != totalFreeInTreap) {
+         LOGGER.error(String.format("Total free segments in physical list (%d) does not match Treap total (%d)", totalFreeSegments, totalFreeInTreap));
+      }
+   }
+
+   private int countFreeSegmentsInTreap(Segment node) {
+      if (node == null) return 0;
+      int count = 1;
+      Segment s = node.sameSizeNext;
+      while (s != null) {
+         count++;
+         s = s.sameSizeNext;
+      }
+      return count + countFreeSegmentsInTreap(node.left) + countFreeSegmentsInTreap(node.right);
    }
 
    public int getSize() {
@@ -387,6 +574,16 @@ public class AreaBuffer {
       long paramsPtr;
       AreaBuffer.Segment next;
       AreaBuffer.Segment prev;
+
+      // Treap pointers for free segments tree
+      Segment left;
+      Segment right;
+      Segment parent;
+      int priority;
+
+      // Chain pointers for free segments of the same size
+      Segment sameSizeNext;
+      Segment sameSizePrev;
 
       private Segment(int offset, int size) {
          this.offset = offset;

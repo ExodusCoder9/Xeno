@@ -34,8 +34,24 @@ public class ArrayLightDataCache extends LightDataAccess {
    private int xOffset;
    private int yOffset;
    private int zOffset;
+   private int baseOffset;
+   private int lastX = Integer.MIN_VALUE;
+   private int lastY = Integer.MIN_VALUE;
+   private int lastZ = Integer.MIN_VALUE;
+   private int lastWord;
 
    public ArrayLightDataCache() {
+   }
+
+   private void updateBaseOffset() {
+      this.baseOffset = -this.zOffset * 400 - this.yOffset * 20 - this.xOffset;
+   }
+
+   private void resetCache() {
+      this.lastX = Integer.MIN_VALUE;
+      this.lastY = Integer.MIN_VALUE;
+      this.lastZ = Integer.MIN_VALUE;
+      this.lastWord = 0;
    }
 
    public void reset(BlockAndTintGetter blockAndTintGetter, int x, int y, int z) {
@@ -43,7 +59,9 @@ public class ArrayLightDataCache extends LightDataAccess {
       this.xOffset = x - 2;
       this.yOffset = y - 2;
       this.zOffset = z - 2;
+      this.updateBaseOffset();
       Arrays.fill(this.light, 0);
+      this.resetCache();
    }
 
    public void reset(BlockAndTintGetter blockAndTintGetter, BlockPos origin) {
@@ -51,34 +69,44 @@ public class ArrayLightDataCache extends LightDataAccess {
       this.xOffset = origin.getX() - 2;
       this.yOffset = origin.getY() - 2;
       this.zOffset = origin.getZ() - 2;
+      this.updateBaseOffset();
       Arrays.fill(this.light, 0);
+      this.resetCache();
    }
 
    public void reset(SectionPos origin) {
       this.xOffset = origin.minBlockX() - 2;
       this.yOffset = origin.minBlockY() - 2;
       this.zOffset = origin.minBlockZ() - 2;
+      this.updateBaseOffset();
       Arrays.fill(this.light, 0);
+      this.resetCache();
    }
 
    public void reset(BlockPos origin) {
       this.xOffset = origin.getX() - 2;
       this.yOffset = origin.getY() - 2;
       this.zOffset = origin.getZ() - 2;
+      this.updateBaseOffset();
       Arrays.fill(this.light, 0);
-   }
-
-   private int index(int x, int y, int z) {
-      int x2 = x - this.xOffset;
-      int y2 = y - this.yOffset;
-      int z2 = z - this.zOffset;
-      return z2 * 20 * 20 + y2 * 20 + x2;
+      this.resetCache();
    }
 
    @Override
    public int get(int x, int y, int z) {
-      int l = this.index(x, y, z);
+      if (this.lastX == x && this.lastY == y && this.lastZ == z) {
+         return this.lastWord;
+      }
+      int l = z * 400 + y * 20 + x + this.baseOffset;
       int word = this.light[l];
-      return word != 0 ? word : (this.light[l] = this.compute(x, y, z));
+      if (word == 0) {
+         word = this.compute(x, y, z);
+         this.light[l] = word;
+      }
+      this.lastX = x;
+      this.lastY = y;
+      this.lastZ = z;
+      this.lastWord = word;
+      return word;
    }
 }

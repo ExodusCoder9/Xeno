@@ -47,14 +47,16 @@ public class FrustumMixin implements FrustumMixed {
    private Matrix4f matrix;
    @Shadow
    private Vector4f viewVector;
-   @Unique
-   private final VFrustum vFrustum = new VFrustum();
+    @Unique
+    private final VFrustum vFrustum = new VFrustum();
+    @Unique
+    private final Vector4f tempVector = new Vector4f();
 
-   @Inject(method = "calculateFrustum", at = @At("HEAD"))
-   private void calculateFrustum(Matrix4fc modelView, Matrix4f projection, CallbackInfo ci) {
-      this.vFrustum.calculateFrustum((Matrix4f)modelView, projection);
-      this.viewVector = this.matrix.transformTranspose(new Vector4f(0.0F, 0.0F, 1.0F, 0.0F));
-   }
+    @Inject(method = "calculateFrustum", at = @At("HEAD"))
+    private void calculateFrustum(Matrix4fc modelView, Matrix4f projection, CallbackInfo ci) {
+       this.vFrustum.calculateFrustum((Matrix4f)modelView, projection);
+       this.viewVector = this.matrix.transformTranspose(this.tempVector.set(0.0F, 0.0F, 1.0F, 0.0F));
+    }
 
    @Inject(method = "prepare", at = @At("RETURN"))
    public void prepare(double d, double e, double f, CallbackInfo ci) {

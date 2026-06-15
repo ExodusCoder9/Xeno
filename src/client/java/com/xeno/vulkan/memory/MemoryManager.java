@@ -22,6 +22,7 @@ package com.xeno.vulkan.memory;
  */
 
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectListIterator;
@@ -35,7 +36,6 @@ import com.xeno.vulkan.device.DeviceManager;
 import com.xeno.vulkan.memory.buffer.Buffer;
 import com.xeno.vulkan.queue.Queue;
 import com.xeno.vulkan.texture.VulkanImage;
-import com.xeno.vulkan.util.Pair;
 import com.xeno.vulkan.util.VkResult;
 import org.apache.commons.lang3.Validate;
 import org.lwjgl.PointerBuffer;
@@ -61,7 +61,8 @@ public class MemoryManager {
    private final ObjectArrayList<Buffer.BufferInfo>[] freeableBuffers;
    private final ObjectArrayList<VulkanImage>[] freeableImages;
    private final ObjectArrayList<Runnable>[] frameOps;
-   private final ObjectArrayList<Pair<AreaBuffer, Integer>>[] segmentsToFree;
+   private final ObjectArrayList<AreaBuffer>[] segmentsToFreeBuffer;
+   private final IntArrayList[] segmentsToFreeOffset;
    private ObjectArrayList<StackTraceElement[]>[] stackTraces;
 
    public static MemoryManager getInstance() {
@@ -77,13 +78,15 @@ public class MemoryManager {
       this.freeableBuffers = new ObjectArrayList[Frames];
       this.freeableImages = new ObjectArrayList[Frames];
       this.frameOps = new ObjectArrayList[Frames];
-      this.segmentsToFree = new ObjectArrayList[Frames];
+      this.segmentsToFreeBuffer = new ObjectArrayList[Frames];
+      this.segmentsToFreeOffset = new IntArrayList[Frames];
 
       for (int i = 0; i < Frames; i++) {
          this.freeableBuffers[i] = new ObjectArrayList();
          this.freeableImages[i] = new ObjectArrayList();
          this.frameOps[i] = new ObjectArrayList();
-         this.segmentsToFree[i] = new ObjectArrayList();
+         this.segmentsToFreeBuffer[i] = new ObjectArrayList();
+         this.segmentsToFreeOffset[i] = new IntArrayList();
       }
    }
 
@@ -365,19 +368,21 @@ public class MemoryManager {
    }
 
    private void freeSegments(int frame) {
-      ObjectArrayList<Pair<AreaBuffer, Integer>> list = this.segmentsToFree[frame];
-      ObjectListIterator var3 = list.iterator();
+      ObjectArrayList<AreaBuffer> buffers = this.segmentsToFreeBuffer[frame];
+      IntArrayList offsets = this.segmentsToFreeOffset[frame];
+      int size = buffers.size();
 
-      while (var3.hasNext()) {
-         Pair<AreaBuffer, Integer> pair = (Pair<AreaBuffer, Integer>)var3.next();
-         pair.first.setSegmentFree(pair.second);
+      for (int i = 0; i < size; i++) {
+         buffers.get(i).setSegmentFree(offsets.getInt(i));
       }
 
-      list.clear();
+      buffers.clear();
+      offsets.clear();
    }
 
    public void addToFreeSegment(AreaBuffer areaBuffer, int offset) {
-      this.segmentsToFree[this.currentFrame].add(new Pair<>(areaBuffer, offset));
+      this.segmentsToFreeBuffer[this.currentFrame].add(areaBuffer);
+      this.segmentsToFreeOffset[this.currentFrame].add(offset);
    }
 
    public int getNativeMemoryMB() {

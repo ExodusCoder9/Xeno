@@ -36,7 +36,7 @@ class AoFaceData {
    AoFaceData() {
    }
 
-   public void initLightData(LightDataAccess cache, BlockPos pos, SimpleDirection direction, boolean offset) {
+    public void initLightData(LightDataAccess cache, BlockPos pos, SimpleDirection direction, boolean offset) {
       int oX = pos.getX();
       int oY = pos.getY();
       int oZ = pos.getZ();
@@ -44,9 +44,9 @@ class AoFaceData {
       int y;
       int z;
       if (offset) {
-         x = oX + direction.getStepX();
-         y = oY + direction.getStepY();
-         z = oZ + direction.getStepZ();
+         x = oX + direction.nx;
+         y = oY + direction.ny;
+         z = oZ + direction.nz;
       } else {
          x = oX;
          y = oY;
@@ -67,22 +67,22 @@ class AoFaceData {
 
       float oao = LightDataAccess.unpackAO(e);
       SimpleDirection[] faces = AoNeighborInfo.get(direction).faces;
-      int e0 = cache.get(x, y, z, faces[0]);
+      int e0 = cache.get(x + faces[0].nx, y + faces[0].ny, z + faces[0].nz);
       int e0lm = LightDataAccess.getLightmap(e0);
       float e0ao = LightDataAccess.unpackAO(e0);
       boolean e0op = LightDataAccess.unpackOP(e0);
       boolean e0em = LightDataAccess.unpackEM(e0);
-      int e1 = cache.get(x, y, z, faces[1]);
+      int e1 = cache.get(x + faces[1].nx, y + faces[1].ny, z + faces[1].nz);
       int e1lm = LightDataAccess.getLightmap(e1);
       float e1ao = LightDataAccess.unpackAO(e1);
       boolean e1op = LightDataAccess.unpackOP(e1);
       boolean e1em = LightDataAccess.unpackEM(e1);
-      int e2 = cache.get(x, y, z, faces[2]);
+      int e2 = cache.get(x + faces[2].nx, y + faces[2].ny, z + faces[2].nz);
       int e2lm = LightDataAccess.getLightmap(e2);
       float e2ao = LightDataAccess.unpackAO(e2);
       boolean e2op = LightDataAccess.unpackOP(e2);
       boolean e2em = LightDataAccess.unpackEM(e2);
-      int e3 = cache.get(x, y, z, faces[3]);
+      int e3 = cache.get(x + faces[3].nx, y + faces[3].ny, z + faces[3].nz);
       int e3lm = LightDataAccess.getLightmap(e3);
       float e3ao = LightDataAccess.unpackAO(e3);
       boolean e3op = LightDataAccess.unpackOP(e3);
@@ -95,7 +95,7 @@ class AoFaceData {
          c0ao = e1ao;
          c0em = e1em;
       } else {
-         int d0 = cache.get(x, y, z, faces[0], faces[1]);
+         int d0 = cache.get(x + faces[0].nx + faces[1].nx, y + faces[0].ny + faces[1].ny, z + faces[0].nz + faces[1].nz);
          c0lm = LightDataAccess.getLightmap(d0);
          c0ao = LightDataAccess.unpackAO(d0);
          c0em = LightDataAccess.unpackEM(d0);
@@ -109,7 +109,7 @@ class AoFaceData {
          c1ao = e1ao;
          c1em = e1em;
       } else {
-         int d1 = cache.get(x, y, z, faces[1], faces[2]);
+         int d1 = cache.get(x + faces[1].nx + faces[2].nx, y + faces[1].ny + faces[2].ny, z + faces[1].nz + faces[2].nz);
          c1lm = LightDataAccess.getLightmap(d1);
          c1ao = LightDataAccess.unpackAO(d1);
          c1em = LightDataAccess.unpackEM(d1);
@@ -123,7 +123,7 @@ class AoFaceData {
          c2ao = e3ao;
          c2em = e3em;
       } else {
-         int d2 = cache.get(x, y, z, faces[2], faces[3]);
+         int d2 = cache.get(x + faces[2].nx + faces[3].nx, y + faces[2].ny + faces[3].ny, z + faces[2].nz + faces[3].nz);
          c2lm = LightDataAccess.getLightmap(d2);
          c2ao = LightDataAccess.unpackAO(d2);
          c2em = LightDataAccess.unpackEM(d2);
@@ -137,7 +137,7 @@ class AoFaceData {
          c3ao = e3ao;
          c3em = e3em;
       } else {
-         int d3 = cache.get(x, y, z, faces[3], faces[0]);
+         int d3 = cache.get(x + faces[3].nx + faces[0].nx, y + faces[3].ny + faces[0].ny, z + faces[3].nz + faces[0].nz);
          c3lm = LightDataAccess.getLightmap(d3);
          c3ao = LightDataAccess.unpackAO(d3);
          c3em = LightDataAccess.unpackEM(d3);
@@ -160,14 +160,14 @@ class AoFaceData {
       int[] lm = this.lm;
       float[] bl = this.bl;
       float[] sl = this.sl;
-      bl[0] = unpackBlockLight(lm[0]);
-      bl[1] = unpackBlockLight(lm[1]);
-      bl[2] = unpackBlockLight(lm[2]);
-      bl[3] = unpackBlockLight(lm[3]);
-      sl[0] = unpackSkyLight(lm[0]);
-      sl[1] = unpackSkyLight(lm[1]);
-      sl[2] = unpackSkyLight(lm[2]);
-      sl[3] = unpackSkyLight(lm[3]);
+      bl[0] = lm[0] & 0xFF;
+      bl[1] = lm[1] & 0xFF;
+      bl[2] = lm[2] & 0xFF;
+      bl[3] = lm[3] & 0xFF;
+      sl[0] = (lm[0] >> 16) & 0xFF;
+      sl[1] = (lm[1] >> 16) & 0xFF;
+      sl[2] = (lm[2] >> 16) & 0xFF;
+      sl[3] = (lm[3] >> 16) & 0xFF;
       this.flags |= 2;
    }
 

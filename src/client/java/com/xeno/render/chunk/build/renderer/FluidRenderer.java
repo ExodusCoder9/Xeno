@@ -51,6 +51,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import com.xeno.render.chunk.build.light.LightPipeline;
+import com.xeno.render.chunk.build.RenderRegion;
 import com.xeno.render.chunk.build.light.data.QuadLightData;
 import com.xeno.render.chunk.build.thread.BuilderResources;
 import com.xeno.render.chunk.cull.QuadFacing;
@@ -72,6 +73,18 @@ public class FluidRenderer implements DefaultRenderer {
    private final LightPipeline flatLightPipeline;
    private final int[] quadColors = new int[4];
    private final float[] avgHeightFs = new float[2];
+   private final MutableBlockPos tempPos = new MutableBlockPos();
+
+   // Transient rendering context fields for JIT optimization
+   private RenderRegion region;
+   private FluidModel model;
+   private TerrainBufferBuilder bufferBuilder;
+   private LightPipeline lightPipeline;
+   private float r, g, b;
+   private int posX, posY, posZ;
+   private float x0, y0, z0;
+   private float y;
+   private BlockPos pos;
 
    public FluidRenderer(LightPipeline flatLightPipeline, LightPipeline smoothLightPipeline) {
       this.smoothLightPipeline = smoothLightPipeline;
@@ -122,9 +135,9 @@ public class FluidRenderer implements DefaultRenderer {
       }
    }
 
-   public BlockState getAdjBlockState(BlockAndTintGetter blockAndTintGetter, int x, int y, int z, Direction dir) {
+   public BlockState getAdjBlockState(RenderRegion region, int x, int y, int z, Direction dir) {
       this.mBlockPos.set(x + dir.getStepX(), y + dir.getStepY(), z + dir.getStepZ());
-      return blockAndTintGetter.getBlockState(this.mBlockPos);
+      return region.getBlockState(this.mBlockPos);
    }
 
    public void render(
@@ -140,21 +153,22 @@ public class FluidRenderer implements DefaultRenderer {
    }
 
    public void render(BlockState blockState, FluidState fluidState, BlockPos pos) {
-      BlockAndTintGetter region = this.resources.getRegion();
-      FluidModel model = this.fluidModels.get(fluidState);
+      this.pos = pos;
+      this.region = this.resources.getRegion();
+      this.model = this.fluidModels.get(fluidState);
       int color = model.tintSource() != null ? model.tintSource().colorInWorld(blockState, region, pos) : -1;
       TerrainRenderType renderType = TerrainRenderType.get(model.layer());
       renderType = TerrainRenderType.getRemapped(renderType);
-      TerrainBufferBuilder bufferBuilder = this.resources.builderPack.builder(renderType).getBufferBuilder(QuadFacing.UNDEFINED.ordinal());
+      this.bufferBuilder = this.resources.builderPack.builder(renderType).getBufferBuilder(QuadFacing.UNDEFINED.ordinal());
       CardinalLighting cardinalLighting = region.cardinalLighting();
-      float r = ColorUtil.ARGB.unpackR(color);
-      float g = ColorUtil.ARGB.unpackG(color);
-      float b = ColorUtil.ARGB.unpackB(color);
-      int posX = pos.getX();
-      int posY = pos.getY();
-      int posZ = pos.getZ();
+      this.r = ColorUtil.ARGB.unpackR(color);
+      this.g = ColorUtil.ARGB.unpackG(color);
+      this.b = ColorUtil.ARGB.unpackB(color);
+      this.posX = pos.getX();
+      this.posY = pos.getY();
+      this.posZ = pos.getZ();
       boolean useAO = blockState.getLightEmission() == 0 && this.ambientOcclusion;
-      LightPipeline lightPipeline = useAO ? this.smoothLightPipeline : this.flatLightPipeline;
+      this.lightPipeline = useAO ? this.smoothLightPipeline : this.flatLightPipeline;
       BlockState downState = this.getAdjBlockState(region, posX, posY, posZ, Direction.DOWN);
       BlockState upState = this.getAdjBlockState(region, posX, posY, posZ, Direction.UP);
       BlockState northState = this.getAdjBlockState(region, posX, posY, posZ, Direction.NORTH);
@@ -171,7 +185,7 @@ public class FluidRenderer implements DefaultRenderer {
       if (rUf || rDf || rEf || rWf || rNf || rSf) {
          float brightnessUp = cardinalLighting.up();
          Fluid fluid = fluidState.getType();
-         float height = this.getHeight(region, fluid, pos, blockState);
+         float height = this.getHeight(region, fluid, posX, posY, posZ, blockState);
          float neHeight;
          float nwHeight;
          float seHeight;
@@ -182,204 +196,235 @@ public class FluidRenderer implements DefaultRenderer {
             seHeight = 1.0F;
             swHeight = 1.0F;
          } else {
-            float s = this.getHeight(region, fluid, this.mBlockPos.set(pos).offset(Direction.NORTH.getUnitVec3i()), northState);
-            float t = this.getHeight(region, fluid, this.mBlockPos.set(pos).offset(Direction.SOUTH.getUnitVec3i()), southState);
-            float u = this.getHeight(region, fluid, this.mBlockPos.set(pos).offset(Direction.EAST.getUnitVec3i()), eastState);
-            float v = this.getHeight(region, fluid, this.mBlockPos.set(pos).offset(Direction.WEST.getUnitVec3i()), westState);
+            int nx = posX + Direction.NORTH.getStepX();
+            int nz = posZ + Direction.NORTH.getStepZ();
+            int sx = posX + Direction.SOUTH.getStepX();
+            int sz = posZ + Direction.SOUTH.getStepZ();
+            int ex = posX + Direction.EAST.getStepX();
+            int ez = posZ + Direction.EAST.getStepZ();
+            int wx = posX + Direction.WEST.getStepX();
+            int wz = posZ + Direction.WEST.getStepZ();
+
+            float s = this.getHeight(region, fluid, nx, posY, nz, northState);
+            float t = this.getHeight(region, fluid, sx, posY, sz, southState);
+            float u = this.getHeight(region, fluid, ex, posY, ez, eastState);
+            float v = this.getHeight(region, fluid, wx, posY, wz, westState);
             neHeight = this.calculateAverageHeight(
-               region, fluid, height, s, u, this.mBlockPos.set(pos).offset(Direction.NORTH.getUnitVec3i()).offset(Direction.EAST.getUnitVec3i())
+               region, fluid, height, s, u, nx + Direction.EAST.getStepX(), posY, nz + Direction.EAST.getStepZ()
             );
             nwHeight = this.calculateAverageHeight(
-               region, fluid, height, s, v, this.mBlockPos.set(pos).offset(Direction.NORTH.getUnitVec3i()).offset(Direction.WEST.getUnitVec3i())
+               region, fluid, height, s, v, nx + Direction.WEST.getStepX(), posY, nz + Direction.WEST.getStepZ()
             );
             seHeight = this.calculateAverageHeight(
-               region, fluid, height, t, u, this.mBlockPos.set(pos).offset(Direction.SOUTH.getUnitVec3i()).offset(Direction.EAST.getUnitVec3i())
+               region, fluid, height, t, u, sx + Direction.EAST.getStepX(), posY, sz + Direction.EAST.getStepZ()
             );
             swHeight = this.calculateAverageHeight(
-               region, fluid, height, t, v, this.mBlockPos.set(pos).offset(Direction.SOUTH.getUnitVec3i()).offset(Direction.WEST.getUnitVec3i())
+               region, fluid, height, t, v, sx + Direction.WEST.getStepX(), posY, sz + Direction.WEST.getStepZ()
             );
          }
 
-         float x0 = posX & 15;
-         float y0 = posY & 15;
-         float z0 = posZ & 15;
-         float y = rDf ? 0.001F : 0.0F;
+         this.x0 = posX & 15;
+         this.y0 = posY & 15;
+         this.z0 = posZ & 15;
+         this.y = rDf ? 0.001F : 0.0F;
          this.modelQuad.setFlags(2); // parallel-to-block-face for optimized lighting
-         if (rUf && !this.isFaceOccludedByState(region, Math.min(Math.min(nwHeight, swHeight), Math.min(seHeight, neHeight)), Direction.UP, pos, upState)) {
-            nwHeight -= 0.001F;
-            swHeight -= 0.001F;
-            seHeight -= 0.001F;
-            neHeight -= 0.001F;
-            Vec3 vec3 = fluidState.isSource() ? Vec3.ZERO : fluidState.getFlow(region, pos);
-            float u0;
-            float u1;
-            float u2;
-            float u3;
-            float v0;
-            float v1;
-            float v2;
-            float v3;
-            if (vec3.x == 0.0 && vec3.z == 0.0) {
-               TextureAtlasSprite sprite = model.stillMaterial().sprite();
-               u0 = sprite.getU(0.0F);
-               v0 = sprite.getV(0.0F);
-               u1 = u0;
-               v1 = sprite.getV(1.0F);
-               u2 = sprite.getU(1.0F);
-               v2 = v1;
-               u3 = u2;
-               v3 = v0;
-            } else {
-               TextureAtlasSprite sprite = model.flowingMaterial().sprite();
-               float ah = (float)Mth.atan2(vec3.z, vec3.x) - (float) (Math.PI / 2);
-               float ai = Mth.sin(ah) * 0.25F;
-               float aj = Mth.cos(ah) * 0.25F;
-               u0 = sprite.getU(0.5F + (-aj - ai));
-               v0 = sprite.getV(0.5F - aj + ai);
-               u1 = sprite.getU(0.5F - aj + ai);
-               v1 = sprite.getV(0.5F + aj + ai);
-               u2 = sprite.getU(0.5F + aj + ai);
-               v2 = sprite.getV(0.5F + (aj - ai));
-               u3 = sprite.getU(0.5F + (aj - ai));
-               v3 = sprite.getV(0.5F + (-aj - ai));
-            }
-
-            float brightness = brightnessUp;
-            this.setVertex(this.modelQuad, 0, 0.0F, nwHeight, 0.0F, u0, v0);
-            this.setVertex(this.modelQuad, 1, 0.0F, swHeight, 1.0F, u1, v1);
-            this.setVertex(this.modelQuad, 2, 1.0F, seHeight, 1.0F, u2, v2);
-            this.setVertex(this.modelQuad, 3, 1.0F, neHeight, 0.0F, u3, v3);
-            this.updateQuad(this.modelQuad, pos, lightPipeline, Direction.UP);
-            this.updateColor(r, g, b, brightness);
-            this.putQuad(this.modelQuad, bufferBuilder, x0, y0, z0, false);
-            if (fluidState.shouldRenderBackwardUpFace(region, pos.above())) {
-               this.putQuad(this.modelQuad, bufferBuilder, x0, y0, z0, true);
-            }
+         
+         if (rUf) {
+            this.renderUpFace(fluidState, upState, brightnessUp, nwHeight, swHeight, seHeight, neHeight);
          }
 
          if (rDf) {
-            TextureAtlasSprite sprite = model.stillMaterial().sprite();
-            float u0 = sprite.getU0();
-            float u1 = sprite.getU1();
-            float v0 = sprite.getV0();
-            float v1 = sprite.getV1();
-            float brightness = cardinalLighting.down();
-            this.setVertex(this.modelQuad, 0, 0.0F, y, 1.0F, u0, v1);
-            this.setVertex(this.modelQuad, 1, 0.0F, y, 0.0F, u0, v0);
-            this.setVertex(this.modelQuad, 2, 1.0F, y, 0.0F, u1, v0);
-            this.setVertex(this.modelQuad, 3, 1.0F, y, 1.0F, u1, v1);
-            this.updateQuad(this.modelQuad, pos, lightPipeline, Direction.DOWN);
-            this.updateColor(r, g, b, brightness);
-            this.putQuad(this.modelQuad, bufferBuilder, x0, y0, z0, false);
+            this.renderDownFace(cardinalLighting.down());
          }
 
          this.modelQuad.setFlags(6);
 
-         boolean hasOverlay = model.overlayMaterial() != null;
+         this.renderSideFaces(rNf, rSf, rWf, rEf, nwHeight, swHeight, seHeight, neHeight,
+                              northState, southState, westState, eastState, cardinalLighting);
+      }
 
-         for (Direction direction : Util.XZ_DIRECTIONS) {
-            float E = 0.001F;
-            float E2 = 0.999F;
-            float h1;
-            float h2;
-            float x1;
-            float z1;
-            float x2;
-            float z2;
-            BlockState adjState;
-            switch (direction) {
-               case NORTH:
-                  if (!rNf) {
-                     continue;
-                  }
+      this.region = null;
+      this.model = null;
+      this.bufferBuilder = null;
+      this.lightPipeline = null;
+      this.pos = null;
+   }
 
-                  h1 = nwHeight;
-                  h2 = neHeight;
-                  x1 = 0.0F;
-                  x2 = 1.0F;
-                  z1 = 0.001F;
-                  z2 = 0.001F;
-                  adjState = northState;
-                  break;
-               case SOUTH:
-                  if (!rSf) {
-                     continue;
-                  }
+   private void renderUpFace(FluidState fluidState, BlockState upState, float brightnessUp, float nwHeight, float swHeight, float seHeight, float neHeight) {
+      if (!this.isFaceOccludedByState(this.region, Math.min(Math.min(nwHeight, swHeight), Math.min(seHeight, neHeight)), Direction.UP, this.pos, upState)) {
+         nwHeight -= 0.001F;
+         swHeight -= 0.001F;
+         seHeight -= 0.001F;
+         neHeight -= 0.001F;
+         Vec3 vec3 = fluidState.isSource() ? Vec3.ZERO : fluidState.getFlow(this.region, this.pos);
+         float u0;
+         float u1;
+         float u2;
+         float u3;
+         float v0;
+         float v1;
+         float v2;
+         float v3;
+         if (vec3.x == 0.0 && vec3.z == 0.0) {
+            TextureAtlasSprite sprite = this.model.stillMaterial().sprite();
+            u0 = sprite.getU(0.0F);
+            v0 = sprite.getV(0.0F);
+            u1 = u0;
+            v1 = sprite.getV(1.0F);
+            u2 = sprite.getU(1.0F);
+            v2 = v1;
+            u3 = u2;
+            v3 = v0;
+         } else {
+            TextureAtlasSprite sprite = this.model.flowingMaterial().sprite();
+            float ah = (float)Mth.atan2(vec3.z, vec3.x) - (float) (Math.PI / 2);
+            float ai = Mth.sin(ah) * 0.25F;
+            float aj = Mth.cos(ah) * 0.25F;
+            u0 = sprite.getU(0.5F + (-aj - ai));
+            v0 = sprite.getV(0.5F - aj + ai);
+            u1 = sprite.getU(0.5F - aj + ai);
+            v1 = sprite.getV(0.5F + aj + ai);
+            u2 = sprite.getU(0.5F + aj + ai);
+            v2 = sprite.getV(0.5F + (aj - ai));
+            u3 = sprite.getU(0.5F + (aj - ai));
+            v3 = sprite.getV(0.5F + (-aj - ai));
+         }
 
-                  h1 = seHeight;
-                  h2 = swHeight;
-                  x1 = 1.0F;
-                  x2 = 0.0F;
-                  z1 = 0.999F;
-                  z2 = 0.999F;
-                  adjState = southState;
-                  break;
-               case WEST:
-                  if (!rWf) {
-                     continue;
-                  }
+         this.setVertex(this.modelQuad, 0, 0.0F, nwHeight, 0.0F, u0, v0);
+         this.setVertex(this.modelQuad, 1, 0.0F, swHeight, 1.0F, u1, v1);
+         this.setVertex(this.modelQuad, 2, 1.0F, seHeight, 1.0F, u2, v2);
+         this.setVertex(this.modelQuad, 3, 1.0F, neHeight, 0.0F, u3, v3);
+         this.updateQuad(this.modelQuad, this.pos, this.lightPipeline, Direction.UP);
+         this.updateColor(this.r, this.g, this.b, brightnessUp);
+         this.putQuad(this.modelQuad, this.bufferBuilder, this.x0, this.y0, this.z0, false);
+         this.mBlockPos.set(this.posX, this.posY + 1, this.posZ);
+         if (fluidState.shouldRenderBackwardUpFace(this.region, this.mBlockPos)) {
+            this.putQuad(this.modelQuad, this.bufferBuilder, this.x0, this.y0, this.z0, true);
+         }
+      }
+   }
 
-                  h1 = swHeight;
-                  h2 = nwHeight;
-                  x1 = 0.001F;
-                  x2 = 0.001F;
-                  z1 = 1.0F;
-                  z2 = 0.0F;
-                  adjState = westState;
-                  break;
-               case EAST:
-                  if (rEf) {
-                     h1 = neHeight;
-                     h2 = seHeight;
-                     x1 = 0.999F;
-                     x2 = 0.999F;
-                     z1 = 0.0F;
-                     z2 = 1.0F;
-                     adjState = eastState;
-                     break;
-                  }
-               default:
+   private void renderDownFace(float brightnessDown) {
+      TextureAtlasSprite sprite = this.model.stillMaterial().sprite();
+      float u0 = sprite.getU0();
+      float u1 = sprite.getU1();
+      float v0 = sprite.getV0();
+      float v1 = sprite.getV1();
+      this.setVertex(this.modelQuad, 0, 0.0F, this.y, 1.0F, u0, v1);
+      this.setVertex(this.modelQuad, 1, 0.0F, this.y, 0.0F, u0, v0);
+      this.setVertex(this.modelQuad, 2, 1.0F, this.y, 0.0F, u1, v0);
+      this.setVertex(this.modelQuad, 3, 1.0F, this.y, 1.0F, u1, v1);
+      this.updateQuad(this.modelQuad, this.pos, this.lightPipeline, Direction.DOWN);
+      this.updateColor(this.r, this.g, this.b, brightnessDown);
+      this.putQuad(this.modelQuad, this.bufferBuilder, this.x0, this.y0, this.z0, false);
+   }
+
+   private void renderSideFaces(boolean rNf, boolean rSf, boolean rWf, boolean rEf,
+                                float nwHeight, float swHeight, float seHeight, float neHeight,
+                                BlockState northState, BlockState southState, BlockState westState, BlockState eastState,
+                                CardinalLighting cardinalLighting) {
+      boolean hasOverlay = this.model.overlayMaterial() != null;
+
+      for (Direction direction : Util.XZ_DIRECTIONS) {
+         float h1;
+         float h2;
+         float x1;
+         float z1;
+         float x2;
+         float z2;
+         BlockState adjState;
+         switch (direction) {
+            case NORTH:
+               if (!rNf) {
                   continue;
+               }
+
+               h1 = nwHeight;
+               h2 = neHeight;
+               x1 = 0.0F;
+               x2 = 1.0F;
+               z1 = 0.001F;
+               z2 = 0.001F;
+               adjState = northState;
+               break;
+            case SOUTH:
+               if (!rSf) {
+                  continue;
+               }
+
+               h1 = seHeight;
+               h2 = swHeight;
+               x1 = 1.0F;
+               x2 = 0.0F;
+               z1 = 0.999F;
+               z2 = 0.999F;
+               adjState = southState;
+               break;
+            case WEST:
+               if (!rWf) {
+                  continue;
+               }
+
+               h1 = swHeight;
+               h2 = nwHeight;
+               x1 = 0.001F;
+               x2 = 0.001F;
+               z1 = 1.0F;
+               z2 = 0.0F;
+               adjState = westState;
+               break;
+            case EAST:
+               if (rEf) {
+                  h1 = neHeight;
+                  h2 = seHeight;
+                  x1 = 0.999F;
+                  x2 = 0.999F;
+                  z1 = 0.0F;
+                  z2 = 1.0F;
+                  adjState = eastState;
+                  break;
+               }
+            default:
+               continue;
+         }
+
+         if (!this.isFaceOccludedByState(this.region, Math.max(h1, h2), direction, this.pos, adjState)) {
+            TextureAtlasSprite sprite = this.model.flowingMaterial().sprite();
+            boolean isOverlay = false;
+            if (hasOverlay) {
+               Block relativeBlock = adjState.getBlock();
+               if (relativeBlock instanceof HalfTransparentBlock || relativeBlock instanceof LeavesBlock) {
+                  sprite = this.model.overlayMaterial().sprite();
+                  isOverlay = true;
+               }
             }
 
-            if (!this.isFaceOccludedByState(region, Math.max(h1, h2), direction, pos, adjState)) {
-               TextureAtlasSprite sprite = model.flowingMaterial().sprite();
-               boolean isOverlay = false;
-               if (hasOverlay) {
-                  Block relativeBlock = adjState.getBlock();
-                  if (relativeBlock instanceof HalfTransparentBlock || relativeBlock instanceof LeavesBlock) {
-                     sprite = model.overlayMaterial().sprite();
-                     isOverlay = true;
-                  }
-               }
-
-               float u0 = sprite.getU(0.0F);
-               float u1 = sprite.getU(0.5F);
-               float v0 = sprite.getV((1.0F - h1) * 0.5F);
-               float v1 = sprite.getV((1.0F - h2) * 0.5F);
-               float v2 = sprite.getV(0.5F);
-               float brightness = direction.getAxis() == Axis.Z ? cardinalLighting.north() : cardinalLighting.west();
-               this.setVertex(this.modelQuad, 0, x2, h2, z2, u1, v1);
-               this.setVertex(this.modelQuad, 1, x2, y, z2, u1, v2);
-               this.setVertex(this.modelQuad, 2, x1, y, z1, u0, v2);
-               this.setVertex(this.modelQuad, 3, x1, h1, z1, u0, v0);
-               this.updateQuad(this.modelQuad, pos, lightPipeline, direction);
-               this.updateColor(r, g, b, brightness);
-               this.putQuad(this.modelQuad, bufferBuilder, x0, y0, z0, false);
-               if (!isOverlay) {
-                  this.putQuad(this.modelQuad, bufferBuilder, x0, y0, z0, true);
-               }
+            float u0 = sprite.getU(0.0F);
+            float u1 = sprite.getU(0.5F);
+            float v0 = sprite.getV((1.0F - h1) * 0.5F);
+            float v1 = sprite.getV((1.0F - h2) * 0.5F);
+            float v2 = sprite.getV(0.5F);
+            float brightness = direction.getAxis() == Axis.Z ? cardinalLighting.north() : cardinalLighting.west();
+            this.setVertex(this.modelQuad, 0, x2, h2, z2, u1, v1);
+            this.setVertex(this.modelQuad, 1, x2, this.y, z2, u1, v2);
+            this.setVertex(this.modelQuad, 2, x1, this.y, z1, u0, v2);
+            this.setVertex(this.modelQuad, 3, x1, h1, z1, u0, v0);
+            this.updateQuad(this.modelQuad, this.pos, this.lightPipeline, direction);
+            this.updateColor(this.r, this.g, this.b, brightness);
+            this.putQuad(this.modelQuad, this.bufferBuilder, this.x0, this.y0, this.z0, false);
+            if (!isOverlay) {
+               this.putQuad(this.modelQuad, this.bufferBuilder, this.x0, this.y0, this.z0, true);
             }
          }
       }
    }
 
-   private float calculateAverageHeight(BlockAndTintGetter blockAndTintGetter, Fluid fluid, float f, float g, float h, BlockPos blockPos) {
+   private float calculateAverageHeight(BlockAndTintGetter blockAndTintGetter, Fluid fluid, float f, float g, float h, int x, int y, int z) {
       if (!(h >= 1.0F) && !(g >= 1.0F)) {
          avgHeightFs[0] = 0.0F;
          avgHeightFs[1] = 0.0F;
          if (h > 0.0F || g > 0.0F) {
-            float i = this.getHeight(blockAndTintGetter, fluid, blockPos);
+            float i = this.getHeight(blockAndTintGetter, fluid, x, y, z);
             if (i >= 1.0F) {
                return 1.0F;
             }
@@ -406,15 +451,17 @@ public class FluidRenderer implements DefaultRenderer {
       }
    }
 
-   private float getHeight(BlockAndTintGetter blockAndTintGetter, Fluid fluid, BlockPos blockPos) {
-      BlockState blockState = blockAndTintGetter.getBlockState(blockPos);
-      return this.getHeight(blockAndTintGetter, fluid, blockPos, blockState);
+   private float getHeight(BlockAndTintGetter blockAndTintGetter, Fluid fluid, int x, int y, int z) {
+      this.tempPos.set(x, y, z);
+      BlockState blockState = blockAndTintGetter.getBlockState(this.tempPos);
+      return this.getHeight(blockAndTintGetter, fluid, x, y, z, blockState);
    }
 
-   private float getHeight(BlockAndTintGetter blockAndTintGetter, Fluid fluid, BlockPos blockPos, BlockState adjBlockState) {
+   private float getHeight(BlockAndTintGetter blockAndTintGetter, Fluid fluid, int x, int y, int z, BlockState adjBlockState) {
       FluidState adjFluidState = adjBlockState.getFluidState();
       if (fluid.isSame(adjFluidState.getType())) {
-         BlockState blockState2 = blockAndTintGetter.getBlockState(blockPos.offset(Direction.UP.getUnitVec3i()));
+         this.tempPos.set(x, y + 1, z);
+         BlockState blockState2 = blockAndTintGetter.getBlockState(this.tempPos);
          return fluid.isSame(blockState2.getFluidState().getType()) ? 1.0F : adjFluidState.getOwnHeight();
       } else {
          return !adjBlockState.isSolid() ? 0.0F : -1.0F;
@@ -426,14 +473,54 @@ public class FluidRenderer implements DefaultRenderer {
       int k = QuadUtils.getIterationStartIdx(quadLightData.br);
       bufferBuilder.ensureCapacity();
 
-      for (int j = 0; j < 4; j++) {
-         int i = k;
-         float x = xOffset + quad.getX(i);
-         float y = yOffset + quad.getY(i);
-         float z = zOffset + quad.getZ(i);
-         bufferBuilder.vertex(x, y, z, this.quadColors[i], quad.getU(i), quad.getV(i), quadLightData.lm[i], 0);
-         k += flip ? -1 : 1;
-         k &= 3;
+      if (flip) {
+         int i0 = k;
+         float x0 = xOffset + quad.getX(i0);
+         float y0 = yOffset + quad.getY(i0);
+         float z0 = zOffset + quad.getZ(i0);
+         bufferBuilder.vertex(x0, y0, z0, this.quadColors[i0], quad.getU(i0), quad.getV(i0), quadLightData.lm[i0], 0);
+
+         int i1 = i0 - 1 & 3;
+         float x1 = xOffset + quad.getX(i1);
+         float y1 = yOffset + quad.getY(i1);
+         float z1 = zOffset + quad.getZ(i1);
+         bufferBuilder.vertex(x1, y1, z1, this.quadColors[i1], quad.getU(i1), quad.getV(i1), quadLightData.lm[i1], 0);
+
+         int i2 = i1 - 1 & 3;
+         float x2 = xOffset + quad.getX(i2);
+         float y2 = yOffset + quad.getY(i2);
+         float z2 = zOffset + quad.getZ(i2);
+         bufferBuilder.vertex(x2, y2, z2, this.quadColors[i2], quad.getU(i2), quad.getV(i2), quadLightData.lm[i2], 0);
+
+         int i3 = i2 - 1 & 3;
+         float x3 = xOffset + quad.getX(i3);
+         float y3 = yOffset + quad.getY(i3);
+         float z3 = zOffset + quad.getZ(i3);
+         bufferBuilder.vertex(x3, y3, z3, this.quadColors[i3], quad.getU(i3), quad.getV(i3), quadLightData.lm[i3], 0);
+      } else {
+         int i0 = k;
+         float x0 = xOffset + quad.getX(i0);
+         float y0 = yOffset + quad.getY(i0);
+         float z0 = zOffset + quad.getZ(i0);
+         bufferBuilder.vertex(x0, y0, z0, this.quadColors[i0], quad.getU(i0), quad.getV(i0), quadLightData.lm[i0], 0);
+
+         int i1 = i0 + 1 & 3;
+         float x1 = xOffset + quad.getX(i1);
+         float y1 = yOffset + quad.getY(i1);
+         float z1 = zOffset + quad.getZ(i1);
+         bufferBuilder.vertex(x1, y1, z1, this.quadColors[i1], quad.getU(i1), quad.getV(i1), quadLightData.lm[i1], 0);
+
+         int i2 = i1 + 1 & 3;
+         float x2 = xOffset + quad.getX(i2);
+         float y2 = yOffset + quad.getY(i2);
+         float z2 = zOffset + quad.getZ(i2);
+         bufferBuilder.vertex(x2, y2, z2, this.quadColors[i2], quad.getU(i2), quad.getV(i2), quadLightData.lm[i2], 0);
+
+         int i3 = i2 + 1 & 3;
+         float x3 = xOffset + quad.getX(i3);
+         float y3 = yOffset + quad.getY(i3);
+         float z3 = zOffset + quad.getZ(i3);
+         bufferBuilder.vertex(x3, y3, z3, this.quadColors[i3], quad.getU(i3), quad.getV(i3), quadLightData.lm[i3], 0);
       }
    }
 
@@ -452,12 +539,16 @@ public class FluidRenderer implements DefaultRenderer {
    private void updateColor(float r, float g, float b, float brightness) {
       QuadLightData quadLightData = this.resources.quadLightData;
 
-      for (int i = 0; i < 4; i++) {
-         float br = quadLightData.br[i] * brightness;
-         float r1 = r * br;
-         float g1 = g * br;
-         float b1 = b * br;
-         this.quadColors[i] = ColorUtil.RGBA.pack(r1, g1, b1, 1.0F);
-      }
+      float br0 = quadLightData.br[0] * brightness;
+      this.quadColors[0] = ColorUtil.RGBA.pack(r * br0, g * br0, b * br0, 1.0F);
+
+      float br1 = quadLightData.br[1] * brightness;
+      this.quadColors[1] = ColorUtil.RGBA.pack(r * br1, g * br1, b * br1, 1.0F);
+
+      float br2 = quadLightData.br[2] * brightness;
+      this.quadColors[2] = ColorUtil.RGBA.pack(r * br2, g * br2, b * br2, 1.0F);
+
+      float br3 = quadLightData.br[3] * brightness;
+      this.quadColors[3] = ColorUtil.RGBA.pack(r * br3, g * br3, b * br3, 1.0F);
    }
 }

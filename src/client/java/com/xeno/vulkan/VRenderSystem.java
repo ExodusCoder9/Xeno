@@ -75,6 +75,8 @@ public abstract class VRenderSystem {
    private static float depthBiasSlope = 0.0F;
    public static Matrix4f projection;
    public static Matrix4f modelView;
+   private static final Matrix4f tempMV = new Matrix4f();
+   private static final Matrix4f tempP = new Matrix4f();
    private static int currentTime;
 
    public VRenderSystem() {
@@ -143,28 +145,34 @@ public abstract class VRenderSystem {
    }
 
    public static void applyModelViewMatrix(Matrix4f mat) {
-      mat.get(modelViewMatrix.buffer.asFloatBuffer());
+      modelViewMatrix.buffer.clear();
+      mat.get(modelViewMatrix.buffer);
    }
 
    public static void applyProjectionMatrix(Matrix4f mat) {
-      mat.get(projectionMatrix.buffer.asFloatBuffer());
+      projectionMatrix.buffer.clear();
+      mat.get(projectionMatrix.buffer);
    }
 
    public static void applyProjectionMatrix(GpuBufferSlice bufferSlice) {
       long ptr = ((VkGpuBuffer)bufferSlice.buffer()).getBuffer().getDataPtr();
       ByteBuffer byteBuffer = MemoryUtil.memByteBuffer(ptr + bufferSlice.offset(), (int)bufferSlice.length());
-      Matrix4f matrix4f = new Matrix4f().set(byteBuffer);
-      matrix4f.get(projectionMatrix.buffer.asFloatBuffer());
+      projectionMatrix.buffer.clear();
+      tempP.set(byteBuffer).get(projectionMatrix.buffer);
    }
 
    public static void calculateMVP() {
-      Matrix4f MV = new Matrix4f(modelViewMatrix.buffer.asFloatBuffer());
-      Matrix4f P = new Matrix4f(projectionMatrix.buffer.asFloatBuffer());
-      P.mul(MV).get(MVP.buffer);
+      modelViewMatrix.buffer.clear();
+      projectionMatrix.buffer.clear();
+      tempMV.set(modelViewMatrix.buffer);
+      tempP.set(projectionMatrix.buffer);
+      MVP.buffer.clear();
+      tempP.mul(tempMV).get(MVP.buffer);
    }
 
    public static void setTextureMatrix(Matrix4f mat) {
-      mat.get(TextureMatrix.buffer.asFloatBuffer());
+      TextureMatrix.buffer.clear();
+      mat.get(TextureMatrix.buffer);
    }
 
    public static MappedBuffer getTextureMatrix() {

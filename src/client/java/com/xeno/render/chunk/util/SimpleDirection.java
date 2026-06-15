@@ -34,6 +34,14 @@ public enum SimpleDirection {
    EAST(5, 4, 3, new Vec3i(1, 0, 0));
 
    private static final SimpleDirection[] VALUES = values();
+   public static final SimpleDirection[] BY_ORDINAL;
+   static {
+      Direction[] dirs = Direction.values();
+      BY_ORDINAL = new SimpleDirection[dirs.length];
+      for (Direction direction : dirs) {
+         BY_ORDINAL[direction.ordinal()] = VALUES[direction.get3DDataValue()];
+      }
+   }
    private final int data3d;
    private final int oppositeIndex;
    private final int data2d;

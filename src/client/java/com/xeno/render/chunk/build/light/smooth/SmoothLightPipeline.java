@@ -49,7 +49,7 @@ public class SmoothLightPipeline implements LightPipeline {
    public void calculate(ModelQuadView quad, BlockPos pos, QuadLightData out, Direction cullFace, Direction lightFaceO, boolean shade) {
       this.updateCachedData(pos.asLong());
       int flags = quad.getFlags();
-      SimpleDirection lightFace = SimpleDirection.of(lightFaceO);
+      SimpleDirection lightFace = SimpleDirection.BY_ORDINAL[lightFaceO.ordinal()];
       AoNeighborInfo neighborInfo = AoNeighborInfo.get(lightFace);
       if ((flags & 4) != 0 || (flags & 2) != 0 && LightDataAccess.unpackFC(this.lightCache.get(pos))) {
          if ((flags & 1) == 0) {
@@ -72,47 +72,146 @@ public class SmoothLightPipeline implements LightPipeline {
    }
 
    private void applyAlignedPartialFace(AoNeighborInfo neighborInfo, ModelQuadView quad, BlockPos pos, SimpleDirection dir, QuadLightData out) {
-      for (int i = 0; i < 4; i++) {
-         float cx = clamp(quad.getX(i));
-         float cy = clamp(quad.getY(i));
-         float cz = clamp(quad.getZ(i));
-         float[] weights = this.weights;
-         neighborInfo.calculateCornerWeights(cx, cy, cz, weights);
-         this.applyAlignedPartialFaceVertex(pos, dir, weights, i, out, true);
-      }
+      float[] weights = this.weights;
+
+      // Vertex 0
+      float cx0 = clamp(quad.getX(0));
+      float cy0 = clamp(quad.getY(0));
+      float cz0 = clamp(quad.getZ(0));
+      neighborInfo.calculateCornerWeights(cx0, cy0, cz0, weights);
+      this.applyAlignedPartialFaceVertex(pos, dir, weights, 0, out, true);
+
+      // Vertex 1
+      float cx1 = clamp(quad.getX(1));
+      float cy1 = clamp(quad.getY(1));
+      float cz1 = clamp(quad.getZ(1));
+      neighborInfo.calculateCornerWeights(cx1, cy1, cz1, weights);
+      this.applyAlignedPartialFaceVertex(pos, dir, weights, 1, out, true);
+
+      // Vertex 2
+      float cx2 = clamp(quad.getX(2));
+      float cy2 = clamp(quad.getY(2));
+      float cz2 = clamp(quad.getZ(2));
+      neighborInfo.calculateCornerWeights(cx2, cy2, cz2, weights);
+      this.applyAlignedPartialFaceVertex(pos, dir, weights, 2, out, true);
+
+      // Vertex 3
+      float cx3 = clamp(quad.getX(3));
+      float cy3 = clamp(quad.getY(3));
+      float cz3 = clamp(quad.getZ(3));
+      neighborInfo.calculateCornerWeights(cx3, cy3, cz3, weights);
+      this.applyAlignedPartialFaceVertex(pos, dir, weights, 3, out, true);
    }
 
    private void applyParallelFace(AoNeighborInfo neighborInfo, ModelQuadView quad, BlockPos pos, SimpleDirection dir, QuadLightData out) {
-      for (int i = 0; i < 4; i++) {
-         float cx = clamp(quad.getX(i));
-         float cy = clamp(quad.getY(i));
-         float cz = clamp(quad.getZ(i));
-         float[] weights = this.weights;
-         neighborInfo.calculateCornerWeights(cx, cy, cz, weights);
-         float depth = neighborInfo.getDepth(cx, cy, cz);
-         if (Mth.equal(depth, 1.0F)) {
-            this.applyAlignedPartialFaceVertex(pos, dir, weights, i, out, false);
-         } else {
-            this.applyInsetPartialFaceVertex(pos, dir, depth, 1.0F - depth, weights, i, out);
-         }
+      float[] weights = this.weights;
+
+      // Vertex 0
+      float cx0 = clamp(quad.getX(0));
+      float cy0 = clamp(quad.getY(0));
+      float cz0 = clamp(quad.getZ(0));
+      neighborInfo.calculateCornerWeights(cx0, cy0, cz0, weights);
+      float depth0 = neighborInfo.getDepth(cx0, cy0, cz0);
+      if (Mth.equal(depth0, 1.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 0, out, false);
+      } else {
+         this.applyInsetPartialFaceVertex(pos, dir, depth0, 1.0F - depth0, weights, 0, out);
+      }
+
+      // Vertex 1
+      float cx1 = clamp(quad.getX(1));
+      float cy1 = clamp(quad.getY(1));
+      float cz1 = clamp(quad.getZ(1));
+      neighborInfo.calculateCornerWeights(cx1, cy1, cz1, weights);
+      float depth1 = neighborInfo.getDepth(cx1, cy1, cz1);
+      if (Mth.equal(depth1, 1.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 1, out, false);
+      } else {
+         this.applyInsetPartialFaceVertex(pos, dir, depth1, 1.0F - depth1, weights, 1, out);
+      }
+
+      // Vertex 2
+      float cx2 = clamp(quad.getX(2));
+      float cy2 = clamp(quad.getY(2));
+      float cz2 = clamp(quad.getZ(2));
+      neighborInfo.calculateCornerWeights(cx2, cy2, cz2, weights);
+      float depth2 = neighborInfo.getDepth(cx2, cy2, cz2);
+      if (Mth.equal(depth2, 1.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 2, out, false);
+      } else {
+         this.applyInsetPartialFaceVertex(pos, dir, depth2, 1.0F - depth2, weights, 2, out);
+      }
+
+      // Vertex 3
+      float cx3 = clamp(quad.getX(3));
+      float cy3 = clamp(quad.getY(3));
+      float cz3 = clamp(quad.getZ(3));
+      neighborInfo.calculateCornerWeights(cx3, cy3, cz3, weights);
+      float depth3 = neighborInfo.getDepth(cx3, cy3, cz3);
+      if (Mth.equal(depth3, 1.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 3, out, false);
+      } else {
+         this.applyInsetPartialFaceVertex(pos, dir, depth3, 1.0F - depth3, weights, 3, out);
       }
    }
 
    private void applyNonParallelFace(AoNeighborInfo neighborInfo, ModelQuadView quad, BlockPos pos, SimpleDirection dir, QuadLightData out) {
-      for (int i = 0; i < 4; i++) {
-         float cx = clamp(quad.getX(i));
-         float cy = clamp(quad.getY(i));
-         float cz = clamp(quad.getZ(i));
-         float[] weights = this.weights;
-         neighborInfo.calculateCornerWeights(cx, cy, cz, weights);
-         float depth = neighborInfo.getDepth(cx, cy, cz);
-         if (Mth.equal(depth, 0.0F)) {
-            this.applyAlignedPartialFaceVertex(pos, dir, weights, i, out, true);
-         } else if (Mth.equal(depth, 1.0F)) {
-            this.applyAlignedPartialFaceVertex(pos, dir, weights, i, out, false);
-         } else {
-            this.applyInsetPartialFaceVertex(pos, dir, depth, 1.0F - depth, weights, i, out);
-         }
+      float[] weights = this.weights;
+
+      // Vertex 0
+      float cx0 = clamp(quad.getX(0));
+      float cy0 = clamp(quad.getY(0));
+      float cz0 = clamp(quad.getZ(0));
+      neighborInfo.calculateCornerWeights(cx0, cy0, cz0, weights);
+      float depth0 = neighborInfo.getDepth(cx0, cy0, cz0);
+      if (Mth.equal(depth0, 0.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 0, out, true);
+      } else if (Mth.equal(depth0, 1.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 0, out, false);
+      } else {
+         this.applyInsetPartialFaceVertex(pos, dir, depth0, 1.0F - depth0, weights, 0, out);
+      }
+
+      // Vertex 1
+      float cx1 = clamp(quad.getX(1));
+      float cy1 = clamp(quad.getY(1));
+      float cz1 = clamp(quad.getZ(1));
+      neighborInfo.calculateCornerWeights(cx1, cy1, cz1, weights);
+      float depth1 = neighborInfo.getDepth(cx1, cy1, cz1);
+      if (Mth.equal(depth1, 0.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 1, out, true);
+      } else if (Mth.equal(depth1, 1.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 1, out, false);
+      } else {
+         this.applyInsetPartialFaceVertex(pos, dir, depth1, 1.0F - depth1, weights, 1, out);
+      }
+
+      // Vertex 2
+      float cx2 = clamp(quad.getX(2));
+      float cy2 = clamp(quad.getY(2));
+      float cz2 = clamp(quad.getZ(2));
+      neighborInfo.calculateCornerWeights(cx2, cy2, cz2, weights);
+      float depth2 = neighborInfo.getDepth(cx2, cy2, cz2);
+      if (Mth.equal(depth2, 0.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 2, out, true);
+      } else if (Mth.equal(depth2, 1.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 2, out, false);
+      } else {
+         this.applyInsetPartialFaceVertex(pos, dir, depth2, 1.0F - depth2, weights, 2, out);
+      }
+
+      // Vertex 3
+      float cx3 = clamp(quad.getX(3));
+      float cy3 = clamp(quad.getY(3));
+      float cz3 = clamp(quad.getZ(3));
+      neighborInfo.calculateCornerWeights(cx3, cy3, cz3, weights);
+      float depth3 = neighborInfo.getDepth(cx3, cy3, cz3);
+      if (Mth.equal(depth3, 0.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 3, out, true);
+      } else if (Mth.equal(depth3, 1.0F)) {
+         this.applyAlignedPartialFaceVertex(pos, dir, weights, 3, out, false);
+      } else {
+         this.applyInsetPartialFaceVertex(pos, dir, depth3, 1.0F - depth3, weights, 3, out);
       }
    }
 
@@ -150,10 +249,10 @@ public class SmoothLightPipeline implements LightPipeline {
    private void applySidedBrightness(QuadLightData out, Direction face, boolean shade) {
       float brightness = this.lightCache.getRegion().cardinalLighting().byFace(face);
       float[] br = out.br;
-
-      for (int i = 0; i < br.length; i++) {
-         br[i] *= brightness;
-      }
+      br[0] *= brightness;
+      br[1] *= brightness;
+      br[2] *= brightness;
+      br[3] *= brightness;
    }
 
    private AoFaceData getCachedFaceData(BlockPos pos, SimpleDirection face, boolean offset) {
@@ -167,10 +266,11 @@ public class SmoothLightPipeline implements LightPipeline {
 
    private void updateCachedData(long key) {
       if (this.cachedPos != key) {
-         for (AoFaceData data : this.cachedFaceData) {
-            data.reset();
-         }
-
+         AoFaceData[] faceData = this.cachedFaceData;
+         faceData[0].reset();  faceData[1].reset();  faceData[2].reset();
+         faceData[3].reset();  faceData[4].reset();  faceData[5].reset();
+         faceData[6].reset();  faceData[7].reset();  faceData[8].reset();
+         faceData[9].reset();  faceData[10].reset(); faceData[11].reset();
          this.cachedPos = key;
       }
    }

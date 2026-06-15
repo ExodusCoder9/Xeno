@@ -50,6 +50,13 @@ public class TintCache {
    private int maxZ;
    private int dataSize;
    private int[] temp;
+   private ColorResolver lastResolver;
+   private TintCache.Layer[] lastLayersArr;
+   private int lastX = Integer.MIN_VALUE;
+   private int lastY = Integer.MIN_VALUE;
+   private int lastZ = Integer.MIN_VALUE;
+   private ColorResolver lastRequestResolver;
+   private int lastColor;
 
    public TintCache() {
       this.layers.put(BiomeColors.FOLIAGE_COLOR_RESOLVER, this.allocateLayers());
@@ -70,6 +77,11 @@ public class TintCache {
       this.maxZ = (secZ << 4) + 15 + blendRadius;
       this.minY = (secY << 4) - 2;
       this.maxY = this.minY + 15 + 4;
+      this.lastX = Integer.MIN_VALUE;
+      this.lastY = Integer.MIN_VALUE;
+      this.lastZ = Integer.MIN_VALUE;
+      this.lastRequestResolver = null;
+      this.lastColor = 0;
       int size = this.totalWidth * this.totalWidth;
       if (size != this.dataSize) {
          this.dataSize = size;
@@ -98,21 +110,41 @@ public class TintCache {
    }
 
    public int getColor(BlockPos blockPos, ColorResolver colorResolver) {
-      int relY = blockPos.getY() - this.minY;
-      if (!this.layers.containsKey(colorResolver)) {
-         this.addResolver(colorResolver);
+      int x = blockPos.getX();
+      int y = blockPos.getY();
+      int z = blockPos.getZ();
+      if (x == this.lastX && y == this.lastY && z == this.lastZ && colorResolver == this.lastRequestResolver) {
+         return this.lastColor;
+      }
+      this.lastX = x;
+      this.lastY = y;
+      this.lastZ = z;
+      this.lastRequestResolver = colorResolver;
+
+      int relY = y - this.minY;
+      TintCache.Layer[] layersArr = this.lastResolver == colorResolver ? this.lastLayersArr : null;
+      if (layersArr == null) {
+         layersArr = this.layers.get(colorResolver);
+         if (layersArr == null) {
+            this.addResolver(colorResolver);
+            layersArr = this.layers.get(colorResolver);
+         }
+         this.lastResolver = colorResolver;
+         this.lastLayersArr = layersArr;
       }
 
-      TintCache.Layer layer = ((TintCache.Layer[])this.layers.get(colorResolver))[relY];
+      TintCache.Layer layer = layersArr[relY];
       if (layer.invalidated) {
          this.calculateLayer(layer, colorResolver, relY);
       }
 
-      int[] values = layer.getValues();
-      int relX = blockPos.getX() - this.minX;
-      int relZ = blockPos.getZ() - this.minZ;
+      int[] values = layer.values;
+      int relX = x - this.minX;
+      int relZ = z - this.minZ;
       int idx = this.totalWidth * relZ + relX;
-      return values[idx];
+      int color = values[idx];
+      this.lastColor = color;
+      return color;
    }
 
    private void addResolver(ColorResolver colorResolver) {

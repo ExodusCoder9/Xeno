@@ -183,11 +183,14 @@ public abstract class LightDataAccess {
    }
 
    public static int getLightmap(int word) {
-      return LightCoordsUtil.pack(unpackBL(word), unpackSL(word));
+      // Inline: unpackBL = (word >>> 0) & 0xF, unpackSL = (word >>> 4) & 0xF
+      // LightCoordsUtil.pack(bl, sl) packs them into vanilla lightmap format
+      return LightCoordsUtil.pack(word & 0xF, (word >>> 4) & 0xF);
    }
 
    public static int getEmissiveLightmap(int word) {
-      return unpackEM(word) ? 15728880 : getLightmap(word);
+      // Fast-path: test emissive bit (bit 28) without allocating Direction lookup
+      return (word >>> 28 & 1) != 0 ? 15728880 : LightCoordsUtil.pack(word & 0xF, (word >>> 4) & 0xF);
    }
 
    public BlockAndTintGetter getRegion() {

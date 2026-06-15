@@ -70,6 +70,7 @@ public class DrawBuffers {
    int activeSlotCount = 0;
    long latestBuildTime = 0L;
    long lastFadeUpdate = -1L;
+   private final RenderSection[] sectionArray = new RenderSection[512];
 
    public DrawBuffers(int index, Vector3i origin, int minHeight) {
       this.index = index;
@@ -234,10 +235,15 @@ public class DrawBuffers {
       long drawParamsBasePtr = this.drawParamsPtr + terrainRenderType.ordinal() * 512 * 7 * 16L;
       long facingsStride = 112L;
       int count = 0;
+      int queueSize = queue.size();
       if (backFaceCulling) {
-         for (RenderSection section : queue) {
+         float camXf = (float)cameraPos.x;
+         float camYf = (float)cameraPos.y;
+         float camZf = (float)cameraPos.z;
+         for (int idx = 0; idx < queueSize; idx++) {
+            RenderSection section = queue.get(idx);
             this.sectionIndices[count] = section.inAreaIndex;
-            this.masks[count] = this.getMask(cameraPos, section);
+            this.masks[count] = this.getMask(camXf, camYf, camZf, section);
             count++;
          }
 
@@ -299,7 +305,8 @@ public class DrawBuffers {
             }
          }
       } else {
-         for (RenderSection section : queue) {
+         for (int idx = 0; idx < queueSize; idx++) {
+            RenderSection section = queue.get(idx);
             this.sectionIndices[count] = section.inAreaIndex;
             count++;
          }
@@ -328,9 +335,9 @@ public class DrawBuffers {
       }
 
       if (drawCount != 0) {
-         ByteBuffer byteBuffer = MemoryUtil.memByteBuffer(cmdBufferPtr, queue.size() * QuadFacing.COUNT * 32);
+         ByteBuffer byteBuffer = MemoryUtil.memByteBuffer(cmdBufferPtr, queueSize * QuadFacing.COUNT * 32);
          indirectBuffer.recordCopyCmd(byteBuffer.position(0));
-          VK10.vkCmdDrawIndexedIndirect(Renderer.getCommandBuffer(), indirectBuffer.getId(), indirectBuffer.getOffset(), drawCount, 32);
+         VK10.vkCmdDrawIndexedIndirect(Renderer.getCommandBuffer(), indirectBuffer.getId(), indirectBuffer.getOffset(), drawCount, 32);
       }
    }
 
@@ -347,17 +354,21 @@ public class DrawBuffers {
       int sectionCount = queue.size();
       if (sectionCount == 0) return;
 
-      // Flatten queue into array for upload
-      RenderSection[] sections = new RenderSection[sectionCount];
-      int i = 0;
-      for (RenderSection s : queue) {
-         sections[i++] = s;
+      // Flatten queue into pre-allocated array for upload
+      RenderSection[] sections = this.sectionArray;
+      for (int idx = 0; idx < sectionCount; idx++) {
+         sections[idx] = queue.get(idx);
       }
 
       batcher.buildBatchesGpu(
          cmdBuffer, sections, sectionCount, cameraPos, renderType,
          this.drawParamsPtr, currentFrame
       );
+
+      // Null out references to avoid memory leaks
+      for (int j = 0; j < sectionCount; j++) {
+         sections[j] = null;
+      }
    }
 
    public void buildDrawBatchesDirect(Vector3d cameraPos, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType) {
@@ -367,10 +378,15 @@ public class DrawBuffers {
       long drawParamsBasePtr = this.drawParamsPtr + terrainRenderType.ordinal() * 512 * 7 * 16L;
       long facingsStride = 112L;
       int count = 0;
+      int queueSize = queue.size();
       if (backFaceCulling) {
-         for (RenderSection section : queue) {
+         float camXf = (float)cameraPos.x;
+         float camYf = (float)cameraPos.y;
+         float camZf = (float)cameraPos.z;
+         for (int idx = 0; idx < queueSize; idx++) {
+            RenderSection section = queue.get(idx);
             this.sectionIndices[count] = section.inAreaIndex;
-            this.masks[count] = this.getMask(cameraPos, section);
+            this.masks[count] = this.getMask(camXf, camYf, camZf, section);
             count++;
          }
 
@@ -421,7 +437,8 @@ public class DrawBuffers {
          long facingOffset = UNDEFINED_FACING_IDX * 16L;
          drawParamsBasePtr += facingOffset;
 
-         for (RenderSection section : queue) {
+         for (int idx = 0; idx < queueSize; idx++) {
+            RenderSection section = queue.get(idx);
             this.sectionIndices[count] = section.inAreaIndex;
             count++;
          }
@@ -440,17 +457,14 @@ public class DrawBuffers {
       }
    }
 
-   private int getMask(Vector3d camera, RenderSection section) {
-      int secX = section.xOffset;
-      int secY = section.yOffset;
-      int secZ = section.zOffset;
+   private int getMask(float camX, float camY, float camZ, RenderSection section) {
       int mask = 1 << UNDEFINED_FACING_IDX;
-      mask |= camera.x - secX >= 0.0 ? 1 << QuadFacing.X_POS.ordinal() : 0;
-      mask |= camera.y - secY >= 0.0 ? 1 << QuadFacing.Y_POS.ordinal() : 0;
-      mask |= camera.z - secZ >= 0.0 ? 1 << QuadFacing.Z_POS.ordinal() : 0;
-      mask |= camera.x - (secX + 16) < 0.0 ? 1 << QuadFacing.X_NEG.ordinal() : 0;
-      mask |= camera.y - (secY + 16) < 0.0 ? 1 << QuadFacing.Y_NEG.ordinal() : 0;
-      return mask | (camera.z - (secZ + 16) < 0.0 ? 1 << QuadFacing.Z_NEG.ordinal() : 0);
+      mask |= camX - section.xOffsetF >= 0.0F ? 1 << 0 : 0;
+      mask |= camY - section.yOffsetF >= 0.0F ? 1 << 1 : 0;
+      mask |= camZ - section.zOffsetF >= 0.0F ? 1 << 2 : 0;
+      mask |= camX - section.xOffsetEndF < 0.0F ? 1 << 3 : 0;
+      mask |= camY - section.yOffsetEndF < 0.0F ? 1 << 6 : 0;
+      return mask | (camZ - section.zOffsetEndF < 0.0F ? 1 << 4 : 0);
    }
 
    public void bindBuffers(

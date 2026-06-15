@@ -33,7 +33,7 @@ public class Util {
    }
 
    public static byte getOppositeDirIdx(byte idx) {
-      return (byte)((idx & 1) != 0 ? idx - 1 : idx + 1);
+      return (byte)(idx ^ 1);
    }
 
    private static Direction[] getXzDirections() {

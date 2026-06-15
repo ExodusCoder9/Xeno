@@ -77,8 +77,14 @@ public class TerrainBufferBuilder implements VertexConsumer {
 
    public void vertex(float x, float y, float z, int color, float u, float v, int light, int packedNormal) {
       long ptr = this.bufferPtr + this.nextElementByte;
-      this.vertexBuilder.vertex(ptr, x, y, z, color, u, v, light, packedNormal);
-      this.endVertex();
+      if (this.vertexBuilder instanceof VertexBuilder.CompressedVertexBuilder cvb) {
+         cvb.vertex(ptr, x, y, z, color, u, v, light, packedNormal);
+      } else {
+         this.vertexBuilder.vertex(ptr, x, y, z, color, u, v, light, packedNormal);
+      }
+      // Inlined endVertex() to save a method call per vertex
+      this.nextElementByte += this.vertexSize;
+      this.vertices++;
    }
 
    public void end() {
@@ -153,5 +159,10 @@ public class TerrainBufferBuilder implements VertexConsumer {
 
    public VertexConsumer setUv2(int i, int j) {
       return this;
+   }
+
+   @Override
+   public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
+      this.vertex(x, y, z, color, u, v, light, I32_SNorm.packNormal(normalX, normalY, normalZ));
    }
 }

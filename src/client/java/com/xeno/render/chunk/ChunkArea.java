@@ -31,9 +31,9 @@ import org.joml.Vector3i;
 
 public class ChunkArea {
    public final int index;
-   final DrawBuffers drawBuffers;
-   final Vector3i position;
-   final byte[] frustumBuffer = new byte[64];
+   public final DrawBuffers drawBuffers;
+   public final Vector3i position;
+   public final byte[] frustumBuffer = new byte[64];
    int sectionsContained = 0;
    public final StaticQueue<RenderSection> sectionQueue = new StaticQueue<>(512);
 

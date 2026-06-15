@@ -22,7 +22,6 @@ package com.xeno.render.chunk.build.task;
  */
 
 
-import java.util.concurrent.atomic.AtomicBoolean;
 import com.xeno.render.chunk.RenderSection;
 import com.xeno.render.chunk.build.RenderRegion;
 import com.xeno.render.chunk.build.thread.BuilderResources;
@@ -33,7 +32,7 @@ public abstract class ChunkTask {
    protected static TaskDispatcher taskDispatcher;
    protected final RenderSection section;
    protected final Vector3d cameraPos;
-   protected AtomicBoolean cancelled = new AtomicBoolean(false);
+   protected volatile boolean cancelled = false;
    public boolean highPriority = false;
 
    public static BuildTask createBuildTask(RenderSection renderSection, RenderRegion renderRegion, Vector3d cameraPos, boolean highPriority) {
@@ -54,7 +53,7 @@ public abstract class ChunkTask {
    public abstract ChunkTask.Result runTask(BuilderResources var1);
 
    public void cancel() {
-      this.cancelled.set(true);
+      this.cancelled = true;
    }
 
    public static void setTaskDispatcher(TaskDispatcher dispatcher) {

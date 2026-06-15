@@ -192,7 +192,7 @@ public class RenderTypeM implements ExtendedRenderType {
 
        ScissorState scissorState = RenderSystem.getScissorStateForRenderTypeDraws();
 
-       batcher.record(new EntityBatcher.RecordedDraw(
+       batcher.record(batcher.obtainDraw(
           renderSetupAccessor.pipeline(),
           gpuTextureView,
           gpuTextureView2,

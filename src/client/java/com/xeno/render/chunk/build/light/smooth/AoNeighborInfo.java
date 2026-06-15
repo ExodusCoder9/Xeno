@@ -199,7 +199,7 @@ enum AoNeighborInfo {
    public abstract float getDepth(float var1, float var2, float var3);
 
    public static AoNeighborInfo get(SimpleDirection direction) {
-      return VALUES[direction.get3DDataValue()];
+      return VALUES[direction.ordinal()];
    }
 
    public static void calculateCornerWeights(float u, float v, float[] out) {

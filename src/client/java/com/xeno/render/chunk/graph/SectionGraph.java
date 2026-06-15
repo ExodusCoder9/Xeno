@@ -36,6 +36,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import com.xeno.Initializer;
 import com.xeno.interfaces.FrustumMixed;
+import com.xeno.render.chunk.ChunkArea;
 import com.xeno.render.chunk.ChunkAreaManager;
 import com.xeno.render.chunk.RenderSection;
 import com.xeno.render.chunk.SectionGrid;
@@ -45,6 +46,7 @@ import com.xeno.render.chunk.build.task.TaskDispatcher;
 import com.xeno.render.chunk.frustum.VFrustum;
 import com.xeno.render.chunk.util.AreaSetQueue;
 import com.xeno.render.chunk.util.ResettableQueue;
+import com.xeno.render.chunk.util.StaticQueue;
 import com.xeno.render.profiling.Profiler;
 import org.joml.Vector3d;
 
@@ -62,6 +64,16 @@ public class SectionGraph {
    private VFrustum frustum;
    public RenderRegionBuilder renderRegionCache;
    int nonEmptyChunks;
+   // Pre-computed constant: bits 48-53 (dirs 0-5 at offset 48) and bits 56-61 (dirs 0-5 at offset 56)
+   private static final long INIT_VISIBILITY;
+   static {
+      long vis = 0L;
+      for (int dir = 0; dir < 6; dir++) {
+         vis |= 1L << 48 + dir;
+         vis |= 1L << 56 + dir;
+      }
+      INIT_VISIBILITY = vis;
+   }
 
    public SectionGraph(Level level, SectionGrid sectionGrid, TaskDispatcher taskDispatcher) {
       this.level = level;
@@ -115,7 +127,7 @@ public class SectionGraph {
          for (int x1 = -renderDistance; x1 <= renderDistance; x1++) {
             for (int z1 = -renderDistance; z1 <= renderDistance; z1++) {
                RenderSection renderSection1 = this.sectionGrid
-                  .getSectionAtBlockPos(new BlockPos(x + SectionPos.sectionToBlockCoord(x1, 8), y, z + SectionPos.sectionToBlockCoord(z1, 8)));
+                  .getSectionAtBlockPos(x + SectionPos.sectionToBlockCoord(x1, 8), y, z + SectionPos.sectionToBlockCoord(z1, 8));
                if (renderSection1 != null) {
                   initFirstNode(renderSection1, this.lastFrame);
                   list.add(renderSection1);
@@ -145,149 +157,237 @@ public class SectionGraph {
    }
 
    private static long initVisibility() {
-      long vis = 0L;
-
-      for (int dir = 0; dir < 6; dir++) {
-         vis |= 1L << 48 + dir;
-         vis |= 1L << 56 + dir;
-      }
-
-      return vis;
+      return INIT_VISIBILITY;
    }
 
    private void initUpdate() {
+      int count = this.sectionGrid.getSectionCount();
+      this.sectionQueue.ensureCapacity(count);
+      this.blockEntitiesSections.ensureCapacity(count);
+      this.rebuildQueue.ensureCapacity(count);
       this.resetUpdateQueues();
       this.lastFrame++;
       this.nonEmptyChunks = 0;
    }
 
    private void resetUpdateQueues() {
+      StaticQueue<ChunkArea> activeQueue = this.chunkAreaQueue.queue();
+      int activeSize = activeQueue.size();
+      for (int i = 0; i < activeSize; i++) {
+         activeQueue.get(i).resetQueue();
+      }
       this.chunkAreaQueue.clear();
-      this.sectionGrid.getChunkAreaManager().resetQueues();
+
       this.sectionQueue.clear();
       this.blockEntitiesSections.clear();
       this.rebuildQueue.clear();
    }
 
-   private void updateRenderChunks() {
-      int maxDirectionsChanges = Initializer.CONFIG.advCulling - 1;
+    private void updateRenderChunks() {
+       int maxDirectionsChanges = Initializer.CONFIG.advCulling - 1;
+       float camX = this.frustum.camXf;
+       float camY = this.frustum.camYf;
+       float camZ = this.frustum.camZf;
 
-      while (this.sectionQueue.hasNext()) {
-         RenderSection renderSection = this.sectionQueue.poll();
-         if (!this.notInFrustum(renderSection) && renderSection.directionChanges <= maxDirectionsChanges) {
-            if (!renderSection.isCompletelyEmpty()) {
-               renderSection.getChunkArea().sectionQueue.add(renderSection);
-               this.chunkAreaQueue.add(renderSection.getChunkArea());
-               this.nonEmptyChunks++;
-            }
+       while (this.sectionQueue.hasNext()) {
+          RenderSection renderSection = this.sectionQueue.poll();
+          if (!this.notInFrustum(renderSection, camX, camY, camZ) && renderSection.directionChanges <= maxDirectionsChanges) {
+             if (!renderSection.completelyEmpty) {
+                renderSection.chunkArea.sectionQueue.add(renderSection);
+                this.chunkAreaQueue.add(renderSection.chunkArea);
+                this.nonEmptyChunks++;
+             }
 
-            if (renderSection.containsBlockEntities()) {
-               this.blockEntitiesSections.ensureCapacity(1);
-               this.blockEntitiesSections.add(renderSection);
-            }
+             if (renderSection.containsBlockEntities) {
+                this.blockEntitiesSections.add(renderSection);
+             }
 
-            if (renderSection.isDirty()) {
-               this.rebuildQueue.ensureCapacity(1);
-               this.rebuildQueue.add(renderSection);
-            }
+             if (renderSection.dirty) {
+                this.rebuildQueue.add(renderSection);
+             }
 
-            byte dirs = (byte)(renderSection.getVisibilityDirs() & renderSection.getDirections());
-            this.visitAdjacentNodes(renderSection, dirs);
-         }
-      }
-   }
+             byte dirs = (byte)(((renderSection.visibility >> ((renderSection.mainDir ^ 1) << 3)) & renderSection.directions));
+             this.visitAdjacentNodes(renderSection, dirs);
+          }
+       }
+    }
 
-   private void scheduleRebuilds() {
-      for (int i = 0; i < this.rebuildQueue.size(); i++) {
-         RenderSection section = this.rebuildQueue.get(i);
-         Vector3d cameraPos = WorldRenderer.getCameraPos();
-         section.rebuildChunkAsync(this.taskDispatcher, this.renderRegionCache, cameraPos);
-         section.setNotDirty();
-      }
+    private void scheduleRebuilds() {
+       int size = this.rebuildQueue.size();
+       Vector3d cameraPos = WorldRenderer.getCameraPos();
+       for (int i = 0; i < size; i++) {
+          RenderSection section = this.rebuildQueue.get(i);
+          section.rebuildChunkAsync(this.taskDispatcher, this.renderRegionCache, cameraPos);
+          section.setNotDirty();
+       }
 
-      this.rebuildQueue.clear();
-   }
+       this.rebuildQueue.clear();
+    }
 
-   private boolean notInFrustum(RenderSection renderSection) {
-      byte frustumRes = renderSection.getChunkArea().inFrustum(renderSection.frustumIndex);
-      if (frustumRes == FrustumIntersection.OUTSIDE) {
-         return true;
-      }
-      if (frustumRes == FrustumIntersection.INTERSECT) {
-         return !this.frustum
-            .testFrustum(
-               renderSection.xOffset,
-               renderSection.yOffset,
-               renderSection.zOffset,
-               renderSection.xOffset + 16,
-               renderSection.yOffset + 16,
-               renderSection.zOffset + 16
-            );
-      }
-      return false;
-   }
+    private boolean notInFrustum(RenderSection renderSection, float camX, float camY, float camZ) {
+       byte frustumRes = renderSection.chunkArea.frustumBuffer[renderSection.frustumIndex];
+       if (frustumRes == FrustumIntersection.OUTSIDE) {
+          return true;
+       }
+       if (frustumRes == FrustumIntersection.INTERSECT) {
+          return !this.frustum
+             .testFrustumRelative(
+                renderSection.xOffsetF - camX,
+                renderSection.yOffsetF - camY,
+                renderSection.zOffsetF - camZ,
+                renderSection.xOffsetEndF - camX,
+                renderSection.yOffsetEndF - camY,
+                renderSection.zOffsetEndF - camZ
+             );
+       }
+       return false;
+    }
 
-   private void visitAdjacentNodes(RenderSection renderSection, byte dirs) {
-      dirs = (byte)(dirs & renderSection.adjDirs);
-      this.sectionQueue.ensureCapacity(6);
-      RenderSection relativeSection = renderSection.adjDown;
-      this.checkToAdd(renderSection, relativeSection, (byte)0, (byte)1, dirs);
-      relativeSection = renderSection.adjUp;
-      this.checkToAdd(renderSection, relativeSection, (byte)1, (byte)0, dirs);
-      relativeSection = renderSection.adjNorth;
-      this.checkToAdd(renderSection, relativeSection, (byte)2, (byte)3, dirs);
-      relativeSection = renderSection.adjSouth;
-      this.checkToAdd(renderSection, relativeSection, (byte)3, (byte)2, dirs);
-      relativeSection = renderSection.adjWest;
-      this.checkToAdd(renderSection, relativeSection, (byte)4, (byte)5, dirs);
-      relativeSection = renderSection.adjEast;
-      this.checkToAdd(renderSection, relativeSection, (byte)5, (byte)4, dirs);
-   }
+    private void visitAdjacentNodes(RenderSection renderSection, byte dirs) {
+       dirs = (byte)(dirs & renderSection.adjDirs);
+       if (dirs == 0) {
+          return;
+       }
+       boolean renderNotCompletelyEmpty = !renderSection.completelyEmpty;
+       byte stepsPlusOne = (byte)(renderSection.steps + 1);
+       byte renderDirChanges = renderSection.directionChanges;
+       byte renderDirChangesPlusOne = (byte)(renderDirChanges + 1);
+       int renderSourceDirs = renderSection.sourceDirs;
+       int renderDirections = renderSection.directions;
 
-   private void checkToAdd(RenderSection renderSection, RenderSection relativeSection, byte dir, byte opposite, byte dirs) {
-      if ((dirs & 1 << dir) != 0) {
-         this.addNode(renderSection, relativeSection, dir, opposite);
-      }
-   }
+       if ((dirs & 1) != 0) {
+          RenderSection rel = renderSection.adjDown;
+          if (rel.lastFrame != this.lastFrame) {
+             rel.lastFrame = this.lastFrame;
+             rel.mainDir = 0;
+             rel.sourceDirs = 1;
+             rel.steps = stepsPlusOne;
+             rel.directionChanges = (byte)(stepsPlusOne < 10 ? 0 : 127);
+             rel.directions = (byte)(renderDirections & ~2);
+             this.sectionQueue.add(rel);
+          }
+          rel.sourceDirs |= 1;
+          boolean increase = (renderSourceDirs & 1) == 0 && renderNotCompletelyEmpty;
+          byte dc = increase ? renderDirChangesPlusOne : renderDirChanges;
+          if (dc < rel.directionChanges) {
+             rel.directionChanges = dc;
+          }
+       }
+       if ((dirs & 2) != 0) {
+          RenderSection rel = renderSection.adjUp;
+          if (rel.lastFrame != this.lastFrame) {
+             rel.lastFrame = this.lastFrame;
+             rel.mainDir = 1;
+             rel.sourceDirs = 2;
+             rel.steps = stepsPlusOne;
+             rel.directionChanges = (byte)(stepsPlusOne < 10 ? 0 : 127);
+             rel.directions = (byte)(renderDirections & ~1);
+             this.sectionQueue.add(rel);
+          }
+          rel.sourceDirs |= 2;
+          boolean increase = (renderSourceDirs & 2) == 0 && renderNotCompletelyEmpty;
+          byte dc = increase ? renderDirChangesPlusOne : renderDirChanges;
+          if (dc < rel.directionChanges) {
+             rel.directionChanges = dc;
+          }
+       }
+       if ((dirs & 4) != 0) {
+          RenderSection rel = renderSection.adjNorth;
+          if (rel.lastFrame != this.lastFrame) {
+             rel.lastFrame = this.lastFrame;
+             rel.mainDir = 2;
+             rel.sourceDirs = 4;
+             rel.steps = stepsPlusOne;
+             rel.directionChanges = (byte)(stepsPlusOne < 10 ? 0 : 127);
+             rel.directions = (byte)(renderDirections & ~8);
+             this.sectionQueue.add(rel);
+          }
+          rel.sourceDirs |= 4;
+          boolean increase = (renderSourceDirs & 4) == 0 && renderNotCompletelyEmpty;
+          byte dc = increase ? renderDirChangesPlusOne : renderDirChanges;
+          if (dc < rel.directionChanges) {
+             rel.directionChanges = dc;
+          }
+       }
+       if ((dirs & 8) != 0) {
+          RenderSection rel = renderSection.adjSouth;
+          if (rel.lastFrame != this.lastFrame) {
+             rel.lastFrame = this.lastFrame;
+             rel.mainDir = 3;
+             rel.sourceDirs = 8;
+             rel.steps = stepsPlusOne;
+             rel.directionChanges = (byte)(stepsPlusOne < 10 ? 0 : 127);
+             rel.directions = (byte)(renderDirections & ~4);
+             this.sectionQueue.add(rel);
+          }
+          rel.sourceDirs |= 8;
+          boolean increase = (renderSourceDirs & 8) == 0 && renderNotCompletelyEmpty;
+          byte dc = increase ? renderDirChangesPlusOne : renderDirChanges;
+          if (dc < rel.directionChanges) {
+             rel.directionChanges = dc;
+          }
+       }
+       if ((dirs & 16) != 0) {
+          RenderSection rel = renderSection.adjWest;
+          if (rel.lastFrame != this.lastFrame) {
+             rel.lastFrame = this.lastFrame;
+             rel.mainDir = 4;
+             rel.sourceDirs = 16;
+             rel.steps = stepsPlusOne;
+             rel.directionChanges = (byte)(stepsPlusOne < 10 ? 0 : 127);
+             rel.directions = (byte)(renderDirections & ~32);
+             this.sectionQueue.add(rel);
+          }
+          rel.sourceDirs |= 16;
+          boolean increase = (renderSourceDirs & 16) == 0 && renderNotCompletelyEmpty;
+          byte dc = increase ? renderDirChangesPlusOne : renderDirChanges;
+          if (dc < rel.directionChanges) {
+             rel.directionChanges = dc;
+          }
+       }
+       if ((dirs & 32) != 0) {
+          RenderSection rel = renderSection.adjEast;
+          if (rel.lastFrame != this.lastFrame) {
+             rel.lastFrame = this.lastFrame;
+             rel.mainDir = 5;
+             rel.sourceDirs = 32;
+             rel.steps = stepsPlusOne;
+             rel.directionChanges = (byte)(stepsPlusOne < 10 ? 0 : 127);
+             rel.directions = (byte)(renderDirections & ~16);
+             this.sectionQueue.add(rel);
+          }
+          rel.sourceDirs |= 32;
+          boolean increase = (renderSourceDirs & 32) == 0 && renderNotCompletelyEmpty;
+          byte dc = increase ? renderDirChangesPlusOne : renderDirChanges;
+          if (dc < rel.directionChanges) {
+             rel.directionChanges = dc;
+          }
+       }
+    }
 
-   private void updateRenderChunksSpectator() {
-      while (this.sectionQueue.hasNext()) {
-         RenderSection renderSection = this.sectionQueue.poll();
-         if (!this.notInFrustum(renderSection)) {
-            if (!renderSection.isCompletelyEmpty()) {
-               renderSection.getChunkArea().sectionQueue.add(renderSection);
-               this.chunkAreaQueue.add(renderSection.getChunkArea());
-               this.nonEmptyChunks++;
-            }
+    private void updateRenderChunksSpectator() {
+       float camX = this.frustum.camXf;
+       float camY = this.frustum.camYf;
+       float camZ = this.frustum.camZf;
 
-            if (renderSection.isDirty()) {
-               this.rebuildQueue.ensureCapacity(1);
-               this.rebuildQueue.add(renderSection);
-            }
+       while (this.sectionQueue.hasNext()) {
+          RenderSection renderSection = this.sectionQueue.poll();
+          if (!this.notInFrustum(renderSection, camX, camY, camZ)) {
+             if (!renderSection.completelyEmpty) {
+                renderSection.chunkArea.sectionQueue.add(renderSection);
+                this.chunkAreaQueue.add(renderSection.chunkArea);
+                this.nonEmptyChunks++;
+             }
 
-            byte dirs = (byte)(renderSection.adjDirs & renderSection.getDirections());
-            this.visitAdjacentNodes(renderSection, dirs);
-         }
-      }
-   }
+             if (renderSection.dirty) {
+                this.rebuildQueue.add(renderSection);
+             }
 
-   private void addNode(RenderSection renderSection, RenderSection relativeSection, byte direction, byte opposite) {
-      if (relativeSection.getLastFrame() != this.lastFrame) {
-         relativeSection.setLastFrame(this.lastFrame);
-         relativeSection.mainDir = direction;
-         relativeSection.sourceDirs = (byte)(1 << direction);
-         byte steps = (byte)(renderSection.steps + 1);
-         relativeSection.directionChanges = (byte)(steps < 10 ? 0 : 127);
-         relativeSection.steps = steps;
-         relativeSection.directions = (byte)(renderSection.directions & ~(1 << opposite));
-         this.sectionQueue.add(relativeSection);
-      }
-
-      relativeSection.addDir(direction);
-      boolean increase = (renderSection.sourceDirs & 1 << direction) == 0 && !renderSection.isCompletelyEmpty();
-      byte dc = increase ? (byte)(renderSection.directionChanges + 1) : renderSection.directionChanges;
-      relativeSection.directionChanges = dc < relativeSection.directionChanges ? dc : relativeSection.directionChanges;
-   }
+             byte dirs = (byte)(renderSection.adjDirs & renderSection.directions);
+             this.visitAdjacentNodes(renderSection, dirs);
+          }
+       }
+    }
 
    public AreaSetQueue getChunkAreaQueue() {
       return this.chunkAreaQueue;

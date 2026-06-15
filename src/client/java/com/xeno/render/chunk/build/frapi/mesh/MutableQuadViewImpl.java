@@ -71,13 +71,23 @@ public abstract class MutableQuadViewImpl extends QuadViewImpl implements QuadEm
    }
 
    public final MutableQuadViewImpl translate(float x, float y, float z) {
-      for (int i = 0; i < 4; i++) {
-         int index = this.baseIndex + i * 8 + EncodingFormat.VERTEX_X;
-         this.data[index] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[index]) + x);
-         this.data[index + 1] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[index + 1]) + y);
-         this.data[index + 2] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[index + 2]) + z);
-      }
-
+      // Unrolled: always exactly 4 vertices
+      int i0 = this.baseIndex + 0 * 8 + EncodingFormat.VERTEX_X;
+      this.data[i0]     = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i0])     + x);
+      this.data[i0 + 1] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i0 + 1]) + y);
+      this.data[i0 + 2] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i0 + 2]) + z);
+      int i1 = this.baseIndex + 1 * 8 + EncodingFormat.VERTEX_X;
+      this.data[i1]     = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i1])     + x);
+      this.data[i1 + 1] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i1 + 1]) + y);
+      this.data[i1 + 2] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i1 + 2]) + z);
+      int i2 = this.baseIndex + 2 * 8 + EncodingFormat.VERTEX_X;
+      this.data[i2]     = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i2])     + x);
+      this.data[i2 + 1] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i2 + 1]) + y);
+      this.data[i2 + 2] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i2 + 2]) + z);
+      int i3 = this.baseIndex + 3 * 8 + EncodingFormat.VERTEX_X;
+      this.data[i3]     = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i3])     + x);
+      this.data[i3 + 1] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i3 + 1]) + y);
+      this.data[i3 + 2] = Float.floatToRawIntBits(Float.intBitsToFloat(this.data[i3 + 2]) + z);
       return this;
    }
 

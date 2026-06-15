@@ -41,6 +41,10 @@ public class BiomeData {
    int secY;
    int secZ;
    Vector3f[] offsets = new Vector3f[1728];
+   private int lastX = Integer.MIN_VALUE;
+   private int lastY = Integer.MIN_VALUE;
+   private int lastZ = Integer.MIN_VALUE;
+   private Biome lastResult;
 
    public BiomeData(long biomeZoomSeed, int secX, int secY, int secZ) {
       this.biomeZoomSeed = biomeZoomSeed;
@@ -49,26 +53,29 @@ public class BiomeData {
       this.secZ = secZ;
    }
 
-   public void getBiomeData(Level level, LevelChunkSection chunkSection, int secX, int secY, int secZ) {
-      Biome defaultValue = (Biome)level.registryAccess().lookupOrThrow(Registries.BIOME).getOrThrow(Biomes.PLAINS).value();
-      int baseIdx = getRelativeSectionIdx(secX, secY, secZ);
-
-      for (int x = 0; x < 4; x++) {
-         for (int y = 0; y < 4; y++) {
-            for (int z = 0; z < 4; z++) {
-               int relIdx = getRelativeIdx(x, y, z);
-               int idx = baseIdx + relIdx;
-               if (chunkSection != null) {
-                  this.biomes[idx] = (Biome)chunkSection.getNoiseBiome(x, y, z).value();
-               } else {
-                  this.biomes[idx] = defaultValue;
-               }
-            }
-         }
-      }
-   }
+    public void getBiomeData(Level level, LevelChunkSection chunkSection, int secX, int secY, int secZ, Biome defaultValue) {
+       int baseIdx = getRelativeSectionIdx(secX, secY, secZ);
+ 
+       for (int x = 0; x < 4; x++) {
+          for (int y = 0; y < 4; y++) {
+             for (int z = 0; z < 4; z++) {
+                int relIdx = getRelativeIdx(x, y, z);
+                int idx = baseIdx + relIdx;
+                if (chunkSection != null) {
+                   this.biomes[idx] = (Biome)chunkSection.getNoiseBiome(x, y, z).value();
+                } else {
+                   this.biomes[idx] = defaultValue;
+                }
+             }
+          }
+       }
+    }
 
    public Biome getBiome(int blockX, int blockY, int blockZ) {
+      if (this.lastX == blockX && this.lastY == blockY && this.lastZ == blockZ) {
+         return this.lastResult;
+      }
+
       int x = blockX - 2;
       int y = blockY - 2;
       int z = blockZ - 2;
@@ -78,30 +85,156 @@ public class BiomeData {
       float fracZoomX = (x & 3) * 0.25F;
       float fracZoomY = (y & 3) * 0.25F;
       float fracZoomZ = (z & 3) * 0.25F;
-      int closestCellIdx = 0;
-      double closestDistance = Double.POSITIVE_INFINITY;
 
-      for (int i = 0; i < 8; i++) {
-         boolean dirX = (i & 4) != 0;
-         boolean dirY = (i & 2) != 0;
-         boolean dirZ = (i & 1) != 0;
-         int cellX = dirX ? zoomX + 1 : zoomX;
-         int cellY = dirY ? zoomY + 1 : zoomY;
-         int cellZ = dirZ ? zoomZ + 1 : zoomZ;
-         float fCellX = dirX ? fracZoomX - 1.0F : fracZoomX;
-         float fCellY = dirY ? fracZoomY - 1.0F : fracZoomY;
-         float fCellZ = dirZ ? fracZoomZ - 1.0F : fracZoomZ;
-         int baseSectionIdx = this.getSectionIdx(cellX >> 2, cellY >> 2, cellZ >> 2);
-         int cellIdx = baseSectionIdx + getRelativeIdx(cellX & 3, cellY & 3, cellZ & 3);
-         Vector3f offset = this.getOffset(baseSectionIdx, cellX, cellY, cellZ);
-         float distance = Mth.square(fCellX + offset.x()) + Mth.square(fCellY + offset.y()) + Mth.square(fCellZ + offset.z());
+      int zoomX0 = zoomX;
+      int zoomY0 = zoomY;
+      int zoomZ0 = zoomZ;
+      int zoomX1 = zoomX + 1;
+      int zoomY1 = zoomY + 1;
+      int zoomZ1 = zoomZ + 1;
+
+      float fCellX0 = fracZoomX;
+      float fCellY0 = fracZoomY;
+      float fCellZ0 = fracZoomZ;
+      float fCellX1 = fracZoomX - 1.0F;
+      float fCellY1 = fracZoomY - 1.0F;
+      float fCellZ1 = fracZoomZ - 1.0F;
+
+      int rx0 = (zoomX0 & 3) << 4;
+      int ry0 = (zoomY0 & 3) << 2;
+      int rz0 = zoomZ0 & 3;
+      int rx1 = (zoomX1 & 3) << 4;
+      int ry1 = (zoomY1 & 3) << 2;
+      int rz1 = zoomZ1 & 3;
+
+      int sx0 = ((zoomX0 >> 2) - this.secX) * 9;
+      int sy0 = ((zoomY0 >> 2) - this.secY) * 3;
+      int sz0 = (zoomZ0 >> 2) - this.secZ;
+      int sx1 = ((zoomX1 >> 2) - this.secX) * 9;
+      int sy1 = ((zoomY1 >> 2) - this.secY) * 3;
+      int sz1 = (zoomZ1 >> 2) - this.secZ;
+
+      int closestCellIdx = 0;
+      float closestDistance = Float.POSITIVE_INFINITY;
+
+      // 0: (0, 0, 0)
+      {
+         int baseSectionIdx = (sx0 + sy0 + sz0) * 64;
+         int cellIdx = baseSectionIdx + rx0 + ry0 + rz0;
+         Vector3f offset = this.getOffset(baseSectionIdx, zoomX0, zoomY0, zoomZ0);
+         float dx = fCellX0 + offset.x;
+         float dy = fCellY0 + offset.y;
+         float dz = fCellZ0 + offset.z;
+         float distance = dx * dx + dy * dy + dz * dz;
+         if (closestDistance > distance) {
+            closestCellIdx = cellIdx;
+            closestDistance = distance;
+         }
+      }
+      // 1: (0, 0, 1)
+      {
+         int baseSectionIdx = (sx0 + sy0 + sz1) * 64;
+         int cellIdx = baseSectionIdx + rx0 + ry0 + rz1;
+         Vector3f offset = this.getOffset(baseSectionIdx, zoomX0, zoomY0, zoomZ1);
+         float dx = fCellX0 + offset.x;
+         float dy = fCellY0 + offset.y;
+         float dz = fCellZ1 + offset.z;
+         float distance = dx * dx + dy * dy + dz * dz;
+         if (closestDistance > distance) {
+            closestCellIdx = cellIdx;
+            closestDistance = distance;
+         }
+      }
+      // 2: (0, 1, 0)
+      {
+         int baseSectionIdx = (sx0 + sy1 + sz0) * 64;
+         int cellIdx = baseSectionIdx + rx0 + ry1 + rz0;
+         Vector3f offset = this.getOffset(baseSectionIdx, zoomX0, zoomY1, zoomZ0);
+         float dx = fCellX0 + offset.x;
+         float dy = fCellY1 + offset.y;
+         float dz = fCellZ0 + offset.z;
+         float distance = dx * dx + dy * dy + dz * dz;
+         if (closestDistance > distance) {
+            closestCellIdx = cellIdx;
+            closestDistance = distance;
+         }
+      }
+      // 3: (0, 1, 1)
+      {
+         int baseSectionIdx = (sx0 + sy1 + sz1) * 64;
+         int cellIdx = baseSectionIdx + rx0 + ry1 + rz1;
+         Vector3f offset = this.getOffset(baseSectionIdx, zoomX0, zoomY1, zoomZ1);
+         float dx = fCellX0 + offset.x;
+         float dy = fCellY1 + offset.y;
+         float dz = fCellZ1 + offset.z;
+         float distance = dx * dx + dy * dy + dz * dz;
+         if (closestDistance > distance) {
+            closestCellIdx = cellIdx;
+            closestDistance = distance;
+         }
+      }
+      // 4: (1, 0, 0)
+      {
+         int baseSectionIdx = (sx1 + sy0 + sz0) * 64;
+         int cellIdx = baseSectionIdx + rx1 + ry0 + rz0;
+         Vector3f offset = this.getOffset(baseSectionIdx, zoomX1, zoomY0, zoomZ0);
+         float dx = fCellX1 + offset.x;
+         float dy = fCellY0 + offset.y;
+         float dz = fCellZ0 + offset.z;
+         float distance = dx * dx + dy * dy + dz * dz;
+         if (closestDistance > distance) {
+            closestCellIdx = cellIdx;
+            closestDistance = distance;
+         }
+      }
+      // 5: (1, 0, 1)
+      {
+         int baseSectionIdx = (sx1 + sy0 + sz1) * 64;
+         int cellIdx = baseSectionIdx + rx1 + ry0 + rz1;
+         Vector3f offset = this.getOffset(baseSectionIdx, zoomX1, zoomY0, zoomZ1);
+         float dx = fCellX1 + offset.x;
+         float dy = fCellY0 + offset.y;
+         float dz = fCellZ1 + offset.z;
+         float distance = dx * dx + dy * dy + dz * dz;
+         if (closestDistance > distance) {
+            closestCellIdx = cellIdx;
+            closestDistance = distance;
+         }
+      }
+      // 6: (1, 1, 0)
+      {
+         int baseSectionIdx = (sx1 + sy1 + sz0) * 64;
+         int cellIdx = baseSectionIdx + rx1 + ry1 + rz0;
+         Vector3f offset = this.getOffset(baseSectionIdx, zoomX1, zoomY1, zoomZ0);
+         float dx = fCellX1 + offset.x;
+         float dy = fCellY1 + offset.y;
+         float dz = fCellZ0 + offset.z;
+         float distance = dx * dx + dy * dy + dz * dz;
+         if (closestDistance > distance) {
+            closestCellIdx = cellIdx;
+            closestDistance = distance;
+         }
+      }
+      // 7: (1, 1, 1)
+      {
+         int baseSectionIdx = (sx1 + sy1 + sz1) * 64;
+         int cellIdx = baseSectionIdx + rx1 + ry1 + rz1;
+         Vector3f offset = this.getOffset(baseSectionIdx, zoomX1, zoomY1, zoomZ1);
+         float dx = fCellX1 + offset.x;
+         float dy = fCellY1 + offset.y;
+         float dz = fCellZ1 + offset.z;
+         float distance = dx * dx + dy * dy + dz * dz;
          if (closestDistance > distance) {
             closestCellIdx = cellIdx;
             closestDistance = distance;
          }
       }
 
-      return this.biomes[closestCellIdx];
+      this.lastX = blockX;
+      this.lastY = blockY;
+      this.lastZ = blockZ;
+      this.lastResult = this.biomes[closestCellIdx];
+      return this.lastResult;
    }
 
    private int getSectionIdx(int secX, int secY, int secZ) {

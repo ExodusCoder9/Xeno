@@ -69,7 +69,7 @@ public class BuildTask extends ChunkTask {
    @Override
    public ChunkTask.Result runTask(BuilderResources builderResources) {
       long startTime = System.nanoTime();
-      if (this.cancelled.get()) {
+      if (this.cancelled) {
          return ChunkTask.Result.CANCELLED;
       } else {
          float x = (float)this.cameraPos.x;
@@ -81,7 +81,7 @@ public class BuildTask extends ChunkTask {
          compiledSection.transparencyState = compileResult.transparencyState;
          compiledSection.isCompletelyEmpty = compileResult.renderedLayers.isEmpty();
          compileResult.compiledSection = compiledSection;
-         if (this.cancelled.get()) {
+         if (this.cancelled) {
             compileResult.renderedLayers.values().forEach(UploadBuffer::release);
             return ChunkTask.Result.CANCELLED;
          } else {
@@ -95,7 +95,6 @@ public class BuildTask extends ChunkTask {
 
    private CompileResult compile(float camX, float camY, float camZ, BuilderResources builderResources) {
       CompileResult compileResult = new CompileResult(this.section, true);
-      BlockPos startBlockPos = new BlockPos(this.section.xOffset(), this.section.yOffset(), this.section.zOffset()).immutable();
       VisGraph visGraph = new VisGraph();
       if (this.region == null) {
          compileResult.visibilitySet = visGraph.resolve();
@@ -105,37 +104,60 @@ public class BuildTask extends ChunkTask {
       Vector3f pos = new Vector3f();
       ThreadBuilderPack bufferBuilders = builderResources.builderPack;
       this.setupBufferBuilders(bufferBuilders);
+      this.region.setBlockData(builderResources.blockDataArray);
       this.region.loadBlockStates();
       this.region.initTintCache(builderResources.tintCache);
       builderResources.update(this.region, this.section);
       BlockRenderer blockRenderer = builderResources.blockRenderer;
       FluidRenderer fluidRenderer = builderResources.fluidRenderer;
       MutableBlockPos blockPos = new MutableBlockPos();
+      int baseX = this.section.xOffset();
+      int baseY = this.section.yOffset();
+      int baseZ = this.section.zOffset();
+      boolean useFastPath = !this.region.isDebug;
+      BlockState[] blockData = this.region.blockData;
 
       for (int y = 0; y < 16; y++) {
+         int absY = baseY + y;
+         int yOffset = 400 * y + 842;
          for (int z = 0; z < 16; z++) {
+            int absZ = baseZ + z;
+            int yzOffset = yOffset + 20 * z;
             for (int x = 0; x < 16; x++) {
-               blockPos.set(this.section.xOffset() + x, this.section.yOffset() + y, this.section.zOffset() + z);
-               BlockState blockState = this.region.getBlockState(blockPos);
-               if (blockState.isSolidRender()) {
-                  visGraph.setOpaque(blockPos);
+               BlockState blockState = useFastPath ? blockData[yzOffset + x] : this.region.getBlockState(baseX + x, absY, absZ);
+               if (blockState.isAir()) {
+                  continue;
                }
 
-               if (blockState.hasBlockEntity()) {
-                  BlockEntity blockEntity = this.region.getBlockEntity(blockPos);
-                  if (blockEntity != null) {
-                     this.handleBlockEntity(compileResult, blockEntity);
-                  }
-               }
-
+               int absX = baseX + x;
+               boolean isOpaque = blockState.isSolidRender();
+               boolean hasBlockEntity = blockState.hasBlockEntity();
                FluidState fluidState = blockState.getFluidState();
-               if (!fluidState.isEmpty()) {
-                  fluidRenderer.renderLiquid(blockState, fluidState, blockPos);
-               }
+               boolean hasFluid = !fluidState.isEmpty();
+               boolean hasModel = blockState.getRenderShape() == RenderShape.MODEL;
 
-               if (blockState.getRenderShape() == RenderShape.MODEL) {
-                  pos.set(blockPos.getX() & 15, blockPos.getY() & 15, blockPos.getZ() & 15);
-                  blockRenderer.renderBlock(blockState, blockPos, pos);
+               if (isOpaque || hasBlockEntity || hasFluid || hasModel) {
+                  blockPos.set(absX, absY, absZ);
+
+                  if (isOpaque) {
+                     visGraph.setOpaque(blockPos);
+                  }
+
+                  if (hasBlockEntity) {
+                     BlockEntity blockEntity = this.region.getBlockEntity(blockPos);
+                     if (blockEntity != null) {
+                        this.handleBlockEntity(compileResult, blockEntity);
+                     }
+                  }
+
+                  if (hasFluid) {
+                     fluidRenderer.renderLiquid(blockState, fluidState, blockPos);
+                  }
+
+                  if (hasModel) {
+                     pos.set(x, y, z);
+                     blockRenderer.renderBlock(blockState, blockPos, pos);
+                  }
                }
             }
          }
@@ -144,7 +166,7 @@ public class BuildTask extends ChunkTask {
       TerrainBuilder trasnlucentTerrainBuilder = bufferBuilders.builder(TerrainRenderType.TRANSLUCENT);
       if (trasnlucentTerrainBuilder.getBufferBuilder(QuadFacing.UNDEFINED.ordinal()).getVertices() > 0) {
          trasnlucentTerrainBuilder.setupQuadSortingPoints();
-         trasnlucentTerrainBuilder.setupQuadSorting(camX - startBlockPos.getX(), camY - startBlockPos.getY(), camZ - startBlockPos.getZ());
+         trasnlucentTerrainBuilder.setupQuadSorting(camX - this.section.xOffset(), camY - this.section.yOffset(), camZ - this.section.zOffset());
          compileResult.transparencyState = trasnlucentTerrainBuilder.getSortState();
       }
 

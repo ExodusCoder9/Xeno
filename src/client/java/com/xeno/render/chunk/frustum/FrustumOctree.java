@@ -35,13 +35,16 @@ public class FrustumOctree {
 
    public static void updateFrustumVisibility(VFrustum frustum, ChunkArea[] chunkAreas) {
       int width = 1 << ChunkAreaManager.AREA_SH_XZ + 4;
+      float camX = frustum.camXf;
+      float camY = frustum.camYf;
+      float camZ = frustum.camZf;
 
       for (ChunkArea chunkArea : chunkAreas) {
          Vector3i position = chunkArea.getPosition();
-         int minX2 = position.x;
-         int minY2 = position.y;
-         int minZ2 = position.z;
-         int frustumResult = frustum.cubeInFrustum(minX2, minY2, minZ2, minX2 + width, minY2 + width, minZ2 + width);
+         float minX2 = position.x - camX;
+         float minY2 = position.y - camY;
+         float minZ2 = position.z - camZ;
+         int frustumResult = frustum.cubeInFrustumRelative(minX2, minY2, minZ2, minX2 + width, minY2 + width, minZ2 + width);
          byte[] buffer = chunkArea.getFrustumBuffer();
          if (frustumResult != -1) {
             Arrays.fill(buffer, (byte)frustumResult);
@@ -69,7 +72,7 @@ public class FrustumOctree {
                for (int z = 0; z < 2; z++) {
                   float zMin2 = zMin + z * width;
                   float zMax2 = zMin2 + width;
-                  int frustumResult = frustum.cubeInFrustum(xMin2, yMin2, zMin2, xMax2, yMax2, zMax2);
+                  int frustumResult = frustum.cubeInFrustumRelative(xMin2, yMin2, zMin2, xMax2, yMax2, zMax2);
                   int idx = beginIdx + getOffset(lvlShift, x, y, z);
                   int endIdx = idx + (1 << lvlShift);
                   if (frustumResult != -1) {
@@ -97,7 +100,7 @@ public class FrustumOctree {
             for (int z = 0; z < 2; z++) {
                float zMin2 = zMin + z * width;
                float zMax2 = zMin2 + width;
-               int frustumResult = frustum.cubeInFrustum(xMin2, yMin2, zMin2, xMax2, yMax2, zMax2);
+               int frustumResult = frustum.cubeInFrustumRelative(xMin2, yMin2, zMin2, xMax2, yMax2, zMax2);
                int idx = beginIdx + (x << 2) + (y << 1) + z;
                buffer[idx] = (byte)frustumResult;
             }

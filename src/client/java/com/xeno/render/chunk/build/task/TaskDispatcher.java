@@ -42,9 +42,10 @@ public class TaskDispatcher {
    private volatile boolean stopThreads;
    private Thread[] threads;
    private BuilderResources[] resources;
-   private int idleThreads;
+   private volatile int idleThreads;
    private final Queue<ChunkTask> highPriorityTasks = Queues.newConcurrentLinkedQueue();
    private final Queue<ChunkTask> lowPriorityTasks = Queues.newConcurrentLinkedQueue();
+   private java.util.concurrent.Semaphore taskSemaphore = new java.util.concurrent.Semaphore(0);
 
    public TaskDispatcher() {
       this.fixedBuffers = new ThreadBuilderPack();
@@ -62,6 +63,7 @@ public class TaskDispatcher {
       }
 
       this.stopThreads = false;
+      this.taskSemaphore = new java.util.concurrent.Semaphore(0);
       if (this.resources != null) {
          for (BuilderResources resources : this.resources) {
             resources.free();
@@ -89,16 +91,15 @@ public class TaskDispatcher {
       while (!this.stopThreads) {
          ChunkTask task = this.pollTask();
          if (task == null) {
-            synchronized (this) {
-               try {
-                  this.idleThreads++;
-                  this.wait();
-               } catch (InterruptedException e) {
-                  throw new RuntimeException(e);
-               }
-
+            this.idleThreads++;
+            try {
+               this.taskSemaphore.acquire();
+            } catch (InterruptedException e) {
+               Thread.currentThread().interrupt();
                this.idleThreads--;
+               break;
             }
+            this.idleThreads--;
          }
 
          if (task != null) {
@@ -114,10 +115,7 @@ public class TaskDispatcher {
          } else {
             this.lowPriorityTasks.offer(chunkTask);
          }
-
-         synchronized (this) {
-            this.notify();
-         }
+         this.taskSemaphore.release();
       }
    }
 
@@ -134,9 +132,7 @@ public class TaskDispatcher {
    public void stopThreads() {
       if (!this.stopThreads) {
          this.stopThreads = true;
-         synchronized (this) {
-            this.notifyAll();
-         }
+         this.taskSemaphore.release(this.threads.length);
 
          for (Thread thread : this.threads) {
             try {
@@ -221,3 +217,4 @@ public class TaskDispatcher {
       return this.resources;
    }
 }
+

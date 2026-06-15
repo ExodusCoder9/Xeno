@@ -39,7 +39,7 @@ public enum TerrainRenderType {
    public static final TerrainRenderType[] VALUES = values();
    public static final EnumSet<TerrainRenderType> COMPACT_RENDER_TYPES = EnumSet.of(CUTOUT, TRANSLUCENT);
    public static final EnumSet<TerrainRenderType> SEMI_COMPACT_RENDER_TYPES = EnumSet.of(SOLID, CUTOUT, TRANSLUCENT);
-   private static Function<TerrainRenderType, TerrainRenderType> remapper;
+   private static final TerrainRenderType[] remappedTypes = new TerrainRenderType[4];
    public final float alphaCutout;
 
    TerrainRenderType(float alphaCutout) {
@@ -84,28 +84,28 @@ public enum TerrainRenderType {
 
    public static void updateMapping() {
       if (Initializer.CONFIG.uniqueOpaqueLayer) {
-         remapper = renderType -> {
-            return switch (renderType) {
-               case SOLID, CUTOUT -> CUTOUT;
-               case TRANSLUCENT, TRIPWIRE -> TRANSLUCENT;
-            };
-         };
+         remappedTypes[SOLID.ordinal()] = CUTOUT;
+         remappedTypes[CUTOUT.ordinal()] = CUTOUT;
+         remappedTypes[TRANSLUCENT.ordinal()] = TRANSLUCENT;
+         remappedTypes[TRIPWIRE.ordinal()] = TRANSLUCENT;
       } else {
-         remapper = renderType -> {
-            return switch (renderType) {
-               case SOLID -> SOLID;
-               case CUTOUT -> CUTOUT;
-               case TRANSLUCENT, TRIPWIRE -> TRANSLUCENT;
-            };
-         };
+         remappedTypes[SOLID.ordinal()] = SOLID;
+         remappedTypes[CUTOUT.ordinal()] = CUTOUT;
+         remappedTypes[TRANSLUCENT.ordinal()] = TRANSLUCENT;
+         remappedTypes[TRIPWIRE.ordinal()] = TRANSLUCENT;
       }
    }
 
    public static TerrainRenderType getRemapped(TerrainRenderType renderType) {
-      return remapper.apply(renderType);
+      return remappedTypes[renderType.ordinal()];
    }
 
    static {
+      remappedTypes[SOLID.ordinal()] = SOLID;
+      remappedTypes[CUTOUT.ordinal()] = CUTOUT;
+      remappedTypes[TRANSLUCENT.ordinal()] = TRANSLUCENT;
+      remappedTypes[TRIPWIRE.ordinal()] = TRANSLUCENT;
+
       SEMI_COMPACT_RENDER_TYPES.add(CUTOUT);
       SEMI_COMPACT_RENDER_TYPES.add(TRANSLUCENT);
       COMPACT_RENDER_TYPES.add(TRANSLUCENT);

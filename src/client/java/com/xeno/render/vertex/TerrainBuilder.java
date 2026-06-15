@@ -116,8 +116,9 @@ public class TerrainBuilder {
    }
 
    public TerrainBuilder.DrawState endDrawing() {
-      for (TerrainBufferBuilder bufferBuilder : this.bufferBuilders) {
-         bufferBuilder.end();
+      int n = this.bufferBuilders.length;
+      for (int i = 0; i < n; i++) {
+         this.bufferBuilders[i].end();
       }
 
       int vertexCount = this.quadSorter.getVertexCount();
@@ -155,17 +156,17 @@ public class TerrainBuilder {
 
    public void clear() {
       this.reset();
-
-      for (TerrainBufferBuilder bufferBuilder : this.bufferBuilders) {
-         bufferBuilder.clear();
+      int n = this.bufferBuilders.length;
+      for (int i = 0; i < n; i++) {
+         this.bufferBuilders[i].clear();
       }
    }
 
    public void free() {
       ALLOCATOR.free(this.indexBufferPtr);
-
-      for (TerrainBufferBuilder bufferBuilder : this.bufferBuilders) {
-         bufferBuilder.free();
+      int n = this.bufferBuilders.length;
+      for (int i = 0; i < n; i++) {
+         this.bufferBuilders[i].free();
       }
    }
 

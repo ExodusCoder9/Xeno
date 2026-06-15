@@ -54,8 +54,15 @@ public class FlatLightPipeline implements LightPipeline {
       }
 
       CardinalLighting cardinalLighting = this.lightCache.getRegion().cardinalLighting();
-      Arrays.fill(out.lm, lightmap);
-      Arrays.fill(out.br, shade ? cardinalLighting.byFace(lightFace) : cardinalLighting.up());
+      out.lm[0] = lightmap;
+      out.lm[1] = lightmap;
+      out.lm[2] = lightmap;
+      out.lm[3] = lightmap;
+      float brightness = shade ? cardinalLighting.byFace(lightFace) : cardinalLighting.up();
+      out.br[0] = brightness;
+      out.br[1] = brightness;
+      out.br[2] = brightness;
+      out.br[3] = brightness;
    }
 
    private int getLightmap(BlockPos pos, Direction face) {
@@ -64,7 +71,7 @@ public class FlatLightPipeline implements LightPipeline {
          return 15728880;
       }
 
-      int adjWord = this.lightCache.get(pos, SimpleDirection.of(face));
+      int adjWord = this.lightCache.get(pos, SimpleDirection.BY_ORDINAL[face.ordinal()]);
       return LightDataAccess.getLightmap(adjWord);
    }
 }

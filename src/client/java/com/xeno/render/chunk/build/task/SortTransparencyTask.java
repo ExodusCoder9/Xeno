@@ -45,7 +45,7 @@ public class SortTransparencyTask extends ChunkTask {
    @Override
    public ChunkTask.Result runTask(BuilderResources context) {
       ThreadBuilderPack builderPack = context.builderPack;
-      if (this.cancelled.get()) {
+      if (this.cancelled) {
          return ChunkTask.Result.CANCELLED;
       } else {
          Vector3d cameraPos = WorldRenderer.getCameraPos();
@@ -66,7 +66,7 @@ public class SortTransparencyTask extends ChunkTask {
             UploadBuffer uploadBuffer = new UploadBuffer(bufferBuilder, drawState);
             compileResult.renderedLayers.put(TerrainRenderType.TRANSLUCENT, uploadBuffer);
             bufferBuilder.reset();
-            if (this.cancelled.get()) {
+            if (this.cancelled) {
                compileResult.renderedLayers.values().forEach(UploadBuffer::release);
                return ChunkTask.Result.CANCELLED;
             } else {

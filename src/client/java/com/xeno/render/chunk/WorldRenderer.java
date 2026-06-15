@@ -66,6 +66,7 @@ import com.xeno.render.chunk.build.task.ChunkTask;
 import com.xeno.render.chunk.build.task.TaskDispatcher;
 import com.xeno.render.chunk.graph.SectionGraph;
 import com.xeno.render.chunk.util.StaticQueue;
+import com.xeno.render.chunk.util.ResettableQueue;
 import com.xeno.render.engine.VkGpuTexture;
 import com.xeno.render.profiling.BuildTimeProfiler;
 import com.xeno.render.profiling.Profiler;
@@ -117,6 +118,7 @@ public class WorldRenderer {
    IndirectBuffer[] indirectBuffers;
    private long terrainSampler;
    private final List<Runnable> onAllChangedCallbacks = new ObjectArrayList();
+   private long currentFrameTimeMs;
 
    public static WorldRenderer init(
       EntityRenderDispatcher entityRenderDispatcher,
@@ -176,6 +178,7 @@ public class WorldRenderer {
       profiler.push("Setup_Renderer");
       ProfilerFiller mcProfiler = net.minecraft.util.profiling.Profiler.get();
       this.benchCallback();
+      this.currentFrameTimeMs = System.currentTimeMillis();
       Vec3 camPos = camera.position();
       this.cameraPos.set(camPos.x(), camPos.y(), camPos.z());
       if (this.minecraft.options.getEffectiveRenderDistance() != this.renderDistance) {
@@ -328,11 +331,13 @@ public class WorldRenderer {
       VRenderSystem.setPrimitiveTopologyGL(4);
       GraphicsPipeline pipeline = PipelineManager.getTerrainShader(renderType);
       renderer.bindGraphicsPipeline(pipeline);
-      TextureManager textureManager = Minecraft.getInstance().getTextureManager();
+      // Cache singleton once to avoid repeated static-field reads
+      Minecraft mc = this.minecraft;
+      TextureManager textureManager = mc.getTextureManager();
       AbstractTexture atlasTexture = textureManager.getTexture(TextureAtlas.LOCATION_BLOCKS);
       GpuTextureView texView = atlasTexture.getTextureView();
-      boolean useAnisotropy = this.minecraft.options.textureFiltering().get() == TextureFilteringMethod.ANISOTROPIC;
-      int maxAnisotropy = this.minecraft.options.maxAnisotropyValue();
+      boolean useAnisotropy = mc.options.textureFiltering().get() == TextureFilteringMethod.ANISOTROPIC;
+      int maxAnisotropy = mc.options.maxAnisotropyValue();
       VkGpuTexture texture = (VkGpuTexture)texView.texture();
       if (this.terrainSampler == 0L) {
          this.terrainSampler = SamplerManager.getSampler(true, false, texture.getVulkanImage().mipLevels - 1, useAnisotropy, maxAnisotropy);
@@ -340,14 +345,14 @@ public class WorldRenderer {
 
       texture.getVulkanImage().setSampler(this.terrainSampler);
       VRenderSystem.setShaderTexture(0, texView);
-      VRenderSystem.setShaderTexture(2, Minecraft.getInstance().gameRenderer.lightmap());
+      VRenderSystem.setShaderTexture(2, mc.gameRenderer.lightmap());
       VTextureSelector.bindShaderTextures(pipeline);
       int atlasTexWidth = texView.getWidth(0);
       int atlasTexHeight = texView.getHeight(0);
       VRenderSystem.setTextureSize(atlasTexWidth, atlasTexHeight);
-      long currentTimeMs = System.currentTimeMillis();
+      long currentTimeMs = this.currentFrameTimeMs;
       VRenderSystem.setCurrentTime((int)currentTimeMs);
-      float fadeTime = ((Double)Minecraft.getInstance().options.chunkSectionFadeInTime().get()).floatValue();
+      float fadeTime = ((Double)mc.options.chunkSectionFadeInTime().get()).floatValue();
       int fadeTimeMs = (int)(fadeTime * 1000.0F);
       float fadeTimeInv = fadeTime > 0.0F ? 1.0F / (fadeTime * 1000.0F) : 1.0F;
       Drawer drawer = Renderer.getDrawer();
@@ -360,8 +365,10 @@ public class WorldRenderer {
       if (allowedRenderTypes.contains(renderType)) {
          renderType.setCutoutUniform();
 
-         for (Iterator<ChunkArea> chunkAreaIter = this.sectionGraph.getChunkAreaQueue().iterator(); chunkAreaIter.hasNext(); ) {
-            ChunkArea chunkArea = chunkAreaIter.next();
+         StaticQueue<ChunkArea> areaQueue = this.sectionGraph.getChunkAreaQueue().queue();
+         int areaCount = areaQueue.size();
+         for (int i = 0; i < areaCount; i++) {
+            ChunkArea chunkArea = areaQueue.get(i);
             StaticQueue<RenderSection> queue = chunkArea.sectionQueue;
             DrawBuffers drawBuffers = chunkArea.drawBuffers;
             if (drawBuffers.getAreaBuffer(renderType) != null && queue.size() > 0) {
@@ -393,11 +400,13 @@ public class WorldRenderer {
          this.xTransparentOld = camX;
          this.yTransparentOld = camY;
          this.zTransparentOld = camZ;
-         int j = 0;
-
-         for (Iterator<RenderSection> iterator = this.sectionGraph.getSectionQueue().iterator(false); iterator.hasNext() && j < 200; j++) {
-            RenderSection section = iterator.next();
-            section.resortTransparency(this.taskDispatcher, this.cameraPos);
+         ResettableQueue<RenderSection> sectionQueue = this.sectionGraph.getSectionQueue();
+         int queueSize = sectionQueue.size();
+         for (int i = 0, j = 0; i < queueSize && j < 200; i++) {
+            RenderSection section = sectionQueue.get(i);
+            if (section.resortTransparency(this.taskDispatcher, this.cameraPos)) {
+               j++;
+            }
          }
       }
 
@@ -418,10 +427,15 @@ public class WorldRenderer {
       double camY = vec3.y();
       double camZ = vec3.z();
 
-      for (RenderSection renderSection : this.sectionGraph.getBlockEntitiesSections()) {
+      ResettableQueue<RenderSection> blockEntitiesSections = this.sectionGraph.getBlockEntitiesSections();
+      int blockSectionsCount = blockEntitiesSections.size();
+      for (int i = 0; i < blockSectionsCount; i++) {
+         RenderSection renderSection = blockEntitiesSections.get(i);
          List<BlockEntity> list = renderSection.getCompiledSection().getBlockEntities();
-         if (!list.isEmpty()) {
-            for (BlockEntity blockEntity : list) {
+         int listSize = list.size();
+         if (listSize > 0) {
+            for (int k = 0; k < listSize; k++) {
+               BlockEntity blockEntity = list.get(k);
                BlockPos blockPos = blockEntity.getBlockPos();
                SortedSet<BlockDestructionProgress> sortedSet = (SortedSet<BlockDestructionProgress>)destructionProgress.get(blockPos.asLong());
                CrumblingOverlay crumblingOverlay;

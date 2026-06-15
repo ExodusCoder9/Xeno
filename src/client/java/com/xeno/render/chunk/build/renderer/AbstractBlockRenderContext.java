@@ -52,13 +52,14 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import com.xeno.interfaces.color.BlockColorsExtended;
 import com.xeno.render.chunk.build.color.BlockColorRegistry;
+import com.xeno.render.chunk.build.RenderRegion;
 import com.xeno.render.chunk.build.frapi.mesh.EncodingFormat;
 import com.xeno.render.chunk.build.frapi.mesh.MutableQuadViewImpl;
 import com.xeno.render.chunk.build.light.LightPipeline;
 import com.xeno.render.chunk.build.light.data.QuadLightData;
 import org.jetbrains.annotations.Nullable;
 
-public abstract class AbstractBlockRenderContext extends AbstractRenderContext {
+public abstract class AbstractBlockRenderContext extends AbstractRenderContext implements Predicate<Direction> {
    protected final BlockColorRegistry blockColorRegistry;
    private final MutableQuadViewImpl editorQuad = new MutableQuadViewImpl() {
       {
@@ -85,6 +86,8 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext {
       8192, 0.25F
    ) {
    };
+   private final MutableShapePairKey lookupKey = new MutableShapePairKey();
+   private final List<BlockStateModelPart> partsList = new ArrayList<>();
    protected final QuadLightData quadLightData = new QuadLightData();
    protected LightPipeline smoothLightPipeline;
    protected LightPipeline flatLightPipeline;
@@ -124,6 +127,11 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext {
       return !this.shouldRenderFace(face);
    }
 
+   @Override
+   public boolean test(@Nullable Direction face) {
+      return this.isFaceCulled(face);
+   }
+
    public boolean shouldRenderFace(Direction face) {
       if (face != null && this.enableCulling) {
          int mask = 1 << face.get3DDataValue();
@@ -146,7 +154,7 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext {
    public boolean faceNotOccluded(BlockState blockState, Direction face) {
       BlockGetter blockGetter = this.renderRegion;
       BlockPos adjPos = this.tempPos.setWithOffset(this.blockPos, face);
-      BlockState adjBlockState = blockGetter.getBlockState(adjPos);
+      BlockState adjBlockState = (blockGetter instanceof RenderRegion rr) ? rr.getBlockState(adjPos) : blockGetter.getBlockState(adjPos);
       if (blockState.skipRendering(adjBlockState, face)) {
          return false;
       }
@@ -166,8 +174,9 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext {
             return false;
          }
 
-         AbstractBlockRenderContext.ShapePairKey blockStatePairKey = new AbstractBlockRenderContext.ShapePairKey(shape, adjShape);
-         byte b = this.occlusionCache.getAndMoveToFirst(blockStatePairKey);
+         this.lookupKey.first = shape;
+         this.lookupKey.second = adjShape;
+         byte b = this.occlusionCache.getAndMoveToFirst(this.lookupKey);
          if (b != 127) {
             return b != 0;
          }
@@ -177,6 +186,7 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext {
             this.occlusionCache.removeLastByte();
          }
 
+         AbstractBlockRenderContext.ShapePairKey blockStatePairKey = new AbstractBlockRenderContext.ShapePairKey(shape, adjShape);
          this.occlusionCache.putAndMoveToFirst(blockStatePairKey, (byte)(bl ? 1 : 0));
          return bl;
       } else {
@@ -265,17 +275,27 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext {
 
    protected void shadeQuad(MutableQuadViewImpl quad, LightPipeline lightPipeline, boolean emissive, boolean vanillaShade) {
       QuadLightData data = this.quadLightData;
-      lightPipeline.calculate(quad, this.blockPos, data, quad.cullFace(), quad.lightFace(), quad.diffuseShade());
+      Direction cullFace = quad.cullFace();
+      Direction lightFace = quad.lightFace();
+      lightPipeline.calculate(quad, this.blockPos, data, cullFace, lightFace, quad.diffuseShade());
       if (emissive) {
-         for (int i = 0; i < 4; i++) {
-            quad.color(i, ARGB.scaleRGB(quad.color(i), data.br[i]));
-            quad.lightmap(i, 15728880);
-         }
+         quad.color(0, ARGB.scaleRGB(quad.color(0), data.br[0]));
+         quad.lightmap(0, 15728880);
+         quad.color(1, ARGB.scaleRGB(quad.color(1), data.br[1]));
+         quad.lightmap(1, 15728880);
+         quad.color(2, ARGB.scaleRGB(quad.color(2), data.br[2]));
+         quad.lightmap(2, 15728880);
+         quad.color(3, ARGB.scaleRGB(quad.color(3), data.br[3]));
+         quad.lightmap(3, 15728880);
       } else {
-         for (int i = 0; i < 4; i++) {
-            quad.color(i, ARGB.scaleRGB(quad.color(i), data.br[i]));
-            quad.lightmap(i, ExtraLightCoordsUtil.smoothMax(quad.lightmap(i), data.lm[i]));
-         }
+         quad.color(0, ARGB.scaleRGB(quad.color(0), data.br[0]));
+         quad.lightmap(0, ExtraLightCoordsUtil.smoothMax(quad.lightmap(0), data.lm[0]));
+         quad.color(1, ARGB.scaleRGB(quad.color(1), data.br[1]));
+         quad.lightmap(1, ExtraLightCoordsUtil.smoothMax(quad.lightmap(1), data.lm[1]));
+         quad.color(2, ARGB.scaleRGB(quad.color(2), data.br[2]));
+         quad.lightmap(2, ExtraLightCoordsUtil.smoothMax(quad.lightmap(2), data.lm[2]));
+         quad.color(3, ARGB.scaleRGB(quad.color(3), data.br[3]));
+         quad.lightmap(3, ExtraLightCoordsUtil.smoothMax(quad.lightmap(3), data.lm[3]));
       }
    }
 
@@ -289,31 +309,46 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext {
       for (int i = 0; i <= 6; i++) {
          Direction cullFace = ModelHelper.faceFromIndex(i);
          if (!cullTest.test(cullFace)) {
-            List<BlockStateModelPart> parts = new ArrayList<>();
+            List<BlockStateModelPart> parts = this.partsList;
+            parts.clear();
             model.collectParts(this.random, parts);
             int partCount = parts.size();
 
             for (int j = 0; j < partCount; j++) {
                parts.get(j).emitQuads(quad, cullTest);
             }
+            parts.clear();
          }
       }
    }
 
-   record ShapePairKey(VoxelShape first, VoxelShape second) {
-      ShapePairKey {
+   public static class ShapePairKey {
+      VoxelShape first;
+      VoxelShape second;
+
+      public ShapePairKey(VoxelShape first, VoxelShape second) {
+         this.first = first;
+         this.second = second;
+      }
+
+      protected ShapePairKey() {
       }
 
       @Override
       public boolean equals(Object object) {
-         return object instanceof AbstractBlockRenderContext.ShapePairKey shapePairKey
-            && this.first == shapePairKey.first
-            && this.second == shapePairKey.second;
+         if (this == object) return true;
+         if (object instanceof ShapePairKey other) {
+            return this.first == other.first && this.second == other.second;
+         }
+         return false;
       }
 
       @Override
       public int hashCode() {
          return System.identityHashCode(this.first) * 31 + System.identityHashCode(this.second);
       }
+   }
+
+   static class MutableShapePairKey extends ShapePairKey {
    }
 }

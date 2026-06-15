@@ -59,6 +59,10 @@ public class StaticQueue<T> implements Iterable<T> {
       return this.limit;
    }
 
+   public T get(int index) {
+      return this.queue[index];
+   }
+
    public void clear() {
       this.position = 0;
       this.limit = 0;
