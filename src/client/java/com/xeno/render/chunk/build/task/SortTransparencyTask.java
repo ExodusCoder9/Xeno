@@ -64,10 +64,10 @@ public class SortTransparencyTask extends ChunkTask {
             TerrainBuilder.DrawState drawState = bufferBuilder.endDrawing();
             CompileResult compileResult = new CompileResult(this.section, false);
             UploadBuffer uploadBuffer = new UploadBuffer(bufferBuilder, drawState);
-            compileResult.renderedLayers.put(TerrainRenderType.TRANSLUCENT, uploadBuffer);
+            compileResult.renderedLayers[TerrainRenderType.TRANSLUCENT.ordinal()] = uploadBuffer;
             bufferBuilder.reset();
             if (this.cancelled) {
-               compileResult.renderedLayers.values().forEach(UploadBuffer::release);
+               compileResult.release();
                return ChunkTask.Result.CANCELLED;
             } else {
                taskDispatcher.scheduleSectionUpdate(compileResult);

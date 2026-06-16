@@ -96,8 +96,7 @@ public class AltModelBlockRendererImpl extends AbstractBlockRenderContext implem
       boolean ao = this.ambientOcclusion && quad.ambientOcclusion().orElse(this.defaultAO);
       boolean emissive = quad.emissive();
       boolean vanillaShade = quad.shadeMode() == ShadeMode.VANILLA;
-      LightPipeline lightPipeline = ao ? this.smoothLightPipeline : this.flatLightPipeline;
-      this.shadeQuad((MutableQuadViewImpl)quad, lightPipeline, emissive, vanillaShade);
+      this.shadeQuad((MutableQuadViewImpl)quad, ao, emissive, vanillaShade);
       this.tintQuad(quad);
       quad.translate(this.offset.x, this.offset.y, this.offset.z);
       return true;

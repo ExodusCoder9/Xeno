@@ -54,7 +54,7 @@ public class PipelineConfigs {
       .build();
    static final PipelineConfig TERRAIN_EARLY_Z_CONFIG = PipelineConfig.builder()
       .withShader(SPIRVUtils.ShaderKind.VERTEX_SHADER, "terrain/terrain")
-      .withShader(SPIRVUtils.ShaderKind.FRAGMENT_SHADER, "terrain_earlyZ/terrain_earlyZ")
+      .withShader(SPIRVUtils.ShaderKind.FRAGMENT_SHADER, "terrain_earlyz/terrain_earlyz")
       .addUB(TERRAIN_UB0)
       .addUB(TERRAIN_UB1)
       .addUB(TERRAIN_UB2)

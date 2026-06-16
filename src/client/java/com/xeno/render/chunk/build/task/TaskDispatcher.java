@@ -37,7 +37,7 @@ import com.xeno.render.vertex.TerrainRenderType;
 import org.jetbrains.annotations.Nullable;
 
 public class TaskDispatcher {
-   private final Queue<CompileResult> compileResults = Queues.newLinkedBlockingDeque();
+   private final Queue<CompileResult> compileResults = new java.util.concurrent.ArrayBlockingQueue<>(2048);
    public final ThreadBuilderPack fixedBuffers;
    private volatile boolean stopThreads;
    private Thread[] threads;
@@ -79,7 +79,8 @@ public class TaskDispatcher {
 
       for (int i = 0; i < n; i++) {
          BuilderResources builderResources = new BuilderResources();
-         Thread thread = new Thread(() -> this.runTaskThread(builderResources), "Builder-" + i);
+         final int threadIndex = i;
+         Thread thread = new Thread(() -> this.runTaskThread(builderResources, threadIndex), "Builder-" + i);
          thread.setPriority(5);
          this.threads[i] = thread;
          this.resources[i] = builderResources;
@@ -87,8 +88,17 @@ public class TaskDispatcher {
       }
    }
 
-   private void runTaskThread(BuilderResources builderResources) {
+   private void runTaskThread(BuilderResources builderResources, int threadIndex) {
       while (!this.stopThreads) {
+         if (threadIndex > 0 && System.currentTimeMillis() < WorldRenderer.worldLoadTime + 5000L) {
+            try {
+               Thread.sleep(50);
+            } catch (InterruptedException e) {
+               Thread.currentThread().interrupt();
+            }
+            continue;
+         }
+
          ChunkTask task = this.pollTask();
          if (task == null) {
             this.idleThreads++;
@@ -166,13 +176,13 @@ public class TaskDispatcher {
       DrawBuffers drawBuffers = renderArea.getDrawBuffers();
       ChunkAreaManager chunkAreaManager = WorldRenderer.getInstance().getChunkAreaManager();
       if (chunkAreaManager.getChunkArea(renderArea.index) != renderArea) {
-         compileResult.renderedLayers.values().forEach(UploadBuffer::release);
+         compileResult.release();
       } else {
          if (compileResult.fullUpdate) {
-            EnumMap<TerrainRenderType, UploadBuffer> renderLayers = compileResult.renderedLayers;
+            UploadBuffer[] renderLayers = compileResult.renderedLayers;
 
             for (TerrainRenderType renderType : TerrainRenderType.VALUES) {
-               UploadBuffer uploadBuffer = renderLayers.get(renderType);
+               UploadBuffer uploadBuffer = renderLayers[renderType.ordinal()];
                if (uploadBuffer != null) {
                   drawBuffers.upload(section, uploadBuffer, renderType);
                } else {
@@ -182,7 +192,7 @@ public class TaskDispatcher {
 
             compileResult.updateSection();
          } else {
-            UploadBuffer uploadBuffer = compileResult.renderedLayers.get(TerrainRenderType.TRANSLUCENT);
+            UploadBuffer uploadBuffer = compileResult.renderedLayers[TerrainRenderType.TRANSLUCENT.ordinal()];
             drawBuffers.upload(section, uploadBuffer, TerrainRenderType.TRANSLUCENT);
          }
       }

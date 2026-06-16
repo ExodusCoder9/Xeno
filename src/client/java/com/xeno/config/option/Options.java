@@ -71,65 +71,16 @@ public abstract class Options {
    }
 
    public static OptionBlock[] getVideoOpts() {
-      VideoModeManager.checkConfigVideoMode(config);
-      VideoModeManager.selectBestMonitor(window);
-      VideoModeSet[] resolutions = VideoModeManager.getVideoResolutions();
-      VideoModeSet.VideoMode videoMode = config.videoMode;
-      VideoModeSet videoModeSet = VideoModeManager.getVideoModeSet(videoMode);
-      if (videoModeSet == null) {
-         videoModeSet = resolutions[resolutions.length - 1];
-         videoMode = videoModeSet.getVideoMode();
-      }
-
-      VideoModeManager.selectedVideoMode = videoMode;
-      List<Integer> refreshRates = videoModeSet.getRefreshRates();
-      Option<WindowMode> windowModeOption = new CyclingOption<>(Component.translatable("xeno.options.windowMode"), WindowMode.values(), value -> {
-         boolean exclusiveFullscreen = value == WindowMode.EXCLUSIVE_FULLSCREEN;
-         mcOptions.fullscreen().set(exclusiveFullscreen);
-         config.windowMode = value.mode;
+      Option<Boolean> fullscreenOption = new SwitchOption(Component.translatable("options.fullscreen"), value -> {
+         mcOptions.fullscreen().set(value);
+         config.windowMode = value ? WindowMode.WINDOWED_FULLSCREEN.mode : WindowMode.WINDOWED.mode;
          fullscreenDirty = true;
-      }, () -> WindowMode.fromValue(config.windowMode)).setTranslator(value -> Component.translatable(WindowMode.getComponentName(value)));
-      CyclingOption<Integer> refreshRateOption = (CyclingOption<Integer>)new CyclingOption<>(
-            Component.translatable("xeno.options.refreshRate"), refreshRates.toArray(new Integer[0]), value -> {
-               VideoModeManager.selectedVideoMode.refreshRate = value;
-               VideoModeManager.applySelectedVideoMode();
-               if ((Boolean)mcOptions.fullscreen().get()) {
-                  fullscreenDirty = true;
-               }
-            }, () -> VideoModeManager.selectedVideoMode.refreshRate
-         )
-         .setTranslator(refreshRate -> Component.nullToEmpty(refreshRate.toString()))
-         .setActivationFn(() -> windowModeOption.getNewValue() == WindowMode.EXCLUSIVE_FULLSCREEN);
-      Option<VideoModeSet> resolutionOption = new CyclingOption<>(Component.translatable("options.fullscreen.resolution"), resolutions, value -> {
-            VideoModeManager.selectedVideoMode = value.getVideoMode(refreshRateOption.getNewValue());
-            VideoModeManager.applySelectedVideoMode();
-            if ((Boolean)mcOptions.fullscreen().get()) {
-               fullscreenDirty = true;
-            }
-         }, () -> {
-            VideoModeSet.VideoMode selectedVideoMode = VideoModeManager.selectedVideoMode;
-            VideoModeSet selectedVideoModeSet = VideoModeManager.getVideoModeSet(selectedVideoMode);
-            return selectedVideoModeSet != null ? selectedVideoModeSet : VideoModeSet.getDummy();
-         })
-         .setTranslator(resolution -> Component.nullToEmpty(resolution.toString()))
-         .setActivationFn(() -> windowModeOption.getNewValue() == WindowMode.EXCLUSIVE_FULLSCREEN);
-      resolutionOption.setOnChange(() -> {
-         VideoModeSet newSet = resolutionOption.getNewValue();
-         Integer[] rates = newSet.getRefreshRates().toArray(new Integer[0]);
-         refreshRateOption.setValues(rates);
-         refreshRateOption.setNewValue(rates[rates.length - 1]);
-      });
-      windowModeOption.setOnChange(() -> {
-         resolutionOption.updateActiveState();
-         refreshRateOption.updateActiveState();
-      });
+      }, () -> (Boolean)mcOptions.fullscreen().get());
       return new OptionBlock[]{
          new OptionBlock(
             "",
             new Option[]{
-               windowModeOption,
-               resolutionOption,
-               refreshRateOption,
+               fullscreenOption,
                new RangeOption(
                   Component.translatable("options.framerateLimit"),
                   10,

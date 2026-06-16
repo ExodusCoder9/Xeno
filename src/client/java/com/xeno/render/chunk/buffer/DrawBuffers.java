@@ -60,7 +60,7 @@ public class DrawBuffers {
    private final int minHeight;
    private boolean allocated = false;
    AreaBuffer indexBuffer;
-   private final EnumMap<TerrainRenderType, AreaBuffer> vertexBuffers = new EnumMap<>(TerrainRenderType.class);
+   private final AreaBuffer[] vertexBuffers = new AreaBuffer[TerrainRenderType.VALUES.length];
    private final UniformBuffer sectionDataBuffer = new UniformBuffer(4096, MemoryTypes.HOST_MEM);
    final long drawParamsPtr;
    final int[] sectionIndices = new int[512];
@@ -196,15 +196,20 @@ public class DrawBuffers {
          case CUTOUT -> 500000;
          case TRANSLUCENT, TRIPWIRE -> 150000;
       };
-      return this.vertexBuffers.computeIfAbsent(renderType, renderType1 -> new AreaBuffer(AreaBuffer.Usage.VERTEX, initialSize, this.vertexSize));
+      AreaBuffer buffer = this.vertexBuffers[renderType.ordinal()];
+        if (buffer == null) {
+            buffer = new AreaBuffer(AreaBuffer.Usage.VERTEX, initialSize, this.vertexSize);
+            this.vertexBuffers[renderType.ordinal()] = buffer;
+        }
+        return buffer;
    }
 
    public AreaBuffer getAreaBuffer(TerrainRenderType r) {
-      return this.vertexBuffers.get(r);
+      return this.vertexBuffers[r.ordinal()];
    }
 
    private boolean hasRenderType(TerrainRenderType r) {
-      return this.vertexBuffers.containsKey(r);
+      return this.vertexBuffers[r.ordinal()] != null;
    }
 
    private int encodeSectionOffset(int xOffset, int yOffset, int zOffset) {
@@ -511,8 +516,10 @@ public class DrawBuffers {
 
    public void releaseBuffers() {
       if (this.allocated) {
-         this.vertexBuffers.values().forEach(AreaBuffer::freeBuffer);
-         this.vertexBuffers.clear();
+         for (AreaBuffer buffer : this.vertexBuffers) {
+            if (buffer != null) buffer.freeBuffer();
+         }
+         java.util.Arrays.fill(this.vertexBuffers, null);
          if (this.indexBuffer != null) {
             this.indexBuffer.freeBuffer();
          }
@@ -528,10 +535,13 @@ public class DrawBuffers {
    }
 
    public boolean isAllocated() {
-      return !this.vertexBuffers.isEmpty();
+      for (AreaBuffer buffer : this.vertexBuffers) {
+         if (buffer != null) return true;
+      }
+      return false;
    }
 
-   public EnumMap<TerrainRenderType, AreaBuffer> getVertexBuffers() {
+   public AreaBuffer[] getVertexBuffers() {
       return this.vertexBuffers;
    }
 

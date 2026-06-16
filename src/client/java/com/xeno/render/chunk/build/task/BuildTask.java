@@ -21,7 +21,6 @@ package com.xeno.render.chunk.build.task;
  * Refactored, Renamed and Optimized by ExodusCoder9.
  */
 
-
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -51,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
 
-public class BuildTask extends ChunkTask {
+public final class BuildTask extends ChunkTask {
    @Nullable
    protected RenderRegion region;
 
@@ -72,22 +71,22 @@ public class BuildTask extends ChunkTask {
       if (this.cancelled) {
          return ChunkTask.Result.CANCELLED;
       } else {
-         float x = (float)this.cameraPos.x;
-         float y = (float)this.cameraPos.y;
-         float z = (float)this.cameraPos.z;
+         float x = (float) this.cameraPos.x;
+         float y = (float) this.cameraPos.y;
+         float z = (float) this.cameraPos.z;
          CompileResult compileResult = this.compile(x, y, z, builderResources);
          CompiledSection compiledSection = new CompiledSection();
-         compiledSection.blockEntities.addAll(compileResult.blockEntities);
+         compiledSection.blockEntities.addAll(compileResult.getBlockEntities());
          compiledSection.transparencyState = compileResult.transparencyState;
-         compiledSection.isCompletelyEmpty = compileResult.renderedLayers.isEmpty();
+         compiledSection.isCompletelyEmpty = compileResult.hasNoRenderedLayers();
          compileResult.compiledSection = compiledSection;
          if (this.cancelled) {
-            compileResult.renderedLayers.values().forEach(UploadBuffer::release);
+            compileResult.release();
             return ChunkTask.Result.CANCELLED;
          } else {
             taskDispatcher.scheduleSectionUpdate(compileResult);
-            float buildTime = (float)(System.nanoTime() - startTime) * 1.0E-6F;
-            builderResources.updateBuildStats((int)buildTime);
+            float buildTime = (float) (System.nanoTime() - startTime) * 1.0E-6F;
+            builderResources.updateBuildStats((int) buildTime);
             return ChunkTask.Result.SUCCESSFUL;
          }
       }
@@ -101,7 +100,7 @@ public class BuildTask extends ChunkTask {
          return compileResult;
       }
 
-      Vector3f pos = new Vector3f();
+      Vector3f pos = builderResources.pos;
       ThreadBuilderPack bufferBuilders = builderResources.builderPack;
       this.setupBufferBuilders(bufferBuilders);
       this.region.setBlockData(builderResources.blockDataArray);
@@ -110,7 +109,7 @@ public class BuildTask extends ChunkTask {
       builderResources.update(this.region, this.section);
       BlockRenderer blockRenderer = builderResources.blockRenderer;
       FluidRenderer fluidRenderer = builderResources.fluidRenderer;
-      MutableBlockPos blockPos = new MutableBlockPos();
+      MutableBlockPos blockPos = builderResources.blockPos;
       int baseX = this.section.xOffset();
       int baseY = this.section.yOffset();
       int baseZ = this.section.zOffset();
@@ -124,7 +123,8 @@ public class BuildTask extends ChunkTask {
             int absZ = baseZ + z;
             int yzOffset = yOffset + 20 * z;
             for (int x = 0; x < 16; x++) {
-               BlockState blockState = useFastPath ? blockData[yzOffset + x] : this.region.getBlockState(baseX + x, absY, absZ);
+               BlockState blockState = useFastPath ? blockData[yzOffset + x]
+                     : this.region.getBlockState(baseX + x, absY, absZ);
                if (blockState.isAir()) {
                   continue;
                }
@@ -166,7 +166,8 @@ public class BuildTask extends ChunkTask {
       TerrainBuilder trasnlucentTerrainBuilder = bufferBuilders.builder(TerrainRenderType.TRANSLUCENT);
       if (trasnlucentTerrainBuilder.getBufferBuilder(QuadFacing.UNDEFINED.ordinal()).getVertices() > 0) {
          trasnlucentTerrainBuilder.setupQuadSortingPoints();
-         trasnlucentTerrainBuilder.setupQuadSorting(camX - this.section.xOffset(), camY - this.section.yOffset(), camZ - this.section.zOffset());
+         trasnlucentTerrainBuilder.setupQuadSorting(camX - this.section.xOffset(), camY - this.section.yOffset(),
+               camZ - this.section.zOffset());
          compileResult.transparencyState = trasnlucentTerrainBuilder.getSortState();
       }
 
@@ -174,10 +175,10 @@ public class BuildTask extends ChunkTask {
          TerrainBuilder builder = bufferBuilders.builder(renderType);
          TerrainBuilder.DrawState drawState = builder.endDrawing();
          TerrainBuilder uploadSrc = (realBuilders != null)
-            ? realBuilders[renderType.ordinal()]
-            : builder;
+               ? realBuilders[renderType.ordinal()]
+               : builder;
          UploadBuffer uploadBuffer = new UploadBuffer(uploadSrc, drawState);
-         compileResult.renderedLayers.put(renderType, uploadBuffer);
+         compileResult.renderedLayers[renderType.ordinal()] = uploadBuffer;
          builder.clear();
       }
 
@@ -230,11 +231,12 @@ public class BuildTask extends ChunkTask {
    }
 
    private <E extends BlockEntity> void handleBlockEntity(CompileResult compileResult, E blockEntity) {
-      BlockEntityRenderer<E, BlockEntityRenderState> blockEntityRenderer = Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(blockEntity);
+      BlockEntityRenderer<E, BlockEntityRenderState> blockEntityRenderer = Minecraft.getInstance()
+            .getBlockEntityRenderDispatcher().getRenderer(blockEntity);
       if (blockEntityRenderer != null) {
-         compileResult.blockEntities.add(blockEntity);
+         compileResult.addBlockEntity(blockEntity);
          if (blockEntityRenderer.shouldRenderOffScreen()) {
-            compileResult.globalBlockEntities.add(blockEntity);
+            compileResult.addGlobalBlockEntity(blockEntity);
          }
       }
    }

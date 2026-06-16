@@ -35,7 +35,7 @@ import com.xeno.render.vertex.VertexBuilder;
 
 public class ThreadBuilderPack {
    private static Function<TerrainRenderType, TerrainBuilder> terrainBuilderConstructor;
-   private final Map<TerrainRenderType, TerrainBuilder> builders;
+   private final TerrainBuilder[] builders;
 
    public static void defaultTerrainBuilderConstructor() {
       terrainBuilderConstructor = renderType -> {
@@ -51,20 +51,25 @@ public class ThreadBuilderPack {
    }
 
    public ThreadBuilderPack() {
-      EnumMap<TerrainRenderType, TerrainBuilder> map = new EnumMap<>(TerrainRenderType.class);
-      Arrays.stream(TerrainRenderType.values()).forEach(terrainRenderType -> map.put(terrainRenderType, terrainBuilderConstructor.apply(terrainRenderType)));
-      this.builders = map;
+      this.builders = new TerrainBuilder[TerrainRenderType.VALUES.length];
+      for (TerrainRenderType type : TerrainRenderType.VALUES) {
+         this.builders[type.ordinal()] = terrainBuilderConstructor.apply(type);
+      }
    }
 
    public TerrainBuilder builder(TerrainRenderType renderType) {
-      return this.builders.get(renderType);
+      return this.builders[renderType.ordinal()];
    }
 
    public void replaceBuilder(TerrainRenderType renderType, TerrainBuilder builder) {
-      this.builders.put(renderType, builder);
+      this.builders[renderType.ordinal()] = builder;
    }
 
    public void freeAll() {
-      this.builders.values().forEach(TerrainBuilder::free);
+      for (TerrainBuilder builder : this.builders) {
+         if (builder != null) {
+            builder.free();
+         }
+      }
    }
 }

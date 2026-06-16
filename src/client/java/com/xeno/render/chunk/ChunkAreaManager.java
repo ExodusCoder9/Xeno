@@ -219,12 +219,14 @@ public class ChunkAreaManager {
       for (ChunkArea chunkArea : this.chunkAreasArr) {
          DrawBuffers drawBuffers = chunkArea.drawBuffers;
          if (drawBuffers.isAllocated()) {
-            EnumMap<TerrainRenderType, AreaBuffer> vertexBuffers = drawBuffers.getVertexBuffers();
+            AreaBuffer[] vertexBuffers = drawBuffers.getVertexBuffers();
 
-            for (AreaBuffer buffer : vertexBuffers.values()) {
-               vbSize += buffer.getSize();
-               vbUsed += buffer.getUsed();
-               frag += buffer.fragmentation();
+            for (AreaBuffer buffer : vertexBuffers) {
+               if (buffer != null) {
+                  vbSize += buffer.getSize();
+                  vbUsed += buffer.getUsed();
+                  frag += buffer.fragmentation();
+               }
             }
 
             AreaBuffer indexBuffer = drawBuffers.getIndexBuffer();

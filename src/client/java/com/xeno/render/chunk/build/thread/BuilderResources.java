@@ -23,6 +23,8 @@ package com.xeno.render.chunk.build.thread;
 
 
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import org.joml.Vector3f;
 import com.xeno.Initializer;
 import com.xeno.render.chunk.RenderSection;
 import com.xeno.render.chunk.build.RenderRegion;
@@ -44,6 +46,8 @@ public class BuilderResources {
    public final ArrayLightDataCache lightDataCache = new ArrayLightDataCache();
    public final QuadLightData quadLightData = new QuadLightData();
    public final BlockState[] blockDataArray = new BlockState[8000];
+   public final Vector3f pos = new Vector3f();
+   public final MutableBlockPos blockPos = new MutableBlockPos();
    private RenderRegion region;
    private int totalBuildTime = 0;
    private int buildCount = 0;

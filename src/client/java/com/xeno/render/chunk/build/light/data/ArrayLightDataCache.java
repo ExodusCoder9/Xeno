@@ -26,6 +26,7 @@ import java.util.Arrays;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
+import com.xeno.render.chunk.build.RenderRegion;
 
 public class ArrayLightDataCache extends LightDataAccess {
    private static final int NEIGHBOR_BLOCK_RADIUS = 2;
@@ -56,6 +57,7 @@ public class ArrayLightDataCache extends LightDataAccess {
 
    public void reset(BlockAndTintGetter blockAndTintGetter, int x, int y, int z) {
       this.region = blockAndTintGetter;
+      this.rrRegion = blockAndTintGetter instanceof RenderRegion rr ? rr : null;
       this.xOffset = x - 2;
       this.yOffset = y - 2;
       this.zOffset = z - 2;
@@ -66,6 +68,7 @@ public class ArrayLightDataCache extends LightDataAccess {
 
    public void reset(BlockAndTintGetter blockAndTintGetter, BlockPos origin) {
       this.region = blockAndTintGetter;
+      this.rrRegion = blockAndTintGetter instanceof RenderRegion rr ? rr : null;
       this.xOffset = origin.getX() - 2;
       this.yOffset = origin.getY() - 2;
       this.zOffset = origin.getZ() - 2;

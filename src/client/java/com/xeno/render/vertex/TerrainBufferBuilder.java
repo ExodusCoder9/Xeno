@@ -34,7 +34,7 @@ public class TerrainBufferBuilder implements VertexConsumer {
    private static final Logger LOGGER = Initializer.LOGGER;
    private static final MemoryAllocator ALLOCATOR = MemoryUtil.getAllocator(false);
    private int capacity;
-   private int vertexSize;
+   protected int vertexSize;
    protected long bufferPtr;
    protected int nextElementByte;
    int vertices;
@@ -164,5 +164,39 @@ public class TerrainBufferBuilder implements VertexConsumer {
    @Override
    public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
       this.vertex(x, y, z, color, u, v, light, I32_SNorm.packNormal(normalX, normalY, normalZ));
+   }
+
+   public static class Compressed extends TerrainBufferBuilder {
+      private final VertexBuilder.CompressedVertexBuilder cb;
+
+      public Compressed(int size, int vertexSize, VertexBuilder.CompressedVertexBuilder cb) {
+         super(size, vertexSize, cb);
+         this.cb = cb;
+      }
+
+      @Override
+      public void vertex(float x, float y, float z, int color, float u, float v, int light, int packedNormal) {
+         long ptr = this.bufferPtr + this.nextElementByte;
+         this.cb.vertex(ptr, x, y, z, color, u, v, light, packedNormal);
+         this.nextElementByte += this.vertexSize;
+         this.vertices++;
+      }
+   }
+
+   public static class Default extends TerrainBufferBuilder {
+      private final VertexBuilder.DefaultVertexBuilder db;
+
+      public Default(int size, int vertexSize, VertexBuilder.DefaultVertexBuilder db) {
+         super(size, vertexSize, db);
+         this.db = db;
+      }
+
+      @Override
+      public void vertex(float x, float y, float z, int color, float u, float v, int light, int packedNormal) {
+         long ptr = this.bufferPtr + this.nextElementByte;
+         this.db.vertex(ptr, x, y, z, color, u, v, light, packedNormal);
+         this.nextElementByte += this.vertexSize;
+         this.vertices++;
+      }
    }
 }

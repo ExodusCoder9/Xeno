@@ -150,41 +150,11 @@ public abstract class WindowMixin {
       Config config = Initializer.CONFIG;
       VideoModeManager.checkConfigVideoMode(config);
       if (this.fullscreen) {
-         config.windowMode = WindowMode.EXCLUSIVE_FULLSCREEN.mode;
+         config.windowMode = WindowMode.WINDOWED_FULLSCREEN.mode;
       }
 
-      if (this.fullscreen) {
-         VideoModeManager.selectBestMonitor((Window)(Object)this);
-         long monitor = VideoModeManager.selectedMonitor;
-         VideoModeSet.VideoMode videoMode = config.videoMode;
-         VideoModeSet set = VideoModeManager.getVideoModeSet(videoMode);
-         boolean supported;
-         if (set != null) {
-            supported = set.hasRefreshRate(videoMode.refreshRate);
-         } else {
-            supported = false;
-         }
-
-         if (!supported) {
-            LOGGER.error("Resolution not supported, using first available as fallback");
-            videoMode = VideoModeManager.getFirstAvailable().getVideoMode();
-         }
-
-         if (!this.wasOnFullscreen) {
-            this.windowedX = this.x;
-            this.windowedY = this.y;
-            this.windowedWidth = this.width;
-            this.windowedHeight = this.height;
-         }
-
-         this.x = 0;
-         this.y = 0;
-         this.width = videoMode.width;
-         this.height = videoMode.height;
-         this.isResized = true;
-         GLFW.glfwSetWindowMonitor(this.handle, monitor, this.x, this.y, this.width, this.height, videoMode.refreshRate);
-         this.wasOnFullscreen = true;
-      } else if (config.windowMode == WindowMode.WINDOWED_FULLSCREEN.mode) {
+      if (config.windowMode == WindowMode.WINDOWED_FULLSCREEN.mode || config.windowMode == WindowMode.EXCLUSIVE_FULLSCREEN.mode) {
+         config.windowMode = WindowMode.WINDOWED_FULLSCREEN.mode;
          VideoModeManager.selectBestMonitor((Window)(Object)this);
          VideoModeSet.VideoMode videoMode = VideoModeManager.getOsVideoMode();
          if (!this.wasOnFullscreen) {

@@ -36,6 +36,16 @@ public class TintCache {
    private static final int BOUNDARY_WIDTH = 16;
    private static final int LAYER_COUNT = 48;
    private final Reference2ReferenceOpenHashMap<ColorResolver, TintCache.Layer[]> layers = new Reference2ReferenceOpenHashMap();
+   private TintCache.Layer[][] registeredLayers = new TintCache.Layer[8][];
+   private int registeredLayersCount = 0;
+
+   private void registerLayers(ColorResolver colorResolver, TintCache.Layer[] layers1) {
+      this.layers.put(colorResolver, layers1);
+      if (this.registeredLayersCount >= this.registeredLayers.length) {
+         this.registeredLayers = java.util.Arrays.copyOf(this.registeredLayers, this.registeredLayers.length * 2);
+      }
+      this.registeredLayers[this.registeredLayersCount++] = layers1;
+   }
    private BiomeData biomeData;
    private int blendRadius;
    private int totalWidth;
@@ -59,9 +69,9 @@ public class TintCache {
    private int lastColor;
 
    public TintCache() {
-      this.layers.put(BiomeColors.FOLIAGE_COLOR_RESOLVER, this.allocateLayers());
-      this.layers.put(BiomeColors.GRASS_COLOR_RESOLVER, this.allocateLayers());
-      this.layers.put(BiomeColors.WATER_COLOR_RESOLVER, this.allocateLayers());
+      this.registerLayers(BiomeColors.FOLIAGE_COLOR_RESOLVER, this.allocateLayers());
+      this.registerLayers(BiomeColors.GRASS_COLOR_RESOLVER, this.allocateLayers());
+      this.registerLayers(BiomeColors.WATER_COLOR_RESOLVER, this.allocateLayers());
    }
 
    public void init(BiomeData biomeData, int blendRadius, int secX, int secY, int secZ) {
@@ -85,11 +95,8 @@ public class TintCache {
       int size = this.totalWidth * this.totalWidth;
       if (size != this.dataSize) {
          this.dataSize = size;
-         ObjectIterator var7 = this.layers.values().iterator();
-
-         while (var7.hasNext()) {
-            TintCache.Layer[] layers = (TintCache.Layer[])var7.next();
-
+         for (int i = 0; i < this.registeredLayersCount; i++) {
+            TintCache.Layer[] layers = this.registeredLayers[i];
             for (TintCache.Layer layer : layers) {
                layer.allocate(size);
             }
@@ -97,11 +104,8 @@ public class TintCache {
 
          this.temp = new int[size];
       } else {
-         ObjectIterator var13 = this.layers.values().iterator();
-
-         while (var13.hasNext()) {
-            TintCache.Layer[] layers = (TintCache.Layer[])var13.next();
-
+         for (int i = 0; i < this.registeredLayersCount; i++) {
+            TintCache.Layer[] layers = this.registeredLayers[i];
             for (TintCache.Layer layer : layers) {
                layer.invalidate();
             }
@@ -154,7 +158,7 @@ public class TintCache {
          layer.allocate(this.dataSize);
       }
 
-      this.layers.put(colorResolver, layers1);
+      this.registerLayers(colorResolver, layers1);
    }
 
    private TintCache.Layer[] allocateLayers() {

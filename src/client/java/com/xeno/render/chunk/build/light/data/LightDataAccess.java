@@ -33,6 +33,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import com.xeno.Initializer;
 import com.xeno.interfaces.VoxelShapeExtended;
+import com.xeno.render.chunk.build.RenderRegion;
 import com.xeno.render.chunk.util.SimpleDirection;
 
 public abstract class LightDataAccess {
@@ -47,6 +48,7 @@ public abstract class LightDataAccess {
    private static final float AO_INV = 4.8828125E-4F;
    private final MutableBlockPos pos = new MutableBlockPos();
    protected BlockAndTintGetter region;
+   protected RenderRegion rrRegion;
    final boolean subBlockLighting = Initializer.CONFIG.ambientOcclusion == 2;
 
    protected LightDataAccess() {
@@ -72,17 +74,19 @@ public abstract class LightDataAccess {
 
    protected int compute(int x, int y, int z) {
       BlockPos pos = this.pos.set(x, y, z);
-      BlockState state = this.region.getBlockState(pos);
-      boolean em = state.emissiveRendering(this.region, pos);
+      RenderRegion rr = this.rrRegion;
+      BlockAndTintGetter r = this.region;
+      BlockState state = (rr != null) ? rr.getBlockState(pos) : r.getBlockState(pos);
+      boolean em = (rr != null) ? state.emissiveRendering(rr, pos) : state.emissiveRendering(r, pos);
       boolean op;
       if (this.subBlockLighting) {
          op = state.canOcclude();
       } else {
-         op = state.isViewBlocking(this.region, pos) && state.getLightDampening() != 0;
+         op = (rr != null) ? state.isViewBlocking(rr, pos) && state.getLightDampening() != 0 : state.isViewBlocking(r, pos) && state.getLightDampening() != 0;
       }
 
       boolean fo = state.isSolidRender();
-      boolean fc = state.isCollisionShapeFullBlock(this.region, pos);
+      boolean fc = (rr != null) ? state.isCollisionShapeFullBlock(rr, pos) : state.isCollisionShapeFullBlock(r, pos);
       int lu = state.getLightEmission();
       int bl;
       int sl;
@@ -90,17 +94,17 @@ public abstract class LightDataAccess {
          bl = 0;
          sl = 0;
       } else if (em) {
-         bl = this.region.getBrightness(LightLayer.BLOCK, pos);
-         sl = this.region.getBrightness(LightLayer.SKY, pos);
+         bl = (rr != null) ? rr.getBrightness(LightLayer.BLOCK, pos) : r.getBrightness(LightLayer.BLOCK, pos);
+         sl = (rr != null) ? rr.getBrightness(LightLayer.SKY, pos) : r.getBrightness(LightLayer.SKY, pos);
       } else {
-         int light = LevelRenderer.getLightCoords(BrightnessGetter.DEFAULT, this.region, state, pos);
+         int light = LevelRenderer.getLightCoords(BrightnessGetter.DEFAULT, (rr != null) ? rr : r, state, pos);
          bl = LightCoordsUtil.block(light);
          sl = LightCoordsUtil.sky(light);
       }
 
       float ao;
       if (lu == 0) {
-         ao = state.getShadeBrightness(this.region, pos);
+         ao = (rr != null) ? state.getShadeBrightness(rr, pos) : state.getShadeBrightness(r, pos);
       } else {
          ao = 1.0F;
       }
@@ -109,7 +113,7 @@ public abstract class LightDataAccess {
       bl = Math.max(bl, lu);
       int crs = (fo || fc) && lu == 0 && useAo ? 255 : 0;
       if (!fo && op) {
-         VoxelShape shape = state.getShape(this.region, pos);
+         VoxelShape shape = (rr != null) ? state.getShape(rr, pos) : state.getShape(r, pos);
          crs = ((VoxelShapeExtended)shape).getCornerOcclusion();
       }
 

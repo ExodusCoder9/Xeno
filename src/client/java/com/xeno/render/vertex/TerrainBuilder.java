@@ -54,7 +54,13 @@ public class TerrainBuilder {
       TerrainBufferBuilder[] bufferBuilders = new TerrainBufferBuilder[QuadFacing.COUNT];
 
       for (int i = 0; i < QuadFacing.COUNT; i++) {
-         bufferBuilders[i] = new TerrainBufferBuilder(size, this.format.getVertexSize(), this.vertexBuilder);
+         if (this.vertexBuilder instanceof VertexBuilder.CompressedVertexBuilder cvb) {
+            bufferBuilders[i] = new TerrainBufferBuilder.Compressed(size, this.format.getVertexSize(), cvb);
+         } else if (this.vertexBuilder instanceof VertexBuilder.DefaultVertexBuilder dvb) {
+            bufferBuilders[i] = new TerrainBufferBuilder.Default(size, this.format.getVertexSize(), dvb);
+         } else {
+            bufferBuilders[i] = new TerrainBufferBuilder(size, this.format.getVertexSize(), this.vertexBuilder);
+         }
       }
 
       this.bufferBuilders = bufferBuilders;

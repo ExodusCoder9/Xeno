@@ -91,9 +91,8 @@ public class BlockRenderer extends AbstractBlockRenderContext {
       this.renderType = TerrainRenderType.getRemapped(rawType);
       TerrainBuilder terrainBuilder = this.getBufferBuilder(layer);
       terrainBuilder.setBlockAttributes(this.blockState);
-      LightPipeline lightPipeline = ao ? this.smoothLightPipeline : this.flatLightPipeline;
       this.tintQuad(quad);
-      this.shadeQuad(quad, lightPipeline, emissive, vanillaShade);
+      this.shadeQuad(quad, ao, emissive, vanillaShade);
       this.bufferQuad(terrainBuilder, this.pos, quad, this.quadLightData);
    }
 

@@ -56,6 +56,9 @@ import com.xeno.render.chunk.build.RenderRegion;
 import com.xeno.render.chunk.build.frapi.mesh.EncodingFormat;
 import com.xeno.render.chunk.build.frapi.mesh.MutableQuadViewImpl;
 import com.xeno.render.chunk.build.light.LightPipeline;
+import com.xeno.render.chunk.build.light.flat.FlatLightPipeline;
+import com.xeno.render.chunk.build.light.smooth.SmoothLightPipeline;
+import com.xeno.render.chunk.build.light.smooth.NewSmoothLightPipeline;
 import com.xeno.render.chunk.build.light.data.QuadLightData;
 import org.jetbrains.annotations.Nullable;
 
@@ -77,6 +80,7 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext i
    protected MutableBlockPos tempPos = new MutableBlockPos();
    protected ChunkSectionLayer defaultLayer;
    protected BlockAndTintGetter renderRegion;
+   protected RenderRegion rrRegion;
    private int tintCacheIndex = -1;
    private int tintCacheValue;
    private boolean tintSourcesInitialized;
@@ -89,8 +93,9 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext i
    private final MutableShapePairKey lookupKey = new MutableShapePairKey();
    private final List<BlockStateModelPart> partsList = new ArrayList<>();
    protected final QuadLightData quadLightData = new QuadLightData();
-   protected LightPipeline smoothLightPipeline;
-   protected LightPipeline flatLightPipeline;
+   protected FlatLightPipeline flatLightPipeline;
+   protected SmoothLightPipeline smoothLightPipeline;
+   protected NewSmoothLightPipeline newSmoothLightPipeline;
    protected boolean useAO;
    protected boolean defaultAO;
    protected RandomSource random;
@@ -106,12 +111,19 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext i
    }
 
    protected void setupLightPipelines(LightPipeline flatLightPipeline, LightPipeline smoothLightPipeline) {
-      this.flatLightPipeline = flatLightPipeline;
-      this.smoothLightPipeline = smoothLightPipeline;
+      this.flatLightPipeline = (FlatLightPipeline) flatLightPipeline;
+      if (smoothLightPipeline instanceof NewSmoothLightPipeline newSmooth) {
+         this.newSmoothLightPipeline = newSmooth;
+         this.smoothLightPipeline = null;
+      } else if (smoothLightPipeline instanceof SmoothLightPipeline smooth) {
+         this.smoothLightPipeline = smooth;
+         this.newSmoothLightPipeline = null;
+      }
    }
 
    public void prepareForWorld(BlockAndTintGetter blockView, boolean enableCulling) {
       this.renderRegion = blockView;
+      this.rrRegion = blockView instanceof RenderRegion rr ? rr : null;
       this.enableCulling = enableCulling;
    }
 
@@ -152,9 +164,8 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext i
    }
 
    public boolean faceNotOccluded(BlockState blockState, Direction face) {
-      BlockGetter blockGetter = this.renderRegion;
       BlockPos adjPos = this.tempPos.setWithOffset(this.blockPos, face);
-      BlockState adjBlockState = (blockGetter instanceof RenderRegion rr) ? rr.getBlockState(adjPos) : blockGetter.getBlockState(adjPos);
+      BlockState adjBlockState = (this.rrRegion != null) ? this.rrRegion.getBlockState(adjPos) : this.renderRegion.getBlockState(adjPos);
       if (blockState.skipRendering(adjBlockState, face)) {
          return false;
       }
@@ -273,11 +284,19 @@ public abstract class AbstractBlockRenderContext extends AbstractRenderContext i
       }
    }
 
-   protected void shadeQuad(MutableQuadViewImpl quad, LightPipeline lightPipeline, boolean emissive, boolean vanillaShade) {
+   protected void shadeQuad(MutableQuadViewImpl quad, boolean ao, boolean emissive, boolean vanillaShade) {
       QuadLightData data = this.quadLightData;
       Direction cullFace = quad.cullFace();
       Direction lightFace = quad.lightFace();
-      lightPipeline.calculate(quad, this.blockPos, data, cullFace, lightFace, quad.diffuseShade());
+      if (ao) {
+         if (this.newSmoothLightPipeline != null) {
+            this.newSmoothLightPipeline.calculate(quad, this.blockPos, data, cullFace, lightFace, quad.diffuseShade());
+         } else {
+            this.smoothLightPipeline.calculate(quad, this.blockPos, data, cullFace, lightFace, quad.diffuseShade());
+         }
+      } else {
+         this.flatLightPipeline.calculate(quad, this.blockPos, data, cullFace, lightFace, quad.diffuseShade());
+      }
       if (emissive) {
          quad.color(0, ARGB.scaleRGB(quad.color(0), data.br[0]));
          quad.lightmap(0, 15728880);

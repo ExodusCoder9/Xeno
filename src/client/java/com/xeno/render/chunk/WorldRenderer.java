@@ -119,6 +119,7 @@ public class WorldRenderer {
    private long terrainSampler;
    private final List<Runnable> onAllChangedCallbacks = new ObjectArrayList();
    private long currentFrameTimeMs;
+   public static long worldLoadTime;
 
    public static WorldRenderer init(
       EntityRenderDispatcher entityRenderDispatcher,
@@ -286,6 +287,7 @@ public class WorldRenderer {
       this.level = level;
       ChunkStatusMap.createInstance(this.renderDistance);
       if (level != null) {
+         worldLoadTime = System.currentTimeMillis();
          this.allChanged();
       } else {
          if (this.sectionGrid != null) {
