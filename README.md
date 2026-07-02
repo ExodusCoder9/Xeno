@@ -1,17 +1,17 @@
-# Xeno ARM
+# Xeno 
 
-A high-performance Vulkan rendering mod for Minecraft, providing enhanced frame rates and reduced CPU overhead. **Now optimized for Android devices via Zalith Launcher!**
+A high-performance Vulkan rendering mod for Minecraft, providing enhanced frame rates and reduced CPU overhead. 
 
 ## 🚀 Android & ARM Support
 
-This version of Xeno is specifically built to run on **Android devices** using the **Zalith Launcher**. Experience smooth Vulkan rendering on mobile platforms with ARM architecture support.
+This version of Xeno is compatible to run on **Android devices** using the **Zalith Launcher**. Experience smooth Vulkan rendering on mobile platforms with ARM architecture support.
 
 ### Zalith Launcher Integration
-- ✅ Full Vulkan support on Android ARM devices
-- ✅ Optimized for mobile performance
-- ✅ Compatible with Zalith Launcher ecosystem
-- ✅ Enhanced frame rates on ARM processors
-- ✅ Reduced CPU overhead for mobile devices
+-  Full Vulkan support on Android ARM devices
+-  Optimized for mobile performance
+-  Compatible with Zalith Launcher ecosystem
+-  Enhanced frame rates on ARM processors
+-  Reduced CPU overhead for mobile devices
 
 ## Features
 
