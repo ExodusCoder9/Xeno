@@ -141,7 +141,7 @@ public class CullingThread extends Thread {
 
         // 3. Initialize BFS queue and run occlusion culling
         initializeQueueForFullUpdate(request.cameraBlockPos(), bfsQueue, viewArea, sectionMap);
-        runUpdates(bfsQueue, request.smartCull(), viewArea.getViewDistance(), sectionMap);
+        runUpdates(request, bfsQueue, request.smartCull(), viewArea.getViewDistance(), sectionMap);
 
         // 4. Linear Frustum Culling on BFS-visible sections (No octree builder or traverser!)
         List<SectionRenderDispatcher.RenderSection> visibleList = new ArrayList<>(occlusionVisible.size());
@@ -233,12 +233,13 @@ public class CullingThread extends Thread {
     }
 
     private void runUpdates(
+        final CullingRequest request,
         final Queue<CullNode> queue,
         final boolean smartCull,
         int viewDistance,
         Long2ObjectOpenHashMap<SectionRenderDispatcher.RenderSection> sectionMap
     ) {
-        Vec3 cameraPos = pendingRequest != null ? pendingRequest.cameraPos() : Vec3.ZERO;
+        Vec3 cameraPos = request.cameraPos();
         SectionPos cameraSectionPos = SectionPos.of(cameraPos);
         long cameraSectionNode = cameraSectionPos.asLong();
         BlockPos cameraSectionCenter = cameraSectionPos.center();
