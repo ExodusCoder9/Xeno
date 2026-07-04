@@ -6,7 +6,9 @@
 	"client": [
 		"ViewAreaAccessor",
 		"SectionOcclusionGraphMixin",
-		"LevelExtractorMixin"
+		"LevelExtractorMixin",
+		"BufferBuilderMixin",
+		"RenderPipelineBuilderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
