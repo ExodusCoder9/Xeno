@@ -205,11 +205,13 @@ public class CullingThread extends Thread {
         }
 
         List<SectionRenderDispatcher.RenderSection> visibleList = new ArrayList<>(visibleCount);
+        java.util.BitSet visibleIndices = new java.util.BitSet(viewArea.size());
         for (int i = 0; i < visibleCount; i++) {
             visibleList.add(this.sortArray[i]);
+            visibleIndices.set(this.sortArray[i].index);
         }
 
-        this.latestOutput = new CullingOutput(visibleList, nearbyList);
+        this.latestOutput = new CullingOutput(visibleList, nearbyList, visibleIndices);
         this.needsFrustumUpdate = true;
     }
 

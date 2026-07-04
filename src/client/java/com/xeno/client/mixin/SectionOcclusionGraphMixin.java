@@ -3,6 +3,7 @@ package com.xeno.client.mixin;
 import com.xeno.client.culling.CullingOutput;
 import com.xeno.client.culling.CullingRequest;
 import com.xeno.client.culling.CullingThread;
+import com.xeno.client.culling.XenoOcclusionGraph;
 import it.unimi.dsi.fastutil.longs.LongCollection;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -29,7 +30,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(SectionOcclusionGraph.class)
-public class SectionOcclusionGraphMixin {
+public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     @Shadow @Final
     private LongOpenHashSet emptySections;
 
@@ -248,5 +249,13 @@ public class SectionOcclusionGraphMixin {
     @VisibleForDebug
     public SectionOcclusionGraph.Node getNode(final SectionRenderDispatcher.RenderSection section) {
         return null;
+    }
+
+    @Override
+    public boolean isSectionVisible(int sectionIndex) {
+        if (this.xenoCullingThread == null) return true;
+        CullingOutput output = this.xenoCullingThread.getLatestOutput();
+        if (output == null) return true;
+        return output.isSectionVisible(sectionIndex);
     }
 }

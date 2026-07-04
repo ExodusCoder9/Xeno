@@ -5,7 +5,8 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"ViewAreaAccessor",
-		"SectionOcclusionGraphMixin"
+		"SectionOcclusionGraphMixin",
+		"LevelExtractorMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
