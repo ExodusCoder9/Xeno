@@ -29,9 +29,8 @@ void main() {
     sphericalVertexDistance = fog_spherical_distance(pos);
     cylindricalVertexDistance = fog_cylindrical_distance(pos);
 
-    // 3. Reconstruct lightmap coordinates
-    vec2 lightmapUV = vec2(UV2) / 16.0;
-    vertexColor = Color * sample_lightmap(Sampler2, lightmapUV);
+    // 3. Reconstruct lightmap colors (UV2 is ivec2, passed directly to sample_lightmap)
+    vertexColor = Color * sample_lightmap(Sampler2, UV2);
 
     // 4. Reconstruct texture coordinates
     texCoord0 = vec2(UV0) / 32767.0;
