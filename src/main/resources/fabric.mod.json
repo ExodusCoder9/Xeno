@@ -29,7 +29,6 @@
 			"environment": "client"
 		}
 	],
-	"accessWidener": "xeno.accesswidener",
 	"depends": {
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~26.2",
