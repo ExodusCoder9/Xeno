@@ -6,10 +6,10 @@
 #moj_import <minecraft:projection.glsl>
 #moj_import <minecraft:sample_lightmap.glsl>
 
-in ivec4 Position; // RGBA16_SINT (x, y, z are positions in mm, w is normal ID)
+in ivec3 Position; // RGB16_SINT (x, y, z local positions in mm)
 in vec4 Color;     // RGBA8_UNORM
 in ivec2 UV0;      // RG16_SINT
-in ivec2 UV2;      // RG16_SINT
+in ivec2 UV2;      // RG8_SINT (x contains blockLight & normalId, y contains skyLight)
 
 uniform sampler2D Sampler2;
 
@@ -20,7 +20,7 @@ out vec2 texCoord0;
 
 void main() {
     // 1. Decode local position from millimeters to meters
-    vec3 localPos = vec3(Position.xyz) / 1000.0;
+    vec3 localPos = vec3(Position) / 1000.0;
 
     // 2. Reconstruct world position using ChunkPosition (same as vanilla)
     vec3 pos = localPos + (ChunkPosition - CameraBlockPos) + CameraOffset;
@@ -29,8 +29,13 @@ void main() {
     sphericalVertexDistance = fog_spherical_distance(pos);
     cylindricalVertexDistance = fog_cylindrical_distance(pos);
 
-    // 3. Reconstruct lightmap colors (UV2 is ivec2, passed directly to sample_lightmap)
-    vertexColor = Color * sample_lightmap(Sampler2, UV2);
+    // 3. Unpack packed lightmap coordinates (blockLight: x & 0x0F, skyLight: y & 0x0F)
+    int blockLight = UV2.x & 0x0F;
+    int skyLight = UV2.y & 0x0F;
+    ivec2 lightmapCoords = ivec2(blockLight * 16 + 8, skyLight * 16 + 8);
+
+    // Reconstruct lightmap color
+    vertexColor = Color * sample_lightmap(Sampler2, lightmapCoords);
 
     // 4. Reconstruct texture coordinates
     texCoord0 = vec2(UV0) / 32767.0;

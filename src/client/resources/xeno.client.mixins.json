@@ -14,7 +14,9 @@
 		"LevelRendererMixin",
 		"DebugScreenOverlayMixin",
 		"DebugScreenEntriesMixin",
-		"DebugScreenEntryListMixin"
+		"DebugScreenEntryListMixin",
+		"SectionCompilerMixin",
+		"BlockModelLighterCacheMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

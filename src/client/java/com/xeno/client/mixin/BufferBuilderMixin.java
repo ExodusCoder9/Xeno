@@ -9,7 +9,6 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.geom.builders.UVPair;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import org.joml.Vector3fc;
-import org.jspecify.annotations.NonNull;
 import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(BufferBuilder.class)
-@SuppressWarnings({"unused"})
+@SuppressWarnings({"UnresolvedMixinReference", "unused"})
 public abstract class BufferBuilderMixin implements VertexConsumer {
     @Shadow @Final
     private VertexFormat format;
@@ -45,6 +44,7 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
         throw new AssertionError();
     }
 
+    //noinspection SpellCheckingInspection
     @Inject(method = "addVertex(FFFIFFIIFFF)V", at = @At("HEAD"), cancellable = true)
     private void xeno_addVertex(
             float x, float y, float z, int color, float u, float v,
@@ -54,31 +54,30 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
         if (this.format == XenoVertexFormat.XENO_COMPRESSED_FORMAT) {
             long pointer = this.beginVertex();
 
-            // 1. Pack Position (RGBA16_SINT = 8 bytes)
+            // 1. Pack Position (RGB16_SINT = 6 bytes, Offset 0)
             short posX = (short) Math.round(x * 1000.0f);
             short posY = (short) Math.round(y * 1000.0f);
             short posZ = (short) Math.round(z * 1000.0f);
-            short posW = (short) xeno_getNormalId(nx, ny, nz);
-
             MemoryUtil.memPutShort(pointer, posX);
             MemoryUtil.memPutShort(pointer + 2L, posY);
             MemoryUtil.memPutShort(pointer + 4L, posZ);
-            MemoryUtil.memPutShort(pointer + 6L, posW);
 
-            // 2. Pack Color (RGBA8_UNORM = 4 bytes)
-            putRgba(pointer + 8L, color);
+            // 2. Pack Color (RGBA8_UNORM = 4 bytes, Offset 6)
+            putRgba(pointer + 6L, color);
 
-            // 3. Pack UV0 (RG16_SINT = 4 bytes)
+            // 3. Pack UV0 (RG16_SINT = 4 bytes, Offset 10)
             short texU = (short) Math.round(u * 32767.0f);
             short texV = (short) Math.round(v * 32767.0f);
-            MemoryUtil.memPutShort(pointer + 12L, texU);
-            MemoryUtil.memPutShort(pointer + 14L, texV);
+            MemoryUtil.memPutShort(pointer + 10L, texU);
+            MemoryUtil.memPutShort(pointer + 12L, texV);
 
-            // 4. Pack UV2 (RG16_SINT = 4 bytes)
-            short lightBlock = (short) (lightCoords & 0xFFFF);
-            short lightSky = (short) ((lightCoords >> 16) & 0xFFFF);
-            MemoryUtil.memPutShort(pointer + 16L, lightBlock);
-            MemoryUtil.memPutShort(pointer + 18L, lightSky);
+            // 4. Pack UV2 / Lightmap & Normal ID (RG8_SINT = 2 bytes, Offset 14)
+            byte lightBlock = (byte) ((lightCoords & 0xFFFF) / 16);
+            byte lightSky = (byte) (((lightCoords >> 16) & 0xFFFF) / 16);
+            byte normalId = (byte) xeno_getNormalId(nx, ny, nz);
+
+            MemoryUtil.memPutByte(pointer + 14L, (byte) (lightBlock | (normalId << 4)));
+            MemoryUtil.memPutByte(pointer + 15L, lightSky);
 
             ci.cancel();
         }
@@ -86,11 +85,10 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
 
     /**
      * Injected method override of putBlockBakedQuad from VertexConsumer.
-     * Declared as a normal public method in the Mixin so it is injected into BufferBuilder as a standard override,
-     * resolving the "@At / Cannot resolve target instructions in target class" errors.
+     * Declared as a normal public method in the Mixin so it is injected into BufferBuilder as a standard override.
      */
     @Override
-    public void putBlockBakedQuad(final float x, final float y, final float z, final @NonNull BakedQuad quad, final @NonNull QuadInstance instance) {
+    public void putBlockBakedQuad(final float x, final float y, final float z, final BakedQuad quad, final QuadInstance instance) {
         if (this.format == XenoVertexFormat.XENO_COMPRESSED_FORMAT) {
             if (!this.building) {
                 throw new IllegalStateException("Not building!");
@@ -99,20 +97,20 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
                 throw new IllegalStateException("Trying to write too many vertices into BufferBuilder");
             }
 
-            // Reserve 80 bytes (20 bytes per vertex * 4 vertices) at once
-            long pointer = this.buffer.reserve(80);
-            this.vertexPointer = pointer + 60L; // Point to the start of the 4th vertex
+            // Reserve 64 bytes (16 bytes per vertex * 4 vertices) at once
+            long pointer = this.buffer.reserve(64);
+            this.vertexPointer = pointer + 48L; // Point to the start of the 4th vertex (offset 48)
             this.vertices += 4;
 
             // Extract face normal and get normal ID once per quad
             Vector3fc normal = quad.direction().getUnitVec3f();
-            short normalId = (short) xeno_getNormalId(normal.x(), normal.y(), normal.z());
+            byte normalId = (byte) xeno_getNormalId(normal.x(), normal.y(), normal.z());
 
             int lightEmission = quad.materialInfo().lightEmission();
 
-            // Fully unroll the loop for all 4 vertices and write directly using raw offsets to eliminate redundant variable warnings.
+            // Fully unroll the loop for all 4 vertices under the 16-byte packed layout.
             
-            // Vertex 0
+            // Vertex 0 (Offset 0)
             {
                 Vector3fc pos = quad.position(0);
                 short posX = (short) Math.round((pos.x() + x) * 1000.0f);
@@ -121,91 +119,95 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
                 MemoryUtil.memPutShort(pointer, posX);
                 MemoryUtil.memPutShort(pointer + 2L, posY);
                 MemoryUtil.memPutShort(pointer + 4L, posZ);
-                MemoryUtil.memPutShort(pointer + 6L, normalId);
 
-                putRgba(pointer + 8L, instance.getColor(0));
+                putRgba(pointer + 6L, instance.getColor(0));
 
                 long packedUv = quad.packedUV(0);
                 short texU = (short) Math.round(UVPair.unpackU(packedUv) * 32767.0f);
                 short texV = (short) Math.round(UVPair.unpackV(packedUv) * 32767.0f);
-                MemoryUtil.memPutShort(pointer + 12L, texU);
-                MemoryUtil.memPutShort(pointer + 14L, texV);
+                MemoryUtil.memPutShort(pointer + 10L, texU);
+                MemoryUtil.memPutShort(pointer + 12L, texV);
 
                 int light = instance.getLightCoordsWithEmission(0, lightEmission);
-                MemoryUtil.memPutShort(pointer + 16L, (short) (light & 0xFFFF));
-                MemoryUtil.memPutShort(pointer + 18L, (short) ((light >> 16) & 0xFFFF));
+                byte lightBlock = (byte) ((light & 0xFFFF) / 16);
+                byte lightSky = (byte) (((light >> 16) & 0xFFFF) / 16);
+                MemoryUtil.memPutByte(pointer + 14L, (byte) (lightBlock | (normalId << 4)));
+                MemoryUtil.memPutByte(pointer + 15L, lightSky);
             }
 
-            // Vertex 1
+            // Vertex 1 (Offset 16)
             {
                 Vector3fc pos = quad.position(1);
                 short posX = (short) Math.round((pos.x() + x) * 1000.0f);
                 short posY = (short) Math.round((pos.y() + y) * 1000.0f);
                 short posZ = (short) Math.round((pos.z() + z) * 1000.0f);
-                MemoryUtil.memPutShort(pointer + 20L, posX);
-                MemoryUtil.memPutShort(pointer + 22L, posY);
-                MemoryUtil.memPutShort(pointer + 24L, posZ);
-                MemoryUtil.memPutShort(pointer + 26L, normalId);
+                MemoryUtil.memPutShort(pointer + 16L, posX);
+                MemoryUtil.memPutShort(pointer + 18L, posY);
+                MemoryUtil.memPutShort(pointer + 20L, posZ);
 
-                putRgba(pointer + 28L, instance.getColor(1));
+                putRgba(pointer + 22L, instance.getColor(1));
 
                 long packedUv = quad.packedUV(1);
                 short texU = (short) Math.round(UVPair.unpackU(packedUv) * 32767.0f);
                 short texV = (short) Math.round(UVPair.unpackV(packedUv) * 32767.0f);
-                MemoryUtil.memPutShort(pointer + 32L, texU);
-                MemoryUtil.memPutShort(pointer + 34L, texV);
+                MemoryUtil.memPutShort(pointer + 26L, texU);
+                MemoryUtil.memPutShort(pointer + 28L, texV);
 
                 int light = instance.getLightCoordsWithEmission(1, lightEmission);
-                MemoryUtil.memPutShort(pointer + 36L, (short) (light & 0xFFFF));
-                MemoryUtil.memPutShort(pointer + 38L, (short) ((light >> 16) & 0xFFFF));
+                byte lightBlock = (byte) ((light & 0xFFFF) / 16);
+                byte lightSky = (byte) (((light >> 16) & 0xFFFF) / 16);
+                MemoryUtil.memPutByte(pointer + 30L, (byte) (lightBlock | (normalId << 4)));
+                MemoryUtil.memPutByte(pointer + 31L, lightSky);
             }
 
-            // Vertex 2
+            // Vertex 2 (Offset 32)
             {
                 Vector3fc pos = quad.position(2);
                 short posX = (short) Math.round((pos.x() + x) * 1000.0f);
                 short posY = (short) Math.round((pos.y() + y) * 1000.0f);
                 short posZ = (short) Math.round((pos.z() + z) * 1000.0f);
-                MemoryUtil.memPutShort(pointer + 40L, posX);
-                MemoryUtil.memPutShort(pointer + 42L, posY);
-                MemoryUtil.memPutShort(pointer + 44L, posZ);
-                MemoryUtil.memPutShort(pointer + 46L, normalId);
+                MemoryUtil.memPutShort(pointer + 32L, posX);
+                MemoryUtil.memPutShort(pointer + 34L, posY);
+                MemoryUtil.memPutShort(pointer + 36L, posZ);
 
-                putRgba(pointer + 48L, instance.getColor(2));
+                putRgba(pointer + 38L, instance.getColor(2));
 
                 long packedUv = quad.packedUV(2);
                 short texU = (short) Math.round(UVPair.unpackU(packedUv) * 32767.0f);
                 short texV = (short) Math.round(UVPair.unpackV(packedUv) * 32767.0f);
-                MemoryUtil.memPutShort(pointer + 52L, texU);
-                MemoryUtil.memPutShort(pointer + 54L, texV);
+                MemoryUtil.memPutShort(pointer + 42L, texU);
+                MemoryUtil.memPutShort(pointer + 44L, texV);
 
                 int light = instance.getLightCoordsWithEmission(2, lightEmission);
-                MemoryUtil.memPutShort(pointer + 56L, (short) (light & 0xFFFF));
-                MemoryUtil.memPutShort(pointer + 58L, (short) ((light >> 16) & 0xFFFF));
+                byte lightBlock = (byte) ((light & 0xFFFF) / 16);
+                byte lightSky = (byte) (((light >> 16) & 0xFFFF) / 16);
+                MemoryUtil.memPutByte(pointer + 46L, (byte) (lightBlock | (normalId << 4)));
+                MemoryUtil.memPutByte(pointer + 47L, lightSky);
             }
 
-            // Vertex 3
+            // Vertex 3 (Offset 48)
             {
                 Vector3fc pos = quad.position(3);
                 short posX = (short) Math.round((pos.x() + x) * 1000.0f);
                 short posY = (short) Math.round((pos.y() + y) * 1000.0f);
                 short posZ = (short) Math.round((pos.z() + z) * 1000.0f);
-                MemoryUtil.memPutShort(pointer + 60L, posX);
-                MemoryUtil.memPutShort(pointer + 62L, posY);
-                MemoryUtil.memPutShort(pointer + 64L, posZ);
-                MemoryUtil.memPutShort(pointer + 66L, normalId);
+                MemoryUtil.memPutShort(pointer + 48L, posX);
+                MemoryUtil.memPutShort(pointer + 50L, posY);
+                MemoryUtil.memPutShort(pointer + 52L, posZ);
 
-                putRgba(pointer + 68L, instance.getColor(3));
+                putRgba(pointer + 54L, instance.getColor(3));
 
                 long packedUv = quad.packedUV(3);
                 short texU = (short) Math.round(UVPair.unpackU(packedUv) * 32767.0f);
                 short texV = (short) Math.round(UVPair.unpackV(packedUv) * 32767.0f);
-                MemoryUtil.memPutShort(pointer + 72L, texU);
-                MemoryUtil.memPutShort(pointer + 74L, texV);
+                MemoryUtil.memPutShort(pointer + 58L, texU);
+                MemoryUtil.memPutShort(pointer + 60L, texV);
 
                 int light = instance.getLightCoordsWithEmission(3, lightEmission);
-                MemoryUtil.memPutShort(pointer + 76L, (short) (light & 0xFFFF));
-                MemoryUtil.memPutShort(pointer + 78L, (short) ((light >> 16) & 0xFFFF));
+                byte lightBlock = (byte) ((light & 0xFFFF) / 16);
+                byte lightSky = (byte) (((light >> 16) & 0xFFFF) / 16);
+                MemoryUtil.memPutByte(pointer + 62L, (byte) (lightBlock | (normalId << 4)));
+                MemoryUtil.memPutByte(pointer + 63L, lightSky);
             }
         } else {
             // Fallback to the interface's default method implementation
