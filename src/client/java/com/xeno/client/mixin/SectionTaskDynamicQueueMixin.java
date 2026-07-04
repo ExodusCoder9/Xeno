@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(SectionTaskDynamicQueue.class)
-@SuppressWarnings({"UnresolvedMixinReference", "SpellCheckingInspection", "unused"})
+@SuppressWarnings({"SpellCheckingInspection", "unused"})
 public class SectionTaskDynamicQueueMixin implements XenoTaskQueue {
     @Unique
     private volatile double xeno_lookX = 0.0;

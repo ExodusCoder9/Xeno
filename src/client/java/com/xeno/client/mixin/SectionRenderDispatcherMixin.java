@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(SectionRenderDispatcher.class)
-@SuppressWarnings({"UnresolvedMixinReference", "unused"})
+@SuppressWarnings({"unused"})
 public class SectionRenderDispatcherMixin {
     @Shadow @Final
     private SectionTaskDynamicQueue queue;
