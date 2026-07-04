@@ -3,7 +3,8 @@
 	"package": "com.xeno.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-
+		"ViewAreaAccessor",
+		"SectionOcclusionGraphMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

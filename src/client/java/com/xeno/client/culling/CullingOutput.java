@@ -1,0 +1,9 @@
+package com.xeno.client.culling;
+
+import java.util.List;
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
+
+public record CullingOutput(
+    List<SectionRenderDispatcher.RenderSection> visibleSections,
+    List<SectionRenderDispatcher.RenderSection> nearbyVisibleSections
+) {}
