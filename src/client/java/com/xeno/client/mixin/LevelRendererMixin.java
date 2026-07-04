@@ -14,6 +14,7 @@ import it.unimi.dsi.fastutil.objects.ObjectListIterator;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Objects;
 import net.minecraft.client.renderer.DynamicUniforms;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
@@ -33,7 +34,7 @@ import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(LevelRenderer.class)
-@SuppressWarnings({"UnresolvedMixinReference", "unused"})
+@SuppressWarnings({"unused"})
 public abstract class LevelRendererMixin {
     @Shadow @Final
     private ObjectArrayList<SectionRenderDispatcher.RenderSection> visibleSections;
@@ -50,6 +51,7 @@ public abstract class LevelRendererMixin {
      *         This completely eliminates garbage collection allocations of Draw and lambda objects every frame.
      */
     @Overwrite
+    @SuppressWarnings("deprecation")
     public ChunkSectionsToRender prepareChunkRenders(final Matrix4fc modelViewMatrix) {
         ObjectListIterator<SectionRenderDispatcher.RenderSection> iterator = this.visibleSections.listIterator(0);
         EnumMap<ChunkSectionLayer, Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>>> drawGroups = new EnumMap<>(ChunkSectionLayer.class);
@@ -124,7 +126,7 @@ public abstract class LevelRendererMixin {
                             }
 
                             int finalUboIndex = uboIndex;
-                            int baseVertex = (int) (slice.vertexBufferOffset() / vertexFormat.getVertexSize());
+                            int baseVertex = (int) (slice.vertexBufferOffset() / Objects.requireNonNull(vertexFormat).getVertexSize());
 
                             List<RenderPass.Draw<GpuBufferSlice[]>> draws = drawGroups.get(layer)
                                 .computeIfAbsent(combinedHash, k -> new ArrayList<>());

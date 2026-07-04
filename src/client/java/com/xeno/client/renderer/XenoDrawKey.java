@@ -29,8 +29,7 @@ public class XenoDrawKey {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof XenoDrawKey)) return false;
-        XenoDrawKey that = (XenoDrawKey) o;
+        if (!(o instanceof XenoDrawKey that)) return false;
         return firstIndex == that.firstIndex &&
                indexCount == that.indexCount &&
                baseVertex == that.baseVertex &&

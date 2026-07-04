@@ -38,8 +38,4 @@ public class XenoDrawCache {
         CACHE.put(storeKey, draw);
         return draw;
     }
-
-    public static void clear() {
-        CACHE.clear();
-    }
 }
