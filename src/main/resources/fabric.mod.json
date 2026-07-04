@@ -1,6 +1,7 @@
 {
 	"schemaVersion": 1,
 	"id": "xeno",
+	"accessWidener": "xeno.accesswidener",
 	"version": "${version}",
 	"name": "Xeno",
 	"description": "Performant Rendering Optimization Mod For Minecraft",

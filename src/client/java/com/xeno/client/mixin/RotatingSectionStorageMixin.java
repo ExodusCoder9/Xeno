@@ -5,17 +5,11 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.gen.Accessor;
-import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
-import java.lang.reflect.Method;
 
 @Mixin(RotatingSectionStorage.class)
-public abstract class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
-    private static final Logger LOGGER = LogUtils.getLogger();
-
-    @Accessor("nodes")
-    public abstract Object getNodes();
+public class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
+    @Shadow @Final
+    private RotatingSectionStorage.Node[] nodes;
 
     @Shadow @Final
     private int sectionGridSizeY;
@@ -23,33 +17,13 @@ public abstract class RotatingSectionStorageMixin implements RotatingSectionStor
     @Shadow @Final
     private int sectionGridSizeXZ;
 
-    @Unique
-    private static Method nodeValueMethod;
-
-    static {
-        try {
-            Class<?> nodeClass = Class.forName("net.minecraft.client.RotatingSectionStorage$Node");
-            nodeValueMethod = nodeClass.getMethod("value");
-            nodeValueMethod.setAccessible(true);
-        } catch (Exception e) {
-            LOGGER.error("Failed to initialize RotatingSectionStorage reflection", e);
-        }
-    }
-
     @Override
     @Unique
     public Object[] xeno$GetValues() {
-        Object[] nodesArray = (Object[]) getNodes();
-        Object[] values = new Object[nodesArray.length];
-        if (nodeValueMethod != null) {
-            for (int i = 0; i < nodesArray.length; i++) {
-                if (nodesArray[i] != null) {
-                    try {
-                        values[i] = nodeValueMethod.invoke(nodesArray[i]);
-                    } catch (Exception e) {
-                        values[i] = null;
-                    }
-                }
+        Object[] values = new Object[nodes.length];
+        for (int i = 0; i < nodes.length; i++) {
+            if (nodes[i] != null) {
+                values[i] = nodes[i].value();
             }
         }
         return values;

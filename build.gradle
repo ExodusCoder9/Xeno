@@ -11,6 +11,7 @@ repositories {
 }
 
 loom {
+	accessWidenerPath = file("src/main/resources/xeno.accesswidener")
 	splitEnvironmentSourceSets()
 
 	mods {
