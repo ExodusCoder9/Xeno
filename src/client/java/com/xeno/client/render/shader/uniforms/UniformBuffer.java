@@ -1,30 +1,41 @@
 package com.xeno.client.render.shader.uniforms;
 
+import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.GpuDevice;
-import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.systems.RenderSystem;
 import java.nio.ByteBuffer;
+import java.util.function.Supplier;
 
 public class UniformBuffer {
-	private final GpuBuffer buffer;
-	private final int stride;
-	private final int capacity;
-	private int writeOffset;
+    private final GpuBuffer buffer;
+    private final int size;
+    private final GpuBufferSlice slice;
 
-	public UniformBuffer(GpuDevice device, int stride, int capacity) {
-		this.stride = stride;
-		this.capacity = capacity;
-		this.buffer = device.createBuffer(
-			() -> "Xeno-Uniform",
-			GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_MAP_WRITE | GpuBuffer.USAGE_HINT_CLIENT_STORAGE,
-			(long) stride * capacity
-		);
-	}
+    public UniformBuffer(GpuDevice device, int size, int capacity) {
+        this.size = size;
+        this.buffer = device.createBuffer(
+            (Supplier<String>) () -> "XenoUBO",
+            GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST,
+            (long) size * capacity
+        );
+        this.slice = buffer.slice();
+    }
 
-	public void write(int index, ByteBuffer data) {}
-	public void writeAll(ByteBuffer data) {}
-	public GpuBufferSlice getSlice() { return buffer.slice(0, stride); }
-	public GpuBufferSlice getSlice(int index) { return buffer.slice((long) index * stride, stride); }
-	public void reset() { writeOffset = 0; }
-	public void close() { buffer.close(); }
+    public int getSize() { return size; }
+
+    public GpuBufferSlice getSlice() { return slice; }
+
+    public GpuBufferSlice getSlice(int index) {
+        return buffer.slice((long) index * size, size);
+    }
+
+    public void update(int index, ByteBuffer data) {
+        long offset = (long) index * size;
+        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(
+            buffer.slice(offset, data.remaining()), data
+        );
+    }
+
+    public void close() { buffer.close(); }
 }

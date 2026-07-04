@@ -4,22 +4,21 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
-import org.joml.Vector4f;
+import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 
-public class WeatherUniforms {
-    private static final int SIZE = 32;
+public class ProjectionUniforms {
+    private static final int SIZE = 64;
     private final UniformBuffer buffer;
 
-    public WeatherUniforms(GpuDevice device) {
+    public ProjectionUniforms(GpuDevice device) {
         this.buffer = new UniformBuffer(device, SIZE, 1);
     }
 
-    public void update(float rainStrength, float thunderStrength, Vector4f rainColor) {
+    public void update(Matrix4f projectionMatrix) {
         try (var stack = MemoryStack.stackPush()) {
             var data = Std140Builder.onStack(stack, SIZE)
-                .putVec4(rainColor.x, rainColor.y, rainColor.z, rainColor.w)
-                .putVec4(rainStrength, thunderStrength, 0.0F, 0.0F)
+                .putMat4f(projectionMatrix)
                 .get();
             buffer.update(0, data);
         }
@@ -28,7 +27,7 @@ public class WeatherUniforms {
     public GpuBufferSlice getSlice() { return buffer.getSlice(); }
 
     public void bind(RenderPass pass) {
-        pass.setUniform("WeatherParams", buffer.getSlice());
+        pass.setUniform("ProjectionMat", buffer.getSlice());
     }
 
     public void close() { buffer.close(); }

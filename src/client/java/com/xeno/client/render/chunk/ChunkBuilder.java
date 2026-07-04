@@ -28,7 +28,7 @@ public class ChunkBuilder {
 	}
 
 	public void submit(ChunkCompileTask task) {
-		pendingTasks.add(task);
+		pendingTasks.offer(task);
 	}
 
 	public void processCompleted() {

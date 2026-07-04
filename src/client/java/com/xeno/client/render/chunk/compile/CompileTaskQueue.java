@@ -1,33 +1,28 @@
 package com.xeno.client.render.chunk.compile;
 
-import java.util.PriorityQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class CompileTaskQueue {
-	private final PriorityQueue<ChunkCompileTask> queue = new PriorityQueue<>();
-	private static final int MAX_QUEUE_SIZE = 512;
+	private final BlockingQueue<ChunkCompileTask> queue = new LinkedBlockingQueue<>();
 
-	public synchronized void add(ChunkCompileTask task) {
-		if (queue.size() < MAX_QUEUE_SIZE) {
-			queue.offer(task);
-		}
+	public void offer(ChunkCompileTask task) {
+		queue.offer(task);
 	}
 
-	public synchronized ChunkCompileTask take() throws InterruptedException {
-		while (queue.isEmpty()) {
-			wait();
-		}
+	public ChunkCompileTask take() throws InterruptedException {
+		return queue.take();
+	}
+
+	public ChunkCompileTask poll() {
 		return queue.poll();
 	}
 
-	public synchronized ChunkCompileTask poll() {
-		return queue.poll();
-	}
-
-	public synchronized int size() {
+	public int size() {
 		return queue.size();
 	}
 
-	public synchronized void clear() {
+	public void clear() {
 		queue.clear();
 	}
 }
