@@ -135,7 +135,7 @@ public class CullingThread extends Thread {
         this.queueTail = 0;
     }
 
-    @SuppressWarnings({"ForLoopReplaceableByForEach", "ManualArrayToCollectionCopy"})
+    @SuppressWarnings({"ForLoopReplaceableByForEach"})
     private void processUpdates(CullingRequest request) {
         ViewArea viewArea = request.viewArea;
         if (viewArea == null) return;
