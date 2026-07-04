@@ -1,6 +1,7 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.renderer.XenoDrawCache;
+import com.xeno.client.renderer.XenoMdiRenderer;
 import com.mojang.blaze3d.IndexType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
@@ -155,6 +156,7 @@ public abstract class LevelRendererMixin {
             sectionInfos.toArray(new DynamicUniforms.ChunkSectionInfo[0])
         );
 
+        XenoMdiRenderer.CURRENT_SECTION_INFOS.set(sectionInfos);
         return new ChunkSectionsToRender(blockAtlas, drawGroups, largestIndexCount, chunkSectionInfos);
     }
 }
