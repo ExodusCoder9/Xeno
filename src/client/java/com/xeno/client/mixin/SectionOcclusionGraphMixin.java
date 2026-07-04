@@ -52,6 +52,19 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     @Unique
     private int xenoWriteIndex = 0;
 
+    @Unique
+    private boolean needsFullUpdate = true;
+    @Unique
+    private double prevCamX = Double.MIN_VALUE;
+    @Unique
+    private double prevCamY = Double.MIN_VALUE;
+    @Unique
+    private double prevCamZ = Double.MIN_VALUE;
+    @Unique
+    private int prevFov = Integer.MAX_VALUE;
+    @Unique
+    private boolean lastSmartCull = true;
+
     @Inject(method = "<init>", at = @At("RETURN"))
     private void onInit(CallbackInfo ci) {
         this.xenoCullingThread = new CullingThread();
@@ -66,6 +79,11 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     public void waitAndReset(final @Nullable ViewArea viewArea) {
         this.xenoViewArea = viewArea;
         this.pendingPropagations.clear();
+        this.needsFullUpdate = true;
+        this.prevCamX = Double.MIN_VALUE;
+        this.prevCamY = Double.MIN_VALUE;
+        this.prevCamZ = Double.MIN_VALUE;
+        this.prevFov = Integer.MAX_VALUE;
         if (this.xenoCullingThread != null) {
             this.xenoCullingThread.reset();
         }
@@ -86,6 +104,7 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
      */
     @Overwrite
     public void invalidate() {
+        this.needsFullUpdate = true;
         if (this.xenoCullingThread != null) {
             this.xenoCullingThread.invalidate();
         }
@@ -93,10 +112,22 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
 
     /**
      * @author ExodusCoder9
-     * @reason Stubbed out as frustum invalidation is handled internally by the culling thread.
+     * @reason Tracks camera movements across 8-block boundaries.
      */
     @Overwrite
     public void invalidateIfNeeded(final CameraRenderState camera, final int fov) {
+        net.minecraft.world.phys.Vec3 cameraPos = camera.pos;
+        double camX = Math.floor(cameraPos.x / 8.0);
+        double camY = Math.floor(cameraPos.y / 8.0);
+        double camZ = Math.floor(cameraPos.z / 8.0);
+        if (camX != this.prevCamX || camY != this.prevCamY || camZ != this.prevCamZ || this.prevFov != fov || this.lastSmartCull != camera.smartCull) {
+            this.needsFullUpdate = true;
+            this.prevCamX = camX;
+            this.prevCamY = camY;
+            this.prevCamZ = camZ;
+            this.prevFov = fov;
+            this.lastSmartCull = camera.smartCull;
+        }
     }
 
     /**
@@ -147,6 +178,12 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
         this.updateLoadedChunks(chunkLoadingRenderState.addedLoadedChunks, chunkLoadingRenderState.removedLoadedChunks);
         this.updateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
 
+        this.invalidateIfNeeded(camera, fov);
+
+        if (!this.pendingPropagations.isEmpty()) {
+            this.needsFullUpdate = true;
+        }
+
         if (!camera.isFrustumCaptured) {
             if (this.xenoCullingThread.isProcessing()) {
                 return; // Drop frame update to avoid memory overwrites while the thread is parsing
@@ -160,6 +197,8 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
             request.frustum = camera.cullFrustum;
             request.fov = fov;
             request.viewArea = this.xenoViewArea;
+            request.needsFullBfs = this.needsFullUpdate;
+            this.needsFullUpdate = false; // Reset the flag after submitting
 
             RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((ViewAreaAccessor) this.xenoViewArea).getSections();
 
@@ -207,6 +246,9 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
      */
     @Overwrite
     public void updateEmptySections(final LongOpenHashSet added, final LongOpenHashSet removed) {
+        if (!added.isEmpty() || !removed.isEmpty()) {
+            this.needsFullUpdate = true;
+        }
         this.emptySections.addAll(added);
         LongIterator iter = removed.longIterator();
         while (iter.hasNext()) {
@@ -227,6 +269,9 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
      */
     @Overwrite
     public void updateLoadedChunks(final LongOpenHashSet added, final LongOpenHashSet removed) {
+        if (!added.isEmpty() || !removed.isEmpty()) {
+            this.needsFullUpdate = true;
+        }
         this.loadedChunks.addAll(added);
         this.loadedChunks.removeAll(removed);
     }

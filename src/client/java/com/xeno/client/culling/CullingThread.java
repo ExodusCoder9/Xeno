@@ -142,24 +142,26 @@ public class CullingThread extends Thread {
 
         SectionRenderDispatcher.RenderSection[] sectionArray = request.sectionArray;
 
-        this.emptySections.clear();
-        this.emptySections.addAll(request.emptySections);
+        if (request.needsFullBfs || this.occlusionVisible.isEmpty()) {
+            this.emptySections.clear();
+            this.emptySections.addAll(request.emptySections);
 
-        this.prepareCache(viewArea.size());
-        this.occlusionVisible.clear();
+            this.prepareCache(viewArea.size());
+            this.occlusionVisible.clear();
 
-        for (int i = 0; i < sectionArray.length; i++) {
-            if (sectionArray[i] != null) {
-                this.emptyArray[sectionArray[i].index] = this.emptySections.contains(sectionArray[i].getSectionNode());
+            for (int i = 0; i < sectionArray.length; i++) {
+                if (sectionArray[i] != null) {
+                    this.emptyArray[sectionArray[i].index] = this.emptySections.contains(sectionArray[i].getSectionNode());
+                }
             }
-        }
 
-        if (this.dummyOctree == null) {
-            this.dummyOctree = new Octree(viewArea.getCameraSectionPos(), viewArea.getViewDistance(), viewArea.sectionCount(), viewArea.minY());
-        }
+            if (this.dummyOctree == null) {
+                this.dummyOctree = new Octree(viewArea.getCameraSectionPos(), viewArea.getViewDistance(), viewArea.sectionCount(), viewArea.minY());
+            }
 
-        this.initializeQueueForFullUpdate(request, viewArea, sectionArray);
-        this.runUpdates(request, request.smartCull, request.viewDistance, sectionArray);
+            this.initializeQueueForFullUpdate(request, viewArea, sectionArray);
+            this.runUpdates(request, request.smartCull, request.viewDistance, sectionArray);
+        }
 
         BlockPos cameraCenter = SectionPos.of(request.cameraPos).center();
         double camX = request.cameraPos.x;

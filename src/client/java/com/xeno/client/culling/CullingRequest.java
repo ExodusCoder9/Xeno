@@ -25,4 +25,5 @@ public class CullingRequest {
     public final LongOpenHashSet emptySections = new LongOpenHashSet();
     public final LongOpenHashSet loadedChunks = new LongOpenHashSet();
     public final List<SectionRenderDispatcher.RenderSection> propagations = new ArrayList<>();
+    public boolean needsFullBfs;
 }
