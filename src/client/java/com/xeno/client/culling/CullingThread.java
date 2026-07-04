@@ -20,7 +20,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.Direction.Axis;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.ChunkPos;
 import org.joml.Vector3d;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
@@ -35,13 +34,20 @@ public class CullingThread extends Thread {
     private volatile CullingOutput latestOutput;
     private volatile boolean needsFrustumUpdate = false;
 
-    // Thread-local culling sets/lists (completely single-threaded, no concurrent overhead)
+    // Culling thread private data (completely single-threaded, no concurrent overhead)
     private final LongOpenHashSet emptySections = new LongOpenHashSet();
-    private final LongOpenHashSet loadedChunks = new LongOpenHashSet();
-    private final List<SectionRenderDispatcher.RenderSection> occlusionVisible = new ArrayList<>();
+    private final List<SectionRenderDispatcher.RenderSection> occlusionVisible = new ArrayList<>(4096);
     
-    private CullNodeMap sectionToNodeMap;
+    // Reusable traversal caches for zero-allocation culling
+    private CullNode[] nodeArray = new CullNode[0];
+    private boolean[] visited = new boolean[0];
+    private final Queue<CullNode> bfsQueue = new ArrayDeque<>(1024);
+    
     private Octree dummyOctree;
+    private volatile boolean closed = false;
+
+    private final Object lock = new Object();
+
     public CullingThread() {
         super("Xeno-CullingThread");
         this.setDaemon(true);
@@ -77,9 +83,7 @@ public class CullingThread extends Thread {
         pendingRequest = null;
         latestOutput = null;
         emptySections.clear();
-        loadedChunks.clear();
         occlusionVisible.clear();
-        sectionToNodeMap = null;
         dummyOctree = null;
         LockSupport.unpark(this);
     }
@@ -102,37 +106,48 @@ public class CullingThread extends Thread {
         }
     }
 
+    private void prepareCache(int size) {
+        if (nodeArray.length < size) {
+            CullNode[] newArray = new CullNode[size];
+            System.arraycopy(nodeArray, 0, newArray, 0, nodeArray.length);
+            for (int i = nodeArray.length; i < size; i++) {
+                newArray[i] = new CullNode(null, null, 0);
+            }
+            nodeArray = newArray;
+        }
+        if (visited.length < size) {
+            visited = new boolean[size];
+        } else {
+            java.util.Arrays.fill(visited, false);
+        }
+        bfsQueue.clear();
+    }
+
     private void processUpdates(CullingRequest request) {
         ViewArea viewArea = request.viewArea();
         if (viewArea == null) return;
 
         Long2ObjectOpenHashMap<SectionRenderDispatcher.RenderSection> sectionMap = request.sectionMap();
 
-        // 1. Copy snapshot empty sections and loaded chunks into thread-local sets
+        // 1. Copy snapshot empty sections into thread-local set
         emptySections.clear();
         emptySections.addAll(request.emptySections());
-        loadedChunks.clear();
-        loadedChunks.addAll(request.loadedChunks());
 
-        // 2. Clear state and run full BFS occlusion culling
+        // 2. Prepare zero-allocation traversal caches
+        prepareCache(viewArea.size());
         occlusionVisible.clear();
-        sectionToNodeMap = new CullNodeMap(viewArea.size());
         
         // Expose a dummy Octree to avoid NullPointerExceptions in debug renderers (F3 mode)
         if (dummyOctree == null) {
             dummyOctree = new Octree(viewArea.getCameraSectionPos(), viewArea.getViewDistance(), viewArea.sectionCount(), viewArea.minY());
         }
 
-        Queue<CullNode> queue = new ArrayDeque<>();
-        initializeQueueForFullUpdate(request.cameraBlockPos(), queue, viewArea, sectionMap);
-        for (CullNode node : queue) {
-            sectionToNodeMap.put(node.section, node);
-        }
+        // 3. Initialize BFS queue and run occlusion culling
+        initializeQueueForFullUpdate(request.cameraBlockPos(), bfsQueue, viewArea, sectionMap);
+        runUpdates(bfsQueue, request.smartCull(), viewArea.getViewDistance(), sectionMap);
 
-        runUpdates(sectionToNodeMap, queue, request.smartCull(), viewArea.getViewDistance(), sectionMap);
-
-        // 3. Linear Frustum Culling on BFS-visible sections (No octree builder or traverser!)
-        List<SectionRenderDispatcher.RenderSection> visibleList = new ArrayList<>();
+        // 4. Linear Frustum Culling on BFS-visible sections (No octree builder or traverser!)
+        List<SectionRenderDispatcher.RenderSection> visibleList = new ArrayList<>(occlusionVisible.size());
         List<SectionRenderDispatcher.RenderSection> nearbyList = new ArrayList<>();
         Frustum offsetFrustum = new Frustum(request.frustum()).offsetToFullyIncludeCameraCube(8);
         BlockPos cameraCenter = SectionPos.of(request.cameraPos()).center();
@@ -179,7 +194,7 @@ public class CullingThread extends Thread {
             boolean isBelowTheWorld = cameraSectionY < viewArea.minSectionY();
             int sectionY = isBelowTheWorld ? viewArea.minSectionY() : viewArea.maxSectionY();
             int viewDistance = viewArea.getViewDistance();
-            List<CullNode> toAdd = new ArrayList<>();
+            List<CullNode> toSort = new ArrayList<>();
             int cameraSectionX = SectionPos.x(cameraSectionNode);
             int cameraSectionZ = SectionPos.z(cameraSectionNode);
 
@@ -188,7 +203,9 @@ public class CullingThread extends Thread {
                     SectionRenderDispatcher.RenderSection renderSectionAt = sectionMap.get(SectionPos.asLong(sectionX + cameraSectionX, sectionY, sectionZ + cameraSectionZ));
                     if (renderSectionAt != null && this.isInViewDistance(cameraSectionNode, renderSectionAt.getSectionNode(), viewDistance)) {
                         Direction sourceDirection = isBelowTheWorld ? Direction.UP : Direction.DOWN;
-                        CullNode node = new CullNode(renderSectionAt, sourceDirection, 0);
+                        
+                        CullNode node = nodeArray[renderSectionAt.index];
+                        node.reset(renderSectionAt, sourceDirection, 0);
                         node.setDirections(node.directions, sourceDirection);
                         if (sectionX > 0) {
                             node.setDirections(node.directions, Direction.EAST);
@@ -202,20 +219,23 @@ public class CullingThread extends Thread {
                             node.setDirections(node.directions, Direction.NORTH);
                         }
 
-                        toAdd.add(node);
+                        toSort.add(node);
+                        visited[renderSectionAt.index] = true;
                     }
                 }
             }
 
-            toAdd.sort(java.util.Comparator.comparingDouble(c -> cameraPosition.distSqr(SectionPos.of(c.section.getSectionNode()).center())));
-            queue.addAll(toAdd);
+            toSort.sort(java.util.Comparator.comparingDouble(c -> cameraPosition.distSqr(SectionPos.of(c.section.getSectionNode()).center())));
+            queue.addAll(toSort);
         } else {
-            queue.add(new CullNode(cameraSection, null, 0));
+            CullNode node = nodeArray[cameraSection.index];
+            node.reset(cameraSection, null, 0);
+            visited[cameraSection.index] = true;
+            queue.add(node);
         }
     }
 
     private void runUpdates(
-        final CullNodeMap sectionToNodeMap,
         final Queue<CullNode> queue,
         final boolean smartCull,
         int viewDistance,
@@ -231,71 +251,68 @@ public class CullingThread extends Thread {
             SectionRenderDispatcher.RenderSection currentSection = node.section;
             long sectionNode = currentSection.getSectionNode();
             
-            // Only propagate if the chunk is loaded
-            long chunkNode = ChunkPos.fromSectionNode(sectionNode);
-            if (loadedChunks.contains(chunkNode)) {
-                if (!emptySections.contains(node.section.getSectionNode())) {
-                    occlusionVisible.add(node.section);
-                } else {
-                    node.section.sectionMesh.compareAndSet(CompiledSectionMesh.UNCOMPILED, CompiledSectionMesh.EMPTY);
-                }
+            if (!emptySections.contains(node.section.getSectionNode())) {
+                occlusionVisible.add(node.section);
+            } else {
+                node.section.sectionMesh.compareAndSet(CompiledSectionMesh.UNCOMPILED, CompiledSectionMesh.EMPTY);
+            }
 
-                boolean distantFromCamera = Math.abs(SectionPos.x(sectionNode) - cameraSectionPos.x()) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
-                    || Math.abs(SectionPos.y(sectionNode) - cameraSectionPos.y()) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
-                    || Math.abs(SectionPos.z(sectionNode) - cameraSectionPos.z()) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE;
+            boolean distantFromCamera = Math.abs(SectionPos.x(sectionNode) - cameraSectionPos.x()) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
+                || Math.abs(SectionPos.y(sectionNode) - cameraSectionPos.y()) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
+                || Math.abs(SectionPos.z(sectionNode) - cameraSectionPos.z()) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE;
 
-                for (Direction direction : DIRECTIONS) {
-                    SectionRenderDispatcher.RenderSection renderSectionAt = this.getRelativeFrom(cameraSectionNode, currentSection, direction, viewDistance, sectionMap);
-                    if (renderSectionAt != null && (!smartCull || !node.hasDirection(direction.getOpposite()))) {
-                        if (smartCull && node.hasSourceDirections()) {
-                            SectionMesh sectionMesh = currentSection.getSectionMesh();
-                            boolean visible = false;
+            for (Direction direction : DIRECTIONS) {
+                SectionRenderDispatcher.RenderSection renderSectionAt = this.getRelativeFrom(cameraSectionNode, currentSection, direction, viewDistance, sectionMap);
+                if (renderSectionAt != null && (!smartCull || !node.hasDirection(direction.getOpposite()))) {
+                    if (smartCull && node.hasSourceDirections()) {
+                        SectionMesh sectionMesh = currentSection.getSectionMesh();
+                        boolean visible = false;
 
-                            for (int i = 0; i < DIRECTIONS.length; i++) {
-                                if (node.hasSourceDirection(i) && sectionMesh.facesCanSeeEachother(DIRECTIONS[i].getOpposite(), direction)) {
-                                    visible = true;
-                                    break;
-                                }
-                            }
-
-                            if (!visible) {
-                                continue;
+                        for (int i = 0; i < DIRECTIONS.length; i++) {
+                            if (node.hasSourceDirection(i) && sectionMesh.facesCanSeeEachother(DIRECTIONS[i].getOpposite(), direction)) {
+                                visible = true;
+                                break;
                             }
                         }
 
-                        if (smartCull && distantFromCamera) {
-                            Vector3d checkPos = getCheckPos(cameraSectionCenter, sectionNode, direction);
-                            Vector3d step = new Vector3d(cameraPos.x, cameraPos.y, cameraPos.z).sub(checkPos).normalize().mul(CEILINGED_SECTION_DIAGONAL);
-                            boolean visible = true;
+                        if (!visible) {
+                            continue;
+                        }
+                    }
 
-                            while (checkPos.distanceSquared(cameraPos.x, cameraPos.y, cameraPos.z) > 3600.0) {
-                                checkPos.add(step);
-                                if (checkPos.y > (double) 320 || checkPos.y < (double) -64) {
-                                    break;
-                                }
+                    if (smartCull && distantFromCamera) {
+                        Vector3d checkPos = getCheckPos(cameraSectionCenter, sectionNode, direction);
+                        Vector3d step = new Vector3d(cameraPos.x, cameraPos.y, cameraPos.z).sub(checkPos).normalize().mul(CEILINGED_SECTION_DIAGONAL);
+                        boolean visible = true;
 
-                                long checkNode = SectionPos.asLong(BlockPos.containing(checkPos.x, checkPos.y, checkPos.z));
-                                SectionRenderDispatcher.RenderSection checkSection = sectionMap.get(checkNode);
-                                if (checkSection == null || sectionToNodeMap.get(checkSection) == null) {
-                                    visible = false;
-                                    break;
-                                }
+                        while (checkPos.distanceSquared(cameraPos.x, cameraPos.y, cameraPos.z) > 3600.0) {
+                            checkPos.add(step);
+                            if (checkPos.y > (double) 320 || checkPos.y < (double) -64) {
+                                break;
                             }
 
-                            if (!visible) {
-                                continue;
+                            long checkNode = SectionPos.asLong(BlockPos.containing(checkPos.x, checkPos.y, checkPos.z));
+                            SectionRenderDispatcher.RenderSection checkSection = sectionMap.get(checkNode);
+                            if (checkSection == null || !visited[checkSection.index]) {
+                                visible = false;
+                                break;
                             }
                         }
 
-                        CullNode existingNode = sectionToNodeMap.get(renderSectionAt);
-                        if (existingNode != null) {
-                            existingNode.addSourceDirection(direction);
-                        } else {
-                            CullNode newNode = new CullNode(renderSectionAt, direction, node.step + 1);
-                            newNode.setDirections(node.directions, direction);
-                            queue.add(newNode);
-                            sectionToNodeMap.put(renderSectionAt, newNode);
+                        if (!visible) {
+                            continue;
                         }
+                    }
+
+                    if (visited[renderSectionAt.index]) {
+                        CullNode existingNode = nodeArray[renderSectionAt.index];
+                        existingNode.addSourceDirection(direction);
+                    } else {
+                        visited[renderSectionAt.index] = true;
+                        CullNode newNode = nodeArray[renderSectionAt.index];
+                        newNode.reset(renderSectionAt, direction, node.step + 1);
+                        newNode.setDirections(node.directions, direction);
+                        queue.add(newNode);
                     }
                 }
             }

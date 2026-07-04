@@ -4,13 +4,19 @@ import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.core.Direction;
 
 public class CullNode {
-    public final SectionRenderDispatcher.RenderSection section;
+    public SectionRenderDispatcher.RenderSection section;
     public byte sourceDirections;
     public byte directions;
-    public final int step;
+    public int step;
 
     public CullNode(SectionRenderDispatcher.RenderSection section, Direction sourceDirection, int step) {
+        this.reset(section, sourceDirection, step);
+    }
+
+    public void reset(SectionRenderDispatcher.RenderSection section, Direction sourceDirection, int step) {
         this.section = section;
+        this.sourceDirections = 0;
+        this.directions = 0;
         if (sourceDirection != null) {
             this.addSourceDirection(sourceDirection);
         }
