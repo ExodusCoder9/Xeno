@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.Unique;
 @Mixin(RotatingSectionStorage.class)
 public class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
     @Shadow @Final
-    private RotatingSectionStorage.Node[] nodes;
+    private RotatingSectionStorage.Node<?>[] nodes;
 
     @Shadow @Final
     private int sectionGridSizeY;
