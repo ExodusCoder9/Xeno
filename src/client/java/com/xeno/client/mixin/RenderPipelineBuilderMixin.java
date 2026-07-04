@@ -13,8 +13,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.Optional;
 
 @Mixin(RenderPipeline.Builder.class)
+@SuppressWarnings({"unused"})
 public class RenderPipelineBuilderMixin {
     @Shadow
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private Optional<Identifier> location;
 
     @Final

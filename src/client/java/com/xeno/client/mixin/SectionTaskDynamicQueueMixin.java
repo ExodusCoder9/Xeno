@@ -2,7 +2,7 @@ package com.xeno.client.mixin;
 
 import com.xeno.client.culling.XenoTaskQueue;
 import net.minecraft.client.renderer.chunk.SectionTaskDynamicQueue;
-import net.minecraft.core.Vec3i;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(SectionTaskDynamicQueue.class)
+@SuppressWarnings({"UnresolvedMixinReference", "SpellCheckingInspection", "unused"})
 public class SectionTaskDynamicQueueMixin implements XenoTaskQueue {
     @Unique
     private volatile double xeno_lookX = 0.0;
@@ -30,20 +31,20 @@ public class SectionTaskDynamicQueueMixin implements XenoTaskQueue {
         method = "poll",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/core/Vec3i;distToCenterSqr(Lnet/minecraft/world/phys/Vec3;)D"
+            target = "Lnet/minecraft/core/BlockPos;distToCenterSqr(Lnet/minecraft/world/phys/Vec3;)D"
         )
     )
-    private double xeno_redirectDistToCenterSqr(Vec3i vec3i, Vec3 cameraPos) {
-        double distSqr = vec3i.distToCenterSqr(cameraPos);
+    private double xeno_redirectDistToCenterSqr(BlockPos blockPos, Vec3 cameraPos) {
+        double distSqr = blockPos.distToCenterSqr(cameraPos);
         // Do not skew prioritization for very close sections (within 32 blocks)
         if (distSqr < 1024.0) {
             return distSqr;
         }
 
         // Compute direction vector to the center of the 16x16x16 section
-        double dx = vec3i.getX() + 8.0 - cameraPos.x;
-        double dy = vec3i.getY() + 8.0 - cameraPos.y;
-        double dz = vec3i.getZ() + 8.0 - cameraPos.z;
+        double dx = blockPos.getX() + 8.0 - cameraPos.x;
+        double dy = blockPos.getY() + 8.0 - cameraPos.y;
+        double dz = blockPos.getZ() + 8.0 - cameraPos.z;
         double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
         
         if (length > 0.0) {
