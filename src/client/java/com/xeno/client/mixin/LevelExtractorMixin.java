@@ -34,4 +34,25 @@ public class LevelExtractorMixin {
 			ci.cancel();
 		}
 	}
+
+	@Inject(
+		method = "sectionStatistics",
+		at = @At("HEAD"),
+		cancellable = true
+	)
+	private void xeno_sectionStatistics(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<String> cir) {
+		if (XenoConfig.INSTANCE.enableXenoTerrain) {
+			com.xeno.client.render.XenoWorldRenderer renderer = com.xeno.client.render.XenoWorldRenderer.getInstance();
+			int rendered = renderer.getVisibleVanillaSections().size();
+			int total = renderer.getSectionStorage().getAllSections().size();
+			int compiling = renderer.getChunkBuilder().getPendingTasks().size();
+			int regions = renderer.getChunkRenderList().getRegionDrawLists().size();
+			int memoryMb = regions * 5;
+			cir.setReturnValue(String.format(
+				java.util.Locale.ROOT,
+				"Xeno C: %d/%d, Compiling: %d, Regions: %d, Memory: %d MB",
+				rendered, total, compiling, regions, memoryMb
+			));
+		}
+	}
 }
