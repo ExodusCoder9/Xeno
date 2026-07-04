@@ -4,6 +4,7 @@ import com.xeno.client.culling.XenoVertexFormat;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.resources.Identifier;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,6 +17,7 @@ public class RenderPipelineBuilderMixin {
     @Shadow
     private Optional<Identifier> location;
 
+    @Final
     @Shadow
     private VertexFormat[] vertexFormatPerBuffer;
 
