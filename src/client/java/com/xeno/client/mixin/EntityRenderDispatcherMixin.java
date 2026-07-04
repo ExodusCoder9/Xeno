@@ -2,6 +2,10 @@ package com.xeno.client.mixin;
 
 import com.xeno.config.XenoConfig;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -11,7 +15,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class EntityRenderDispatcherMixin {
 
 	@Inject(method = "submit", at = @At("HEAD"), cancellable = true)
-	private void xeno_cancelEntitySubmit(CallbackInfo ci) {
+	private void xeno_cancelEntitySubmit(
+		EntityRenderState renderState,
+		CameraRenderState camera,
+		double x,
+		double y,
+		double z,
+		PoseStack poseStack,
+		SubmitNodeCollector submitNodeCollector,
+		CallbackInfo ci
+	) {
 		if (XenoConfig.INSTANCE.enableXenoEntities) {
 			ci.cancel();
 		}
