@@ -44,9 +44,6 @@ public class CullingThread extends Thread {
     private final Queue<CullNode> bfsQueue = new ArrayDeque<>(1024);
     
     private Octree dummyOctree;
-    private volatile boolean closed = false;
-
-    private final Object lock = new Object();
 
     public CullingThread() {
         super("Xeno-CullingThread");
@@ -93,7 +90,7 @@ public class CullingThread extends Thread {
         while (!Thread.interrupted()) {
             CullingRequest request = pendingRequest;
             if (request == null) {
-                LockSupport.parkNanos(5_000_000L); // Sleep up to 5ms
+                LockSupport.parkNanos(5_000_000L);
                 continue;
             }
             pendingRequest = null;
