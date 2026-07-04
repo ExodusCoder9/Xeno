@@ -39,13 +39,13 @@ public class DebugScreenOverlayMixin {
             boolean addedAny = false;
 
             if (rendererEnabled) {
-                leftLines.add(insertIndex++, "\u00a7dXenoRenderer-2.2.1+mc26.2");
+                leftLines.add(insertIndex++, "§dXenoRenderer-2.2.1+mc26.2");
                 addedAny = true;
             }
             if (cullingEnabled) {
-                leftLines.add(insertIndex++, "\u00a7fAsynchronous Culling");
-                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Cull thread latency: \u00a7f%.2fms", CullingThread.displayedLatencyMs));
-                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Cull thread usage: \u00a7f%.1f%%", CullingThread.profiledUsagePercent));
+                leftLines.add(insertIndex++, "§fAsynchronous Culling");
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "§7- Cull thread latency: §f%.2fms", CullingThread.displayedLatencyMs));
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "§7- Cull thread usage: §f%.1f%%", CullingThread.profiledUsagePercent));
                 addedAny = true;
             }
             if (addedAny) {
