@@ -1,6 +1,6 @@
 package com.xeno.client.render.chunk.storage;
 
-import net.minecraft.client.renderer.chunk.RenderSection;
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection;
 import net.minecraft.core.SectionPos;
 
 public class XenoSection {
@@ -21,11 +21,11 @@ public class XenoSection {
 
 	public XenoSection(RenderSection vanillaSection) {
 		this.vanillaSection = vanillaSection;
-		SectionPos pos = vanillaSection.getSectionPos();
-		this.x = pos.getX();
-		this.y = pos.getY();
-		this.z = pos.getZ();
-		this.sectionKey = SectionPos.asLong(x, y, z);
+		long node = vanillaSection.getSectionNode();
+		this.x = SectionPos.x(node);
+		this.y = SectionPos.y(node);
+		this.z = SectionPos.z(node);
+		this.sectionKey = node;
 	}
 
 	public RenderSection getVanillaSection() { return vanillaSection; }

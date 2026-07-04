@@ -18,9 +18,10 @@ public class StagingBuffer {
 		this.slots = new StagingSlot[BUFFER_COUNT];
 		GpuDevice device = RenderSystem.getDevice();
 		for (int i = 0; i < BUFFER_COUNT; i++) {
+			final int slotIndex = i;
 			this.slots[i] = new StagingSlot(
 				device.createBuffer(
-					() -> "Xeno-Staging-" + i,
+					() -> "Xeno-Staging-" + slotIndex,
 					GpuBuffer.USAGE_COPY_SRC | GpuBuffer.USAGE_MAP_WRITE | GpuBuffer.USAGE_HINT_CLIENT_STORAGE,
 					slotSize
 				)

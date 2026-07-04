@@ -10,7 +10,15 @@
 		"SectionOcclusionGraphMixin",
 		"GameRendererMixin",
 		"DebugScreenOverlayMixin",
-		"OptionsMixin"
+		"OptionsMixin",
+		"SkyRendererMixin",
+		"EntityRenderDispatcherMixin",
+		"BlockEntityRenderDispatcherMixin",
+		"ParticlesRenderStateMixin",
+		"CloudRendererMixin",
+		"WeatherEffectRendererMixin",
+		"WorldBorderRendererMixin",
+		"PostChainMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

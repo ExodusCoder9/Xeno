@@ -20,6 +20,16 @@ public class LevelRendererMixin {
 
 	@Inject(
 		method = "render",
+		at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/framegraph/FrameGraphBuilder;execute(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lcom/mojang/blaze3d/framegraph/FrameGraphBuilder$Inspector;)V")
+	)
+	private void xeno_buildXenoFrameGraph(CallbackInfo ci) {
+		if (XenoConfig.INSTANCE.enableXenoTerrain) {
+			XenoWorldRenderer.getInstance().buildFrameGraph(null, null, null);
+		}
+	}
+
+	@Inject(
+		method = "render",
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/LevelRenderer;compileSections(Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V"),
 		cancellable = true
 	)
@@ -72,5 +82,14 @@ public class LevelRendererMixin {
 			return section -> {};
 		}
 		return callback;
+	}
+
+	@Inject(
+		method = "addAlwaysOnTopPass",
+		at = @At("HEAD"),
+		cancellable = true
+	)
+	private void xeno_cancelAlwaysOnTop(CallbackInfo ci) {
+		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
 	}
 }

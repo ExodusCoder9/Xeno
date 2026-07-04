@@ -2,7 +2,7 @@ package com.xeno.client.render.chunk.terrain;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.RenderPass;
-import com.mojang.blaze3d.vertex.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBuffer;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import java.util.Collection;

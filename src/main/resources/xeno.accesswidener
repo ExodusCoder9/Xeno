@@ -1,8 +1,7 @@
 accessWidener v2 named
 
-# GameRenderer projection matrix buffer
+# GameRenderer projection matrix buffer (handled via @Accessor mixin)
 accessible class net/minecraft/client/renderer/GameRenderer
-accessible method net/minecraft/client/renderer/GameRenderer getLevelProjectionMatrixBuffer ()Lcom/mojang/blaze3d/vertex/Matrix4fBuffer;
 
 # LevelRenderer internal methods
 accessible method net/minecraft/client/renderer/LevelRenderer visibleSections ()Lit/unimi/dsi/fastutil/objects/ObjectArrayList;

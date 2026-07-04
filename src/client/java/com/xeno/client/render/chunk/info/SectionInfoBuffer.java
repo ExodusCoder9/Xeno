@@ -2,7 +2,7 @@ package com.xeno.client.render.chunk.info;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.GpuDevice;
-import com.mojang.blaze3d.vertex.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBuffer;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 

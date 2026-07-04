@@ -24,12 +24,11 @@ public class ShaderManager {
 		terrainPipelines.put(ChunkSectionLayer.SOLID, RenderPipelines.SOLID_TERRAIN);
 		terrainPipelines.put(ChunkSectionLayer.CUTOUT, RenderPipelines.CUTOUT_TERRAIN);
 		terrainPipelines.put(ChunkSectionLayer.TRANSLUCENT, RenderPipelines.TRANSLUCENT_TERRAIN);
-		long maxUniformSize = device.getDeviceInfo().limits().maxUniformBlockSize();
-		this.modelViewBuffer = new UniformBuffer(device, 64, (int) maxUniformSize);
-		this.projectionBuffer = new UniformBuffer(device, 64, (int) maxUniformSize);
+		this.modelViewBuffer = new UniformBuffer(device, 64, 65536);
+		this.projectionBuffer = new UniformBuffer(device, 64, 65536);
 		this.chunkOffsetBuffer = new UniformBuffer(device, 16, 256);
-		this.fogParamsBuffer = new UniformBuffer(device, 48, (int) maxUniformSize);
-		this.lightParamsBuffer = new UniformBuffer(device, 32, (int) maxUniformSize);
+		this.fogParamsBuffer = new UniformBuffer(device, 48, 65536);
+		this.lightParamsBuffer = new UniformBuffer(device, 32, 65536);
 		this.sectionInfoBuffer = new SectionInfoBuffer(device, 32768);
 	}
 
