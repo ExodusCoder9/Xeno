@@ -43,8 +43,6 @@ public class CullingThread extends Thread {
     
     private CullNodeMap sectionToNodeMap;
     private Octree dummyOctree;
-    private final AtomicBoolean closed = new AtomicBoolean(false);
-
     public CullingThread() {
         super("Xeno-CullingThread");
         this.setDaemon(true);
@@ -87,15 +85,9 @@ public class CullingThread extends Thread {
         LockSupport.unpark(this);
     }
 
-    public void close() {
-        closed.set(true);
-        this.interrupt();
-        LockSupport.unpark(this);
-    }
-
     @Override
     public void run() {
-        while (!closed.get() && !Thread.interrupted()) {
+        while (!Thread.interrupted()) {
             CullingRequest request = pendingRequest;
             if (request == null) {
                 LockSupport.parkNanos(5_000_000L); // Sleep up to 5ms
