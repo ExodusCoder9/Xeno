@@ -5,17 +5,17 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.gen.Accessor;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 import java.lang.reflect.Method;
 
 @Mixin(RotatingSectionStorage.class)
-public class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
-    @Unique
+public abstract class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    @Shadow @Final
-    private Object[] nodes;
+    @Accessor("nodes")
+    public abstract Object getNodes();
 
     @Shadow @Final
     private int sectionGridSizeY;
@@ -39,12 +39,13 @@ public class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
     @Override
     @Unique
     public Object[] xeno$GetValues() {
-        Object[] values = new Object[nodes.length];
+        Object[] nodesArray = (Object[]) getNodes();
+        Object[] values = new Object[nodesArray.length];
         if (nodeValueMethod != null) {
-            for (int i = 0; i < nodes.length; i++) {
-                if (nodes[i] != null) {
+            for (int i = 0; i < nodesArray.length; i++) {
+                if (nodesArray[i] != null) {
                     try {
-                        values[i] = nodeValueMethod.invoke(nodes[i]);
+                        values[i] = nodeValueMethod.invoke(nodesArray[i]);
                     } catch (Exception e) {
                         values[i] = null;
                     }
