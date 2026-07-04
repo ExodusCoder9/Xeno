@@ -17,7 +17,7 @@ public class BlockModelLighterCacheMixin {
     private void xeno_getLightCoords(BlockState state, BlockAndTintGetter level, BlockPos pos, CallbackInfoReturnable<Integer> cir) {
         XenoMeshingCache cache = XenoMeshingCache.get();
         if (cache.active) {
-            cir.setReturnValue(cache.getLightCoords((BlockModelLighter.Cache) (Object) this, level, state, pos));
+            cir.setReturnValue(cache.getLightCoords(level, state, pos));
         }
     }
 
@@ -25,7 +25,7 @@ public class BlockModelLighterCacheMixin {
     private void xeno_getShadeBrightness(BlockState state, BlockAndTintGetter level, BlockPos pos, CallbackInfoReturnable<Float> cir) {
         XenoMeshingCache cache = XenoMeshingCache.get();
         if (cache.active) {
-            cir.setReturnValue(cache.getShadeBrightness((BlockModelLighter.Cache) (Object) this, level, state, pos));
+            cir.setReturnValue(cache.getShadeBrightness(level, state, pos));
         }
     }
 }

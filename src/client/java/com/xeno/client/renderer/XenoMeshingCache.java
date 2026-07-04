@@ -3,7 +3,6 @@ package com.xeno.client.renderer;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
-import net.minecraft.client.renderer.block.BlockModelLighter;
 import net.minecraft.util.LightCoordsUtil;
 
 public class XenoMeshingCache {
@@ -64,7 +63,7 @@ public class XenoMeshingCache {
         return this.blockStates[idx];
     }
 
-    public int getLightCoords(BlockModelLighter.Cache vanillaCache, BlockAndTintGetter region, BlockState state, BlockPos pos) {
+    public int getLightCoords(BlockAndTintGetter region, BlockState state, BlockPos pos) {
         if (!this.active) {
             return LightCoordsUtil.getLightCoords(LightCoordsUtil.BrightnessGetter.DEFAULT, region, state, pos);
         }
@@ -74,14 +73,13 @@ public class XenoMeshingCache {
         }
 
         if (!this.lightPopulated[idx]) {
-            // Bypass vanillaCache to break recursion loop and use LightCoordsUtil directly
             this.lightCoords[idx] = LightCoordsUtil.getLightCoords(LightCoordsUtil.BrightnessGetter.DEFAULT, region, state, pos);
             this.lightPopulated[idx] = true;
         }
         return this.lightCoords[idx];
     }
 
-    public float getShadeBrightness(BlockModelLighter.Cache vanillaCache, BlockAndTintGetter region, BlockState state, BlockPos pos) {
+    public float getShadeBrightness(BlockAndTintGetter region, BlockState state, BlockPos pos) {
         if (!this.active) {
             return state.getShadeBrightness(region, pos);
         }
@@ -91,7 +89,6 @@ public class XenoMeshingCache {
         }
 
         if (!this.shadePopulated[idx]) {
-            // Bypass vanillaCache to break recursion loop and query the state directly
             this.shadeBrightness[idx] = state.getShadeBrightness(region, pos);
             this.shadePopulated[idx] = true;
         }
