@@ -13,6 +13,8 @@ public class PostChainMixin {
 
 	@Inject(method = "addToFrame", at = @At("HEAD"), cancellable = true)
 	private void xeno_cancelPostChain(FrameGraphBuilder frame, int screenWidth, int screenHeight, PostChain.TargetBundle providedTargets, CallbackInfo ci) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+		if (XenoConfig.INSTANCE.enableXenoEntities) {
+			ci.cancel();
+		}
 	}
 }

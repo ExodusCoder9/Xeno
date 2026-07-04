@@ -12,6 +12,8 @@ public class EntityRenderDispatcherMixin {
 
 	@Inject(method = "submit", at = @At("HEAD"), cancellable = true)
 	private void xeno_cancelEntitySubmit(CallbackInfo ci) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+		if (XenoConfig.INSTANCE.enableXenoEntities) {
+			ci.cancel();
+		}
 	}
 }

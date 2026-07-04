@@ -12,26 +12,26 @@ public class SkyRendererMixin {
 
 	@Inject(method = "renderSkyDisc", at = @At("HEAD"), cancellable = true)
 	private void xeno_cancelRenderSkyDisc(int skyColor, CallbackInfo ci) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+		if (XenoConfig.INSTANCE.enableXenoSky) ci.cancel();
 	}
 
 	@Inject(method = "renderDarkDisc", at = @At("HEAD"), cancellable = true)
 	private void xeno_cancelRenderDarkDisc(CallbackInfo ci) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+		if (XenoConfig.INSTANCE.enableXenoSky) ci.cancel();
 	}
 
 	@Inject(method = "renderSunMoonAndStars", at = @At("HEAD"), cancellable = true)
 	private void xeno_cancelRenderSunMoonAndStars(CallbackInfo ci) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+		if (XenoConfig.INSTANCE.enableXenoSky) ci.cancel();
 	}
 
 	@Inject(method = "renderSunriseAndSunset", at = @At("HEAD"), cancellable = true)
 	private void xeno_cancelRenderSunriseAndSunset(CallbackInfo ci) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+		if (XenoConfig.INSTANCE.enableXenoSky) ci.cancel();
 	}
 
 	@Inject(method = "renderEndSky", at = @At("HEAD"), cancellable = true)
 	private void xeno_cancelRenderEndSky(CallbackInfo ci) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+		if (XenoConfig.INSTANCE.enableXenoSky) ci.cancel();
 	}
 }

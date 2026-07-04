@@ -12,6 +12,6 @@ public class CloudRendererMixin {
 
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void xeno_cancelCloudRender(CallbackInfo ci) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+		if (XenoConfig.INSTANCE.enableXenoClouds) ci.cancel();
 	}
 }

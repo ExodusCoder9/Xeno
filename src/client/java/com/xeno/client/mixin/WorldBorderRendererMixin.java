@@ -12,6 +12,6 @@ public class WorldBorderRendererMixin {
 
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void xeno_cancelWorldBorderRender(CallbackInfo ci) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+		if (XenoConfig.INSTANCE.enableXenoWeather) ci.cancel();
 	}
 }

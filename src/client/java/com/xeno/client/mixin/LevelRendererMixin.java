@@ -3,20 +3,83 @@ package com.xeno.client.mixin;
 import com.xeno.client.render.XenoWorldRenderer;
 import com.xeno.config.XenoConfig;
 import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
+import net.minecraft.client.DeltaTracker;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import org.joml.Vector4f;
+import org.joml.Matrix4fc;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.function.Consumer;
 
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin {
+
+	@Shadow
+	private Minecraft minecraft;
+
+	@Inject(
+		method = "render",
+		at = @At("HEAD")
+	)
+	private void xeno_setupTerrain(
+		GraphicsResourceAllocator resourceAllocator,
+		DeltaTracker deltaTracker,
+		boolean renderOutline,
+		CameraRenderState cameraState,
+		Matrix4fc modelViewMatrix,
+		GpuBufferSlice terrainFog,
+		Vector4f fogColor,
+		boolean shouldRenderSky,
+		CallbackInfo ci
+	) {
+		if (XenoConfig.INSTANCE.enableXenoTerrain) {
+			XenoWorldRenderer.getInstance().setupTerrain(
+				this.minecraft.gameRenderer.mainCamera(),
+				cameraState.projectionMatrix,
+				cameraState.viewRotationMatrix
+			);
+		}
+	}
+
+	@Inject(
+		method = "render",
+		at = @At("TAIL")
+	)
+	private void xeno_submitCullingInput(
+		GraphicsResourceAllocator resourceAllocator,
+		DeltaTracker deltaTracker,
+		boolean renderOutline,
+		CameraRenderState cameraState,
+		Matrix4fc modelViewMatrix,
+		GpuBufferSlice terrainFog,
+		Vector4f fogColor,
+		boolean shouldRenderSky,
+		CallbackInfo ci
+	) {
+		if (XenoConfig.INSTANCE.enableXenoTerrain) {
+			XenoWorldRenderer.getInstance().submitCullingInput(
+				cameraState.pos,
+				cameraState.projectionMatrix,
+				cameraState.viewRotationMatrix,
+				cameraState.hudFov
+			);
+			XenoWorldRenderer.getInstance().postFrame();
+		}
+	}
 
 	@Inject(
 		method = "render",
@@ -91,5 +154,16 @@ public class LevelRendererMixin {
 	)
 	private void xeno_cancelAlwaysOnTop(CallbackInfo ci) {
 		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
+	}
+
+	@Inject(
+		method = "visibleSections",
+		at = @At("HEAD"),
+		cancellable = true
+	)
+	private void xeno_visibleSections(CallbackInfoReturnable<ObjectArrayList<SectionRenderDispatcher.RenderSection>> cir) {
+		if (XenoConfig.INSTANCE.enableXenoTerrain) {
+			cir.setReturnValue(XenoWorldRenderer.getInstance().getVisibleVanillaSections());
+		}
 	}
 }

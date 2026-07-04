@@ -27,10 +27,15 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection;
+import net.minecraft.core.SectionPos;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class XenoWorldRenderer {
@@ -50,7 +55,9 @@ public class XenoWorldRenderer {
 	private ShaderManager shaderManager;
 	private RenderPipelineManager pipelineManager;
 
-	private final AtomicReference<CullingOutput> cullingOutputRef = new AtomicReference<>();
+	private CullingOutput latestCullingOutput;
+	private final LongOpenHashSet visibleSectionKeys = new LongOpenHashSet();
+	private final ObjectArrayList<RenderSection> visibleVanillaSections = new ObjectArrayList<>();
 	private long frameIndex;
 
 	private XenoWorldRenderer() {}
@@ -67,8 +74,11 @@ public class XenoWorldRenderer {
 	public void setupTerrain(Camera camera, Matrix4fc projectionMatrix, Matrix4fc viewMatrix) {
 		if (!config.enableXenoTerrain) return;
 
-		CullingOutput output = cullingOutputRef.getAndSet(null);
+		CullingOutput output = cullingThread != null ? cullingThread.getOutput() : null;
 		if (output != null) {
+			this.latestCullingOutput = output;
+			this.visibleSectionKeys.clear();
+			this.visibleVanillaSections.clear();
 			chunkRenderList.clear();
 			for (XenoSection section : output.getVisibleSections()) {
 				int rx = section.getX() >> 3;
@@ -76,8 +86,16 @@ public class XenoWorldRenderer {
 				int rz = section.getZ() >> 3;
 				long regionKey = RenderRegionManager.regionKey(rx, ry, rz);
 				chunkRenderList.addSection(regionKey, regionManager.getOrCreateRegion(rx, ry, rz));
+				this.visibleSectionKeys.add(section.getSectionKey());
+				this.visibleVanillaSections.add(section.getVanillaSection());
 			}
 			chunkRenderList.build();
+
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.levelRenderer != null) {
+				mc.levelRenderer.visibleSections().clear();
+				mc.levelRenderer.visibleSections().addAll(this.visibleVanillaSections);
+			}
 		}
 	}
 
@@ -112,6 +130,9 @@ public class XenoWorldRenderer {
 		regionManager.clear();
 		chunkBuilder.clear();
 		chunkRenderList.clear();
+		visibleSectionKeys.clear();
+		visibleVanillaSections.clear();
+		latestCullingOutput = null;
 	}
 
 	public void startCullingThread() {
@@ -127,6 +148,15 @@ public class XenoWorldRenderer {
 			cullingThread.shutdown();
 			cullingThread = null;
 		}
+	}
+
+	public boolean isSectionVisible(long sectionKey) {
+		if (latestCullingOutput == null) return true; // fallback to true during startup/empty frames
+		return visibleSectionKeys.contains(sectionKey);
+	}
+
+	public ObjectArrayList<RenderSection> getVisibleVanillaSections() {
+		return visibleVanillaSections;
 	}
 
 	public SectionStorage getSectionStorage() { return sectionStorage; }
