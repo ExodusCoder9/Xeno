@@ -1,6 +1,3 @@
-#version 330
-#extension GL_ARB_shader_draw_parameters : enable
-
 struct SectionData {
     mat4 ModelViewMat;
     float ChunkVisibility;
