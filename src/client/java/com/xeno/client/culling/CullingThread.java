@@ -6,6 +6,10 @@ import java.util.Queue;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.LockSupport;
+import org.slf4j.Logger;
+import com.mojang.logging.LogUtils;
 import net.minecraft.client.renderer.ViewArea;
 import net.minecraft.client.renderer.Octree;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
@@ -17,15 +21,15 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.Direction.Axis;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.ChunkPos;
 import org.joml.Vector3d;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.level.ChunkPos;
 
 public class CullingThread extends Thread {
-    private static final int MINIMUM_ADVANCED_CULLING_DISTANCE = 60;
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final int MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE = SectionPos.blockToSectionCoord(60);
-    private static final double CEILED_SECTION_DIAGONAL = Math.ceil(Math.sqrt(3.0) * 16.0);
+    private static final double CEILINGED_SECTION_DIAGONAL = Math.ceil(Math.sqrt(3.0) * 16.0);
     private static final Direction[] DIRECTIONS = Direction.values();
 
     private volatile CullingRequest pendingRequest;
@@ -39,9 +43,7 @@ public class CullingThread extends Thread {
     
     private CullNodeMap sectionToNodeMap;
     private Octree dummyOctree;
-    private volatile boolean closed = false;
-
-    private final Object lock = new Object();
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public CullingThread() {
         super("Xeno-CullingThread");
@@ -51,9 +53,7 @@ public class CullingThread extends Thread {
 
     public void submitRequest(CullingRequest request) {
         pendingRequest = request;
-        synchronized (lock) {
-            lock.notifyAll();
-        }
+        LockSupport.unpark(this);
     }
 
     public CullingOutput getLatestOutput() {
@@ -69,40 +69,36 @@ public class CullingThread extends Thread {
     }
 
     public void invalidate() {
-        synchronized (lock) {
-            lock.notifyAll();
-        }
+        LockSupport.unpark(this);
     }
 
     public Octree getOctree() {
         return dummyOctree;
     }
 
-    public void reset(ViewArea viewArea) {
-        synchronized (lock) {
-            pendingRequest = null;
-            latestOutput = null;
-            emptySections.clear();
-            loadedChunks.clear();
-            occlusionVisible.clear();
-            sectionToNodeMap = null;
-            dummyOctree = null;
-            lock.notifyAll();
-        }
+    public void reset() {
+        pendingRequest = null;
+        latestOutput = null;
+        emptySections.clear();
+        loadedChunks.clear();
+        occlusionVisible.clear();
+        sectionToNodeMap = null;
+        dummyOctree = null;
+        LockSupport.unpark(this);
+    }
+
+    public void close() {
+        closed.set(true);
+        this.interrupt();
+        LockSupport.unpark(this);
     }
 
     @Override
     public void run() {
-        while (!closed && !Thread.interrupted()) {
+        while (!closed.get() && !Thread.interrupted()) {
             CullingRequest request = pendingRequest;
             if (request == null) {
-                synchronized (lock) {
-                    try {
-                        lock.wait(5);
-                    } catch (InterruptedException e) {
-                        break;
-                    }
-                }
+                LockSupport.parkNanos(5_000_000L); // Sleep up to 5ms
                 continue;
             }
             pendingRequest = null;
@@ -110,7 +106,7 @@ public class CullingThread extends Thread {
             try {
                 processUpdates(request);
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Error in culling thread execution loop", e);
             }
         }
     }
@@ -153,7 +149,7 @@ public class CullingThread extends Thread {
         for (SectionRenderDispatcher.RenderSection section : occlusionVisible) {
             if (offsetFrustum.isVisible(section.getBoundingBox())) {
                 visibleList.add(section);
-                if (isClose(section.getBoundingBox(), cameraCenter, 32)) {
+                if (isClose(section.getBoundingBox(), cameraCenter)) {
                     nearbyList.add(section);
                 }
             }
@@ -175,13 +171,13 @@ public class CullingThread extends Thread {
         needsFrustumUpdate = true;
     }
 
-    private boolean isClose(AABB bb, BlockPos cameraCenter, int closeDistance) {
-        return cameraCenter.getX() > bb.minX - closeDistance
-            && cameraCenter.getX() < bb.maxX + closeDistance
-            && cameraCenter.getY() > bb.minY - closeDistance
-            && cameraCenter.getY() < bb.maxY + closeDistance
-            && cameraCenter.getZ() > bb.minZ - closeDistance
-            && cameraCenter.getZ() < bb.maxZ + closeDistance;
+    private boolean isClose(AABB bb, BlockPos cameraCenter) {
+        return cameraCenter.getX() > bb.minX - 32
+            && cameraCenter.getX() < bb.maxX + 32
+            && cameraCenter.getY() > bb.minY - 32
+            && cameraCenter.getY() < bb.maxY + 32
+            && cameraCenter.getZ() > bb.minZ - 32
+            && cameraCenter.getZ() < bb.maxZ + 32;
     }
 
     private void initializeQueueForFullUpdate(final BlockPos cameraPosition, final Queue<CullNode> queue, ViewArea viewArea, Long2ObjectOpenHashMap<SectionRenderDispatcher.RenderSection> sectionMap) {
@@ -277,22 +273,8 @@ public class CullingThread extends Thread {
                         }
 
                         if (smartCull && distantFromCamera) {
-                            int renderSectionOriginX = SectionPos.sectionToBlockCoord(SectionPos.x(sectionNode));
-                            int renderSectionOriginY = SectionPos.sectionToBlockCoord(SectionPos.y(sectionNode));
-                            int renderSectionOriginZ = SectionPos.sectionToBlockCoord(SectionPos.z(sectionNode));
-                            boolean maxX = direction.getAxis() == Axis.X
-                                ? cameraSectionCenter.getX() > renderSectionOriginX
-                                : cameraSectionCenter.getX() < renderSectionOriginX;
-                            boolean maxY = direction.getAxis() == Axis.Y
-                                ? cameraSectionCenter.getY() > renderSectionOriginY
-                                : cameraSectionCenter.getY() < renderSectionOriginY;
-                            boolean maxZ = direction.getAxis() == Axis.Z
-                                ? cameraSectionCenter.getZ() > renderSectionOriginZ
-                                : cameraSectionCenter.getZ() < renderSectionOriginZ;
-                            Vector3d checkPos = new Vector3d(
-                                renderSectionOriginX + (maxX ? 16 : 0), renderSectionOriginY + (maxY ? 16 : 0), renderSectionOriginZ + (maxZ ? 16 : 0)
-                            );
-                            Vector3d step = new Vector3d(cameraPos.x, cameraPos.y, cameraPos.z).sub(checkPos).normalize().mul(CEILED_SECTION_DIAGONAL);
+                            Vector3d checkPos = getCheckPos(cameraSectionCenter, sectionNode, direction);
+                            Vector3d step = new Vector3d(cameraPos.x, cameraPos.y, cameraPos.z).sub(checkPos).normalize().mul(CEILINGED_SECTION_DIAGONAL);
                             boolean visible = true;
 
                             while (checkPos.distanceSquared(cameraPos.x, cameraPos.y, cameraPos.z) > 3600.0) {
@@ -327,6 +309,28 @@ public class CullingThread extends Thread {
                 }
             }
         }
+    }
+
+    private Vector3d getCheckPos(BlockPos cameraSectionCenter, long sectionNode, Direction direction) {
+        int originX = SectionPos.sectionToBlockCoord(SectionPos.x(sectionNode));
+        int originY = SectionPos.sectionToBlockCoord(SectionPos.y(sectionNode));
+        int originZ = SectionPos.sectionToBlockCoord(SectionPos.z(sectionNode));
+        
+        boolean maxX = direction.getAxis() == Axis.X
+            ? cameraSectionCenter.getX() > originX
+            : cameraSectionCenter.getX() < originX;
+        boolean maxY = direction.getAxis() == Axis.Y
+            ? cameraSectionCenter.getY() > originY
+            : cameraSectionCenter.getY() < originY;
+        boolean maxZ = direction.getAxis() == Axis.Z
+            ? cameraSectionCenter.getZ() > originZ
+            : cameraSectionCenter.getZ() < originZ;
+            
+        return new Vector3d(
+            originX + (maxX ? 16 : 0),
+            originY + (maxY ? 16 : 0),
+            originZ + (maxZ ? 16 : 0)
+        );
     }
 
     private boolean isInViewDistance(final long cameraSectionNode, final long sectionNode, int viewDistance) {

@@ -58,7 +58,7 @@ public class SectionOcclusionGraphMixin {
         this.xenoViewArea = viewArea;
         this.pendingPropagations.clear();
         if (this.xenoCullingThread != null) {
-            this.xenoCullingThread.reset(viewArea);
+            this.xenoCullingThread.reset();
         }
     }
 
@@ -222,7 +222,7 @@ public class SectionOcclusionGraphMixin {
      */
     @Overwrite
     @VisibleForDebug
-    public SectionOcclusionGraph.@Nullable Node getNode(final SectionRenderDispatcher.RenderSection section) {
+    public SectionOcclusionGraph.Node getNode(final SectionRenderDispatcher.RenderSection section) {
         return null;
     }
 }
