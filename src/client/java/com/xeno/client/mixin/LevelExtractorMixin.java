@@ -30,7 +30,7 @@ public class LevelExtractorMixin {
     private ClientLevel level;
 
     @Inject(method = "isEntityVisible", at = @At("HEAD"), cancellable = true)
-    private void checkOcclusionCulling(Entity entity, Frustum frustum, double camX, double camY, double camZ, CallbackInfoReturnable<Boolean> cir) {
+    private void xeno_checkOcclusionCulling(Entity entity, Frustum frustum, double camX, double camY, double camZ, CallbackInfoReturnable<Boolean> cir) {
         if (this.level == null) return;
 
         // 1. Let vanilla handle passenger/player checks or basic culling rules

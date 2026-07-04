@@ -38,37 +38,37 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     private LongOpenHashSet loadedChunks;
 
     @Unique
-    private CullingThread xenoCullingThread;
+    private CullingThread xeno_cullingThread;
 
     @Unique
-    private ViewArea xenoViewArea;
+    private ViewArea xeno_viewArea;
 
     @Unique
-    private final List<SectionRenderDispatcher.RenderSection> pendingPropagations = new ArrayList<>();
+    private final List<SectionRenderDispatcher.RenderSection> xeno_pendingPropagations = new ArrayList<>();
 
     @Unique
-    private final CullingRequest[] xenoRequests = new CullingRequest[] { new CullingRequest(), new CullingRequest() };
+    private final CullingRequest[] xeno_requests = new CullingRequest[] { new CullingRequest(), new CullingRequest() };
 
     @Unique
-    private int xenoWriteIndex = 0;
+    private int xeno_writeIndex = 0;
 
     @Unique
-    private boolean needsFullUpdate = true;
+    private boolean xeno_needsFullUpdate = true;
     @Unique
-    private double prevCamX = Double.MIN_VALUE;
+    private double xeno_prevCamX = Double.MIN_VALUE;
     @Unique
-    private double prevCamY = Double.MIN_VALUE;
+    private double xeno_prevCamY = Double.MIN_VALUE;
     @Unique
-    private double prevCamZ = Double.MIN_VALUE;
+    private double xeno_prevCamZ = Double.MIN_VALUE;
     @Unique
-    private int prevFov = Integer.MAX_VALUE;
+    private int xeno_prevFov = Integer.MAX_VALUE;
     @Unique
-    private boolean lastSmartCull = true;
+    private boolean xeno_lastSmartCull = true;
 
     @Inject(method = "<init>", at = @At("RETURN"))
-    private void onInit(CallbackInfo ci) {
-        this.xenoCullingThread = new CullingThread();
-        this.xenoCullingThread.start();
+    private void xeno_onInit(CallbackInfo ci) {
+        this.xeno_cullingThread = new CullingThread();
+        this.xeno_cullingThread.start();
     }
 
     /**
@@ -77,15 +77,15 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
      */
     @Overwrite
     public void waitAndReset(final @Nullable ViewArea viewArea) {
-        this.xenoViewArea = viewArea;
-        this.pendingPropagations.clear();
-        this.needsFullUpdate = true;
-        this.prevCamX = Double.MIN_VALUE;
-        this.prevCamY = Double.MIN_VALUE;
-        this.prevCamZ = Double.MIN_VALUE;
-        this.prevFov = Integer.MAX_VALUE;
-        if (this.xenoCullingThread != null) {
-            this.xenoCullingThread.reset();
+        this.xeno_viewArea = viewArea;
+        this.xeno_pendingPropagations.clear();
+        this.xeno_needsFullUpdate = true;
+        this.xeno_prevCamX = Double.MIN_VALUE;
+        this.xeno_prevCamY = Double.MIN_VALUE;
+        this.xeno_prevCamZ = Double.MIN_VALUE;
+        this.xeno_prevFov = Integer.MAX_VALUE;
+        if (this.xeno_cullingThread != null) {
+            this.xeno_cullingThread.reset();
         }
     }
 
@@ -104,9 +104,9 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
      */
     @Overwrite
     public void invalidate() {
-        this.needsFullUpdate = true;
-        if (this.xenoCullingThread != null) {
-            this.xenoCullingThread.invalidate();
+        this.xeno_needsFullUpdate = true;
+        if (this.xeno_cullingThread != null) {
+            this.xeno_cullingThread.invalidate();
         }
     }
 
@@ -120,13 +120,13 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
         double camX = Math.floor(cameraPos.x / 8.0);
         double camY = Math.floor(cameraPos.y / 8.0);
         double camZ = Math.floor(cameraPos.z / 8.0);
-        if (camX != this.prevCamX || camY != this.prevCamY || camZ != this.prevCamZ || this.prevFov != fov || this.lastSmartCull != camera.smartCull) {
-            this.needsFullUpdate = true;
-            this.prevCamX = camX;
-            this.prevCamY = camY;
-            this.prevCamZ = camZ;
-            this.prevFov = fov;
-            this.lastSmartCull = camera.smartCull;
+        if (camX != this.xeno_prevCamX || camY != this.xeno_prevCamY || camZ != this.xeno_prevCamZ || this.xeno_prevFov != fov || this.xeno_lastSmartCull != camera.smartCull) {
+            this.xeno_needsFullUpdate = true;
+            this.xeno_prevCamX = camX;
+            this.xeno_prevCamY = camY;
+            this.xeno_prevCamZ = camZ;
+            this.xeno_prevFov = fov;
+            this.xeno_lastSmartCull = camera.smartCull;
         }
     }
 
@@ -140,8 +140,8 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
             final List<SectionRenderDispatcher.RenderSection> visibleSections,
             final List<SectionRenderDispatcher.RenderSection> nearbyVisibleSections
     ) {
-        if (this.xenoCullingThread == null) return;
-        CullingOutput output = this.xenoCullingThread.getLatestOutput();
+        if (this.xeno_cullingThread == null) return;
+        CullingOutput output = this.xeno_cullingThread.getLatestOutput();
         if (output != null) {
             visibleSections.addAll(output.visibleSections());
             nearbyVisibleSections.addAll(output.nearbyVisibleSections());
@@ -154,8 +154,8 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
      */
     @Overwrite
     public boolean consumeFrustumUpdate() {
-        if (this.xenoCullingThread == null) return false;
-        return this.xenoCullingThread.consumeFrustumUpdate();
+        if (this.xeno_cullingThread == null) return false;
+        return this.xeno_cullingThread.consumeFrustumUpdate();
     }
 
     /**
@@ -164,7 +164,7 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
      */
     @Overwrite
     public void schedulePropagationFrom(final SectionRenderDispatcher.RenderSection section) {
-        this.pendingPropagations.add(section);
+        this.xeno_pendingPropagations.add(section);
     }
 
     /**
@@ -173,38 +173,38 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
      */
     @Overwrite
     public void update(final CameraRenderState camera, final int fov, final ChunkLoadingRenderState chunkLoadingRenderState) {
-        if (this.xenoCullingThread == null || this.xenoViewArea == null) return;
+        if (this.xeno_cullingThread == null || this.xeno_viewArea == null) return;
 
         this.updateLoadedChunks(chunkLoadingRenderState.addedLoadedChunks, chunkLoadingRenderState.removedLoadedChunks);
         this.updateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
 
         this.invalidateIfNeeded(camera, fov);
 
-        if (!this.pendingPropagations.isEmpty()) {
-            this.needsFullUpdate = true;
+        if (!this.xeno_pendingPropagations.isEmpty()) {
+            this.xeno_needsFullUpdate = true;
         }
 
         if (!camera.isFrustumCaptured) {
-            if (this.xenoCullingThread.isProcessing()) {
+            if (this.xeno_cullingThread.isProcessing()) {
                 return; // Drop frame update to avoid memory overwrites while the thread is parsing
             }
 
-            CullingRequest request = this.xenoRequests[this.xenoWriteIndex];
+            CullingRequest request = this.xeno_requests[this.xeno_writeIndex];
 
             request.cameraBlockPos = camera.blockPos;
             request.cameraPos = camera.pos;
             request.smartCull = camera.smartCull;
             request.frustum = camera.cullFrustum;
             request.fov = fov;
-            request.viewArea = this.xenoViewArea;
-            request.needsFullBfs = this.needsFullUpdate;
-            this.needsFullUpdate = false; // Reset the flag after submitting
+            request.viewArea = this.xeno_viewArea;
+            request.needsFullBfs = this.xeno_needsFullUpdate;
+            this.xeno_needsFullUpdate = false; // Reset the flag after submitting
 
-            RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((ViewAreaAccessor) this.xenoViewArea).getSections();
+            RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((ViewAreaAccessor) this.xeno_viewArea).getSections();
 
-            int minY = this.xenoViewArea.minSectionY();
-            int maxY = this.xenoViewArea.maxSectionY();
-            int viewDistance = this.xenoViewArea.getViewDistance();
+            int minY = this.xeno_viewArea.minSectionY();
+            int maxY = this.xeno_viewArea.maxSectionY();
+            int viewDistance = this.xeno_viewArea.getViewDistance();
             int sizeY = maxY - minY + 1;
             int sizeXZ = viewDistance * 2 + 1;
             int totalSections = sizeXZ * sizeY * sizeXZ;
@@ -232,11 +232,11 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
             request.loadedChunks.addAll(this.loadedChunks);
 
             request.propagations.clear();
-            request.propagations.addAll(this.pendingPropagations);
-            this.pendingPropagations.clear();
+            request.propagations.addAll(this.xeno_pendingPropagations);
+            this.xeno_pendingPropagations.clear();
 
-            this.xenoCullingThread.submitRequest(request);
-            this.xenoWriteIndex = (this.xenoWriteIndex + 1) % 2;
+            this.xeno_cullingThread.submitRequest(request);
+            this.xeno_writeIndex = (this.xeno_writeIndex + 1) % 2;
         }
     }
 
@@ -247,14 +247,14 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     @Overwrite
     public void updateEmptySections(final LongOpenHashSet added, final LongOpenHashSet removed) {
         if (!added.isEmpty() || !removed.isEmpty()) {
-            this.needsFullUpdate = true;
+            this.xeno_needsFullUpdate = true;
         }
         this.emptySections.addAll(added);
         LongIterator iter = removed.longIterator();
         while (iter.hasNext()) {
             long sectionNode = iter.nextLong();
             if (this.emptySections.remove(sectionNode)) {
-                SectionRenderDispatcher.RenderSection section = ((ViewAreaAccessor) this.xenoViewArea).invokeGetRenderSection(sectionNode);
+                SectionRenderDispatcher.RenderSection section = ((ViewAreaAccessor) this.xeno_viewArea).invokeGetRenderSection(sectionNode);
                 if (section != null) {
                     this.schedulePropagationFrom(section);
                     section.setWasPreviouslyEmpty(true);
@@ -270,7 +270,7 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     @Overwrite
     public void updateLoadedChunks(final LongOpenHashSet added, final LongOpenHashSet removed) {
         if (!added.isEmpty() || !removed.isEmpty()) {
-            this.needsFullUpdate = true;
+            this.xeno_needsFullUpdate = true;
         }
         this.loadedChunks.addAll(added);
         this.loadedChunks.removeAll(removed);
@@ -282,8 +282,8 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
      */
     @Overwrite
     public @Nullable Octree getOctree() {
-        if (this.xenoCullingThread == null) return null;
-        return this.xenoCullingThread.getOctree();
+        if (this.xeno_cullingThread == null) return null;
+        return this.xeno_cullingThread.getOctree();
     }
 
     /**
@@ -298,8 +298,8 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
 
     @Override
     public boolean isSectionVisible(int sectionIndex) {
-        if (this.xenoCullingThread == null) return true;
-        CullingOutput output = this.xenoCullingThread.getLatestOutput();
+        if (this.xeno_cullingThread == null) return true;
+        CullingOutput output = this.xeno_cullingThread.getLatestOutput();
         if (output == null) return true;
         return output.isSectionVisible(sectionIndex);
     }
