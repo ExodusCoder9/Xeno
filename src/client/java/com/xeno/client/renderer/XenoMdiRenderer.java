@@ -73,7 +73,7 @@ public class XenoMdiRenderer {
             ByteBuffer cmdData = cmdMap.data();
             ByteBuffer uboData = uboMap.data();
 
-            RenderPass.Draw<GpuBufferSlice[]> firstDraw = draws.get(0);
+            RenderPass.Draw<GpuBufferSlice[]> firstDraw = draws.getFirst();
             GpuBuffer vertexBuffer = firstDraw.vertexBuffer();
             GpuBuffer indexBuffer = firstDraw.indexBuffer() == null ? defaultIndexBuffer : firstDraw.indexBuffer();
             IndexType indexType = firstDraw.indexType() == null ? defaultIndexType : firstDraw.indexType();
@@ -83,7 +83,7 @@ public class XenoMdiRenderer {
 
                 // 1. Write MDI command (VkDrawIndexedIndirectCommand)
                 int cmdOffset = i * COMMAND_SIZE;
-                cmdData.putInt(cmdOffset + 0, draw.indexCount());
+                cmdData.putInt(cmdOffset, draw.indexCount());
                 cmdData.putInt(cmdOffset + 4, 1); // instanceCount = 1
                 cmdData.putInt(cmdOffset + 8, draw.firstIndex());
                 cmdData.putInt(cmdOffset + 12, draw.baseVertex());
