@@ -10,6 +10,7 @@ import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.ChunkLoadingRenderState;
+import net.minecraft.util.VisibleForDebug;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongCollection;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -49,23 +50,21 @@ public class SectionOcclusionGraphMixin {
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite waitAndReset to delegate to the asynchronous culling thread
      */
     @Overwrite
     public void waitAndReset(final @Nullable ViewArea viewArea) {
         this.xenoViewArea = viewArea;
-        synchronized (this.pendingPropagations) {
-            this.pendingPropagations.clear();
-        }
+        this.pendingPropagations.clear();
         if (this.xenoCullingThread != null) {
             this.xenoCullingThread.reset(viewArea);
         }
     }
 
     /**
-     * @author Antigravity
-     * @reason Overwrite expectedChunks to fetch pending chunk loads from the culling thread
+     * @author ExodusCoder9
+     * @reason Overwrite expectedChunks to return an empty collection as full updates happen on background thread
      */
     @Overwrite
     public LongCollection expectedChunks() {
@@ -73,7 +72,7 @@ public class SectionOcclusionGraphMixin {
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite invalidate to mark full culling update needed on culling thread
      */
     @Overwrite
@@ -84,7 +83,7 @@ public class SectionOcclusionGraphMixin {
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite invalidateIfNeeded to delegate to culling thread's internal tracking
      */
     @Overwrite
@@ -93,7 +92,7 @@ public class SectionOcclusionGraphMixin {
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite addSectionsInFrustum to directly inject the pre-computed culling results
      */
     @Overwrite
@@ -111,7 +110,7 @@ public class SectionOcclusionGraphMixin {
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite consumeFrustumUpdate to check if culling thread produced a new result
      */
     @Overwrite
@@ -121,18 +120,16 @@ public class SectionOcclusionGraphMixin {
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite schedulePropagationFrom to queue propagation task to culling thread
      */
     @Overwrite
     public void schedulePropagationFrom(final SectionRenderDispatcher.RenderSection section) {
-        synchronized (this.pendingPropagations) {
-            this.pendingPropagations.add(section);
-        }
+        this.pendingPropagations.add(section);
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite update to submit a new culling request to the culling thread
      */
     @Overwrite
@@ -154,22 +151,13 @@ public class SectionOcclusionGraphMixin {
                 }
             }
 
-            // 2. Clone empty sections and loaded chunks snapshots
-            LongOpenHashSet emptySectionsSnapshot;
-            LongOpenHashSet loadedChunksSnapshot;
-            synchronized (this.emptySections) {
-                emptySectionsSnapshot = this.emptySections.clone();
-            }
-            synchronized (this.loadedChunks) {
-                loadedChunksSnapshot = this.loadedChunks.clone();
-            }
+            // 2. Clone empty sections and loaded chunks snapshots without synchronization
+            LongOpenHashSet emptySectionsSnapshot = this.emptySections.clone();
+            LongOpenHashSet loadedChunksSnapshot = this.loadedChunks.clone();
 
-            // 3. Clone propagation queue
-            List<SectionRenderDispatcher.RenderSection> propagationsSnapshot;
-            synchronized (this.pendingPropagations) {
-                propagationsSnapshot = new ArrayList<>(this.pendingPropagations);
-                this.pendingPropagations.clear();
-            }
+            // 3. Clone propagation queue without synchronization
+            List<SectionRenderDispatcher.RenderSection> propagationsSnapshot = new ArrayList<>(this.pendingPropagations);
+            this.pendingPropagations.clear();
 
             // 4. Submit request to culling thread
             CullingRequest request = new CullingRequest(
@@ -185,57 +173,41 @@ public class SectionOcclusionGraphMixin {
                 propagationsSnapshot
             );
             this.xenoCullingThread.submitRequest(request);
-
-            // 5. Avoid initial empty frames by waiting briefly for the first output
-            if (this.xenoCullingThread.getLatestOutput() == null) {
-                long start = System.currentTimeMillis();
-                while (this.xenoCullingThread.getLatestOutput() == null && System.currentTimeMillis() - start < 50) {
-                    try {
-                        Thread.sleep(1);
-                    } catch (InterruptedException e) {
-                        break;
-                    }
-                }
-            }
         }
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite updateEmptySections to queue empty section changes to culling thread
      */
     @Overwrite
     public void updateEmptySections(final LongOpenHashSet added, final LongOpenHashSet removed) {
-        synchronized (this.emptySections) {
-            this.emptySections.addAll(added);
-            it.unimi.dsi.fastutil.longs.LongIterator iter = removed.longIterator();
-            while (iter.hasNext()) {
-                long sectionNode = iter.nextLong();
-                if (this.emptySections.remove(sectionNode)) {
-                    SectionRenderDispatcher.RenderSection section = ((ViewAreaAccessor) this.xenoViewArea).invokeGetRenderSection(sectionNode);
-                    if (section != null) {
-                        this.schedulePropagationFrom(section);
-                        section.setWasPreviouslyEmpty(true);
-                    }
+        this.emptySections.addAll(added);
+        it.unimi.dsi.fastutil.longs.LongIterator iter = removed.longIterator();
+        while (iter.hasNext()) {
+            long sectionNode = iter.nextLong();
+            if (this.emptySections.remove(sectionNode)) {
+                SectionRenderDispatcher.RenderSection section = ((ViewAreaAccessor) this.xenoViewArea).invokeGetRenderSection(sectionNode);
+                if (section != null) {
+                    this.schedulePropagationFrom(section);
+                    section.setWasPreviouslyEmpty(true);
                 }
             }
         }
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite updateLoadedChunks to queue loaded chunks changes to culling thread
      */
     @Overwrite
     public void updateLoadedChunks(final LongOpenHashSet added, final LongOpenHashSet removed) {
-        synchronized (this.loadedChunks) {
-            this.loadedChunks.addAll(added);
-            this.loadedChunks.removeAll(removed);
-        }
+        this.loadedChunks.addAll(added);
+        this.loadedChunks.removeAll(removed);
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite getOctree as a stub since frustum culling is fully done in background
      */
     @Overwrite
@@ -245,11 +217,12 @@ public class SectionOcclusionGraphMixin {
     }
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Overwrite getNode as a stub
      */
     @Overwrite
-    public SectionOcclusionGraph.Node getNode(final SectionRenderDispatcher.RenderSection section) {
+    @VisibleForDebug
+    public SectionOcclusionGraph.@Nullable Node getNode(final SectionRenderDispatcher.RenderSection section) {
         return null;
     }
 }
