@@ -11,6 +11,7 @@ import java.lang.reflect.Method;
 
 @Mixin(RotatingSectionStorage.class)
 public class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
+    @Unique
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Shadow @Final
