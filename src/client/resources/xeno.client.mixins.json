@@ -8,7 +8,9 @@
 		"SectionOcclusionGraphMixin",
 		"LevelExtractorMixin",
 		"BufferBuilderMixin",
-		"RenderPipelineBuilderMixin"
+		"RenderPipelineBuilderMixin",
+		"SectionTaskDynamicQueueMixin",
+		"SectionRenderDispatcherMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
