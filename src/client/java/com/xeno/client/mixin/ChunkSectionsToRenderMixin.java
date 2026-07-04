@@ -1,10 +1,12 @@
 package com.xeno.client.mixin;
 
+import com.mojang.blaze3d.textures.GpuSampler;
 import com.xeno.client.renderer.XenoMdiRenderer;
 import com.mojang.blaze3d.IndexType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.RenderPass;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -47,7 +49,7 @@ public class ChunkSectionsToRenderMixin {
     }
 
     @Inject(method = "renderGroup", at = @At("TAIL"))
-    private void cleanup_renderGroup(Object group, Object sampler, CallbackInfo ci) {
+    private void cleanup_renderGroup(ChunkSectionLayerGroup group, GpuSampler sampler, CallbackInfo ci) {
         XenoMdiRenderer.CURRENT_SECTION_INFOS.remove();
     }
 }
