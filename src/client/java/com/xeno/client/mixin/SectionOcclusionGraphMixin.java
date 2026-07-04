@@ -45,6 +45,12 @@ public class SectionOcclusionGraphMixin {
     @Unique
     private final List<SectionRenderDispatcher.RenderSection> pendingPropagations = new ArrayList<>();
 
+    @Unique
+    private final CullingRequest[] xenoRequests = new CullingRequest[] { new CullingRequest(), new CullingRequest() };
+
+    @Unique
+    private int xenoWriteIndex = 0;
+
     @Inject(method = "<init>", at = @At("RETURN"))
     private void onInit(CallbackInfo ci) {
         this.xenoCullingThread = new CullingThread();
@@ -131,7 +137,7 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Submits a complete snapshot of the render state to the background culling thread.
+     * @reason Submits a complete double-buffered snapshot of the render state to the background culling thread.
      */
     @Overwrite
     public void update(final CameraRenderState camera, final int fov, final ChunkLoadingRenderState chunkLoadingRenderState) {
@@ -141,6 +147,19 @@ public class SectionOcclusionGraphMixin {
         this.updateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
 
         if (!camera.isFrustumCaptured) {
+            if (this.xenoCullingThread.isProcessing()) {
+                return; // Drop frame update to avoid memory overwrites while the thread is parsing
+            }
+
+            CullingRequest request = this.xenoRequests[this.xenoWriteIndex];
+
+            request.cameraBlockPos = camera.blockPos;
+            request.cameraPos = camera.pos;
+            request.smartCull = camera.smartCull;
+            request.frustum = camera.cullFrustum;
+            request.fov = fov;
+            request.viewArea = this.xenoViewArea;
+
             RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((ViewAreaAccessor) this.xenoViewArea).getSections();
 
             int minY = this.xenoViewArea.minSectionY();
@@ -148,38 +167,36 @@ public class SectionOcclusionGraphMixin {
             int viewDistance = this.xenoViewArea.getViewDistance();
             int sizeY = maxY - minY + 1;
             int sizeXZ = viewDistance * 2 + 1;
+            int totalSections = sizeXZ * sizeY * sizeXZ;
 
-            SectionRenderDispatcher.RenderSection[] sectionArraySnapshot = new SectionRenderDispatcher.RenderSection[sizeXZ * sizeY * sizeXZ];
+            if (request.sectionArray.length < totalSections) {
+                request.sectionArray = new SectionRenderDispatcher.RenderSection[totalSections];
+            }
+
             for (SectionRenderDispatcher.RenderSection section : storage) {
                 if (section != null) {
-                    sectionArraySnapshot[section.index] = section;
+                    request.sectionArray[section.index] = section;
                 }
             }
 
-            LongOpenHashSet emptySectionsSnapshot = this.emptySections.clone();
-            LongOpenHashSet loadedChunksSnapshot = this.loadedChunks.clone();
+            request.minY = minY;
+            request.maxY = maxY;
+            request.sizeY = sizeY;
+            request.sizeXZ = sizeXZ;
+            request.viewDistance = viewDistance;
 
-            List<SectionRenderDispatcher.RenderSection> propagationsSnapshot = new ArrayList<>(this.pendingPropagations);
+            request.emptySections.clear();
+            request.emptySections.addAll(this.emptySections);
+
+            request.loadedChunks.clear();
+            request.loadedChunks.addAll(this.loadedChunks);
+
+            request.propagations.clear();
+            request.propagations.addAll(this.pendingPropagations);
             this.pendingPropagations.clear();
 
-            CullingRequest request = new CullingRequest(
-                    camera.blockPos,
-                    camera.pos,
-                    camera.smartCull,
-                    new Frustum(camera.cullFrustum),
-                    fov,
-                    this.xenoViewArea,
-                    sectionArraySnapshot,
-                    minY,
-                    maxY,
-                    sizeY,
-                    sizeXZ,
-                    viewDistance,
-                    emptySectionsSnapshot,
-                    loadedChunksSnapshot,
-                    propagationsSnapshot
-            );
             this.xenoCullingThread.submitRequest(request);
+            this.xenoWriteIndex = (this.xenoWriteIndex + 1) % 2;
         }
     }
 
