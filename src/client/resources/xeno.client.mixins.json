@@ -12,7 +12,9 @@
 		"SectionTaskDynamicQueueMixin",
 		"SectionRenderDispatcherMixin",
 		"LevelRendererMixin",
-		"DebugScreenOverlayMixin"
+		"DebugScreenOverlayMixin",
+		"DebugScreenEntriesMixin",
+		"DebugScreenEntryListMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
