@@ -211,6 +211,8 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
 
             if (request.sectionArray.length < totalSections) {
                 request.sectionArray = new SectionRenderDispatcher.RenderSection[totalSections];
+            } else {
+                java.util.Arrays.fill(request.sectionArray, 0, totalSections, null);
             }
 
             for (SectionRenderDispatcher.RenderSection section : storage) {
