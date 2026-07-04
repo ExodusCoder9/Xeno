@@ -1,17 +1,15 @@
 package com.xeno.client.render.chunk.terrain;
 
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.systems.RenderPass;
-import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.buffers.GpuBuffer;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import com.mojang.blaze3d.systems.GpuDevice;
 
 public class RenderRegion {
 	public static final int SIZE_SECTIONS = 8;
 
 	private final int rx, ry, rz;
 	private final long regionKey;
+	private GpuBuffer vertexBuffer;
+	private GpuBuffer indexBuffer;
 
 	public RenderRegion(int rx, int ry, int rz, long regionKey) {
 		this.rx = rx;
@@ -25,9 +23,34 @@ public class RenderRegion {
 	public int getRy() { return ry; }
 	public int getRz() { return rz; }
 
-	public GpuBufferSlice getVertexSlice() { return null; }
-	public GpuBuffer getIndexBuffer() { return null; }
-	public int getIndexCount(ChunkSectionLayer layer) { return 0; }
-	public int getFirstIndex(ChunkSectionLayer layer) { return 0; }
-	public int getBaseVertex(ChunkSectionLayer layer) { return 0; }
+	public GpuBuffer getVertexBuffer() { return vertexBuffer; }
+	public GpuBuffer getIndexBuffer() { return indexBuffer; }
+
+	public void initBuffers(GpuDevice device) {
+		if (vertexBuffer == null) {
+			vertexBuffer = device.createBuffer(
+				() -> "XenoRegion-Vertex-" + regionKey,
+				GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST,
+				4 * 1024 * 1024
+			);
+		}
+		if (indexBuffer == null) {
+			indexBuffer = device.createBuffer(
+				() -> "XenoRegion-Index-" + regionKey,
+				GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_COPY_DST,
+				1 * 1024 * 1024
+			);
+		}
+	}
+
+	public void close() {
+		if (vertexBuffer != null) {
+			vertexBuffer.close();
+			vertexBuffer = null;
+		}
+		if (indexBuffer != null) {
+			indexBuffer.close();
+			indexBuffer = null;
+		}
+	}
 }

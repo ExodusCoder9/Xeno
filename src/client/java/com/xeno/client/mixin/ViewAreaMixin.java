@@ -16,8 +16,6 @@ public class ViewAreaMixin {
 		cancellable = true
 	)
 	private void xeno_cancelRepositionCamera(SectionPos cameraSectionPos, CallbackInfoReturnable<Boolean> cir) {
-		if (XenoConfig.INSTANCE.enableXenoTerrain) {
-			cir.setReturnValue(false);
-		}
+		// Do not cancel repositionCamera so that vanilla ViewArea correctly repositions chunk sections.
 	}
 }

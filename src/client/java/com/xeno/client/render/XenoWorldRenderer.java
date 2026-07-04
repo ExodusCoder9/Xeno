@@ -85,11 +85,10 @@ public class XenoWorldRenderer {
 				int ry = section.getY() >> 3;
 				int rz = section.getZ() >> 3;
 				long regionKey = RenderRegionManager.regionKey(rx, ry, rz);
-				chunkRenderList.addSection(regionKey, regionManager.getOrCreateRegion(rx, ry, rz));
+				chunkRenderList.addSection(regionKey, regionManager.getOrCreateRegion(rx, ry, rz), section);
 				this.visibleSectionKeys.add(section.getSectionKey());
 				this.visibleVanillaSections.add(section.getVanillaSection());
 			}
-			chunkRenderList.build();
 
 			Minecraft mc = Minecraft.getInstance();
 			if (mc.levelRenderer != null) {

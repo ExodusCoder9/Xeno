@@ -26,10 +26,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.function.Consumer;
 
 @Mixin(LevelRenderer.class)
-public class LevelRendererMixin {
+public class LevelRendererMixin implements com.xeno.client.render.LevelRendererExt {
 
 	@Shadow
 	private Minecraft minecraft;
+
+	@Shadow
+	private com.mojang.blaze3d.textures.GpuSampler chunkLayerSampler;
+
+	@Override
+	public com.mojang.blaze3d.textures.GpuSampler getChunkLayerSampler() {
+		return chunkLayerSampler;
+	}
 
 	@Inject(
 		method = "render",
@@ -82,12 +90,23 @@ public class LevelRendererMixin {
 	}
 
 	@Inject(
-		method = "render",
-		at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/framegraph/FrameGraphBuilder;execute(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lcom/mojang/blaze3d/framegraph/FrameGraphBuilder$Inspector;)V")
+		method = "addMainPass",
+		at = @At("HEAD")
 	)
-	private void xeno_buildXenoFrameGraph(CallbackInfo ci) {
+	private void xeno_addMainPass(
+		com.mojang.blaze3d.framegraph.FrameGraphBuilder frame,
+		net.minecraft.client.renderer.feature.FeatureRenderDispatcher.PreparedFrame featureFrame,
+		com.mojang.blaze3d.buffers.GpuBufferSlice terrainFog,
+		net.minecraft.client.renderer.state.level.LevelRenderState levelRenderState,
+		net.minecraft.world.level.dimension.DimensionType.Skybox skybox,
+		boolean renderOutline,
+		boolean shouldRenderSky,
+		org.joml.Vector4f fogColor,
+		CallbackInfo ci
+	) {
 		if (XenoConfig.INSTANCE.enableXenoTerrain) {
-			XenoWorldRenderer.getInstance().buildFrameGraph(null, null, null);
+			com.mojang.blaze3d.pipeline.RenderTarget mainTarget = this.minecraft.gameRenderer.mainRenderTarget();
+			XenoWorldRenderer.getInstance().buildFrameGraph(frame, mainTarget, mainTarget.getDepthTextureView());
 		}
 	}
 

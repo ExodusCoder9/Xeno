@@ -32,10 +32,7 @@ public class StagingBuffer {
 	public void beginFrame() {
 		writeSlot = (writeSlot + 1) % BUFFER_COUNT;
 		regionOffsets.clear();
-		if (slots[writeSlot].mappedView != null) {
-			slots[writeSlot].mappedView.close();
-			slots[writeSlot].mappedView = null;
-		}
+		unmap();
 	}
 
 	public long reserve(long regionKey, int size) {
@@ -52,11 +49,15 @@ public class StagingBuffer {
 		return slots[writeSlot].mappedView.data();
 	}
 
-	public void submitUpload(CommandEncoder encoder, GpuBuffer destination, long srcOffset, long destOffset, long size) {
+	public void unmap() {
 		if (slots[writeSlot].mappedView != null) {
 			slots[writeSlot].mappedView.close();
 			slots[writeSlot].mappedView = null;
 		}
+	}
+
+	public void submitUpload(CommandEncoder encoder, GpuBuffer destination, long srcOffset, long destOffset, long size) {
+		unmap();
 		encoder.copyToBuffer(
 			slots[writeSlot].buffer.slice(srcOffset, size),
 			destination.slice(destOffset, size)
