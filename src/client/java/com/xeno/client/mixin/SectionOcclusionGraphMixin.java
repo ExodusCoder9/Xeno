@@ -143,14 +143,14 @@ public class SectionOcclusionGraphMixin {
             // 1. Build section snapshot array
             net.minecraft.client.RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = 
                 ((ViewAreaAccessor) this.xenoViewArea).getSections();
-            RotatingSectionStorageExt storageExt = (RotatingSectionStorageExt) (Object) storage;
+            RotatingSectionStorageExt storageExt = (RotatingSectionStorageExt) storage;
             SectionRenderDispatcher.RenderSection[] sectionArraySnapshot = 
-                (SectionRenderDispatcher.RenderSection[]) (Object) storageExt.xenoGetValues();
+                (SectionRenderDispatcher.RenderSection[]) storageExt.xeno$GetValues();
                 
             int minY = this.xenoViewArea.minSectionY();
             int maxY = this.xenoViewArea.maxSectionY();
-            int sizeY = storageExt.xenoGetGridSizeY();
-            int sizeXZ = storageExt.xenoGetGridSizeXZ();
+            int sizeY = storageExt.xeno$GetGridSizeY();
+            int sizeXZ = storageExt.xeno$GetGridSizeXZ();
             int viewDistance = this.xenoViewArea.getViewDistance();
 
             // 2. Clone empty sections and loaded chunks snapshots without synchronization

@@ -3,18 +3,23 @@ package com.xeno.client.mixin;
 import net.minecraft.client.RotatingSectionStorage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Unique;
+import org.slf4j.Logger;
+import com.mojang.logging.LogUtils;
 import java.lang.reflect.Method;
 
 @Mixin(RotatingSectionStorage.class)
 public class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
-    @Shadow
+    private static final Logger LOGGER = LogUtils.getLogger();
+
+    @Shadow @Final
     private Object[] nodes;
 
-    @Shadow
+    @Shadow @Final
     private int sectionGridSizeY;
 
-    @Shadow
+    @Shadow @Final
     private int sectionGridSizeXZ;
 
     @Unique
@@ -26,13 +31,13 @@ public class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
             nodeValueMethod = nodeClass.getMethod("value");
             nodeValueMethod.setAccessible(true);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to initialize RotatingSectionStorage reflection", e);
         }
     }
 
     @Override
     @Unique
-    public Object[] xenoGetValues() {
+    public Object[] xeno$GetValues() {
         Object[] values = new Object[nodes.length];
         if (nodeValueMethod != null) {
             for (int i = 0; i < nodes.length; i++) {
@@ -50,13 +55,13 @@ public class RotatingSectionStorageMixin implements RotatingSectionStorageExt {
 
     @Override
     @Unique
-    public int xenoGetGridSizeY() {
+    public int xeno$GetGridSizeY() {
         return this.sectionGridSizeY;
     }
 
     @Override
     @Unique
-    public int xenoGetGridSizeXZ() {
+    public int xeno$GetGridSizeXZ() {
         return this.sectionGridSizeXZ;
     }
 }

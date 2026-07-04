@@ -33,11 +33,9 @@ public class CullingThread extends Thread {
     private volatile CullingOutput latestOutput;
     private volatile boolean needsFrustumUpdate = false;
 
-    // Culling thread private data (completely single-threaded, no concurrent overhead)
     private final LongOpenHashSet emptySections = new LongOpenHashSet();
     private final List<SectionRenderDispatcher.RenderSection> occlusionVisible = new ArrayList<>(4096);
-    
-    // Reusable traversal caches for zero-allocation culling
+
     private CullNode[] nodeArray = new CullNode[0];
     private boolean[] visited = new boolean[0];
     private final Queue<CullNode> bfsQueue = new ArrayDeque<>(1024);
@@ -266,7 +264,6 @@ public class CullingThread extends Thread {
         int cameraSectionX = cameraSectionPos.x();
         int cameraSectionY = cameraSectionPos.y();
         int cameraSectionZ = cameraSectionPos.z();
-        long cameraSectionNode = cameraSectionPos.asLong();
         BlockPos cameraSectionCenter = cameraSectionPos.center();
 
         int minY = request.minY();
