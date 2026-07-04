@@ -4,6 +4,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.BlockModelLighter;
+import net.minecraft.util.LightCoordsUtil;
 
 public class XenoMeshingCache {
     private static final ThreadLocal<XenoMeshingCache> INSTANCE = ThreadLocal.withInitial(XenoMeshingCache::new);
@@ -64,24 +65,34 @@ public class XenoMeshingCache {
     }
 
     public int getLightCoords(BlockModelLighter.Cache vanillaCache, BlockAndTintGetter region, BlockState state, BlockPos pos) {
-        if (!this.active) return vanillaCache.getLightCoords(state, region, pos);
+        if (!this.active) {
+            return LightCoordsUtil.getLightCoords(LightCoordsUtil.BrightnessGetter.DEFAULT, region, state, pos);
+        }
         int idx = getIndex(pos);
-        if (idx == -1) return vanillaCache.getLightCoords(state, region, pos);
+        if (idx == -1) {
+            return LightCoordsUtil.getLightCoords(LightCoordsUtil.BrightnessGetter.DEFAULT, region, state, pos);
+        }
 
         if (!this.lightPopulated[idx]) {
-            this.lightCoords[idx] = vanillaCache.getLightCoords(state, region, pos);
+            // Bypass vanillaCache to break recursion loop and use LightCoordsUtil directly
+            this.lightCoords[idx] = LightCoordsUtil.getLightCoords(LightCoordsUtil.BrightnessGetter.DEFAULT, region, state, pos);
             this.lightPopulated[idx] = true;
         }
         return this.lightCoords[idx];
     }
 
     public float getShadeBrightness(BlockModelLighter.Cache vanillaCache, BlockAndTintGetter region, BlockState state, BlockPos pos) {
-        if (!this.active) return vanillaCache.getShadeBrightness(state, region, pos);
+        if (!this.active) {
+            return state.getShadeBrightness(region, pos);
+        }
         int idx = getIndex(pos);
-        if (idx == -1) return vanillaCache.getShadeBrightness(state, region, pos);
+        if (idx == -1) {
+            return state.getShadeBrightness(region, pos);
+        }
 
         if (!this.shadePopulated[idx]) {
-            this.shadeBrightness[idx] = vanillaCache.getShadeBrightness(state, region, pos);
+            // Bypass vanillaCache to break recursion loop and query the state directly
+            this.shadeBrightness[idx] = state.getShadeBrightness(region, pos);
             this.shadePopulated[idx] = true;
         }
         return this.shadeBrightness[idx];
