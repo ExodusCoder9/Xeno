@@ -11,7 +11,8 @@
 		"RenderPipelineBuilderMixin",
 		"SectionTaskDynamicQueueMixin",
 		"SectionRenderDispatcherMixin",
-		"LevelRendererMixin"
+		"LevelRendererMixin",
+		"DebugScreenOverlayMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

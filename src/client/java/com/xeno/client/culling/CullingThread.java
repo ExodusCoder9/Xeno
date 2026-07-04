@@ -23,6 +23,10 @@ public class CullingThread extends Thread {
     private static final int MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE = SectionPos.blockToSectionCoord(60);
     private static final Direction[] DIRECTIONS = Direction.values();
 
+    public static volatile double profiledLatencyMs = 0.0;
+    public static volatile double displayedLatencyMs = 0.0;
+    public static volatile double profiledUsagePercent = 0.0;
+
     private volatile CullingRequest pendingRequest;
     private volatile CullingOutput latestOutput;
     private volatile boolean needsFrustumUpdate = false;
@@ -93,6 +97,10 @@ public class CullingThread extends Thread {
 
     @Override
     public void run() {
+        long lastWindowStart = System.nanoTime();
+        long totalActiveTimeInWindow = 0L;
+        long lastLatencyUpdate = 0L;
+
         while (!Thread.interrupted()) {
             CullingRequest request = this.pendingRequest;
             if (request == null) {
@@ -105,7 +113,27 @@ public class CullingThread extends Thread {
             this.pendingRequest = null;
 
             try {
+                long startTime = System.nanoTime();
                 this.processUpdates(request);
+                long endTime = System.nanoTime();
+                long duration = endTime - startTime;
+                totalActiveTimeInWindow += duration;
+
+                double currentLatency = duration / 1_000_000.0;
+                profiledLatencyMs = currentLatency;
+
+                long now = System.currentTimeMillis();
+                if (now - lastLatencyUpdate >= 200L) {
+                    displayedLatencyMs = currentLatency;
+                    lastLatencyUpdate = now;
+                }
+
+                long elapsedSinceWindowStart = endTime - lastWindowStart;
+                if (elapsedSinceWindowStart >= 500_000_000L) { // 500ms window
+                    profiledUsagePercent = ((double) totalActiveTimeInWindow / elapsedSinceWindowStart) * 100.0;
+                    totalActiveTimeInWindow = 0L;
+                    lastWindowStart = endTime;
+                }
             } catch (Exception e) {
                 LOGGER.error("Error in culling thread execution loop", e);
             }
