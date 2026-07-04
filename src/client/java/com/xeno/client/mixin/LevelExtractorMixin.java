@@ -67,7 +67,7 @@ public class LevelExtractorMixin {
                     if (section != null) {
                         hasTestedAnySection = true;
                         XenoOcclusionGraph xenoGraph = (XenoOcclusionGraph) this.levelRenderer.sectionOcclusionGraph();
-                        if (xenoGraph.isSectionVisible(section.index)) {
+                        if (xenoGraph.xeno$isSectionVisible(section.index)) {
                             anySectionVisible = true;
                             break;
                         }

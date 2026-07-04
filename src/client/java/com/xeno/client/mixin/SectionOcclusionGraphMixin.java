@@ -297,7 +297,7 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     }
 
     @Override
-    public boolean isSectionVisible(int sectionIndex) {
+    public boolean xeno$isSectionVisible(int sectionIndex) {
         if (this.xeno_cullingThread == null) return true;
         CullingOutput output = this.xeno_cullingThread.getLatestOutput();
         if (output == null) return true;

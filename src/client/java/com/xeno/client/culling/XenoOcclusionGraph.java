@@ -1,5 +1,5 @@
 package com.xeno.client.culling;
 
 public interface XenoOcclusionGraph {
-    boolean isSectionVisible(int sectionIndex);
+    boolean xeno$isSectionVisible(int sectionIndex);
 }
