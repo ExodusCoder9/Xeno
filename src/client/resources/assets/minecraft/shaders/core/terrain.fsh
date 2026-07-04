@@ -1,6 +1,5 @@
 #version 330
-#extension GL_ARB_shader_draw_parameters : enable
-
+#moj_import <minecraft:extensions.glsl>
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:globals.glsl>
 #moj_import <minecraft:chunksection.glsl>
