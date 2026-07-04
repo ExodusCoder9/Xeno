@@ -25,10 +25,10 @@ public class DebugScreenOverlayMixin {
     )
     private void xeno_injectDebugLines(GuiGraphicsExtractor graphics, CallbackInfo ci, @Local(ordinal = 0) List<String> leftLines) {
         if (leftLines != null) {
-            leftLines.add(0, "\u00a7dXenoRenderer-2.2.1+mc26.2");
-            leftLines.add(1, "\u00a7fAsynchronous Culling");
-            leftLines.add(2, String.format(Locale.ROOT, "\u00a77- Cull thread latency: \u00a7f%.2fms", CullingThread.displayedLatencyMs));
-            leftLines.add(3, String.format(Locale.ROOT, "\u00a77- Cull thread usage: \u00a7f%.1f%%", CullingThread.profiledUsagePercent));
+            leftLines.add(0, "§dXenoRenderer-2.2.1+mc26.2");
+            leftLines.add(1, "§fAsynchronous Culling");
+            leftLines.add(2, String.format(Locale.ROOT, "§7- Cull thread latency: §f%.2fms", CullingThread.displayedLatencyMs));
+            leftLines.add(3, String.format(Locale.ROOT, "§7- Cull thread usage: §f%.1f%%", CullingThread.profiledUsagePercent));
             leftLines.add(4, ""); // Empty spacing line
         }
     }
