@@ -9,6 +9,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.geom.builders.UVPair;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import org.joml.Vector3fc;
+import org.jspecify.annotations.NonNull;
 import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(BufferBuilder.class)
-@SuppressWarnings({"UnresolvedMixinReference", "unused"})
+@SuppressWarnings({"unused"})
 public abstract class BufferBuilderMixin implements VertexConsumer {
     @Shadow @Final
     private VertexFormat format;
@@ -44,7 +45,6 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
         throw new AssertionError();
     }
 
-    //noinspection SpellCheckingInspection
     @Inject(method = "addVertex(FFFIFFIIFFF)V", at = @At("HEAD"), cancellable = true)
     private void xeno_addVertex(
             float x, float y, float z, int color, float u, float v,
@@ -90,7 +90,7 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
      * resolving the "@At / Cannot resolve target instructions in target class" errors.
      */
     @Override
-    public void putBlockBakedQuad(final float x, final float y, final float z, final BakedQuad quad, final QuadInstance instance) {
+    public void putBlockBakedQuad(final float x, final float y, final float z, final @NonNull BakedQuad quad, final @NonNull QuadInstance instance) {
         if (this.format == XenoVertexFormat.XENO_COMPRESSED_FORMAT) {
             if (!this.building) {
                 throw new IllegalStateException("Not building!");
