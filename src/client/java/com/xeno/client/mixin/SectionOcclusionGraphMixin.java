@@ -1,26 +1,29 @@
 package com.xeno.client.mixin;
 
-import com.xeno.client.culling.CullingThread;
-import com.xeno.client.culling.CullingRequest;
 import com.xeno.client.culling.CullingOutput;
+import com.xeno.client.culling.CullingRequest;
+import com.xeno.client.culling.CullingThread;
+import it.unimi.dsi.fastutil.longs.LongCollection;
+import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSets;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.client.RotatingSectionStorage;
+import net.minecraft.client.renderer.Octree;
 import net.minecraft.client.renderer.SectionOcclusionGraph;
 import net.minecraft.client.renderer.ViewArea;
-import net.minecraft.client.renderer.Octree;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.ChunkLoadingRenderState;
 import net.minecraft.util.VisibleForDebug;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongCollection;
-import java.util.List;
-import java.util.ArrayList;
 import org.jspecify.annotations.Nullable;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -35,7 +38,7 @@ public class SectionOcclusionGraphMixin {
 
     @Unique
     private CullingThread xenoCullingThread;
-    
+
     @Unique
     private ViewArea xenoViewArea;
 
@@ -50,7 +53,7 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite waitAndReset to delegate to the asynchronous culling thread
+     * @reason Delegates view area resets to the asynchronous Xeno culling thread.
      */
     @Overwrite
     public void waitAndReset(final @Nullable ViewArea viewArea) {
@@ -63,16 +66,16 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite expectedChunks to return an empty collection as full updates happen on background thread
+     * @reason Returns an empty set since chunk expectations are managed asynchronously.
      */
     @Overwrite
     public LongCollection expectedChunks() {
-        return it.unimi.dsi.fastutil.longs.LongSets.EMPTY_SET;
+        return LongSets.EMPTY_SET;
     }
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite invalidate to mark full culling update needed on culling thread
+     * @reason Triggers invalidation on the dedicated culling thread instead of the main thread.
      */
     @Overwrite
     public void invalidate() {
@@ -83,22 +86,21 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite invalidateIfNeeded to delegate to culling thread's internal tracking
+     * @reason Stubbed out as frustum invalidation is handled internally by the culling thread.
      */
     @Overwrite
     public void invalidateIfNeeded(final CameraRenderState camera, final int fov) {
-        // Handled internally by the culling thread during update requests
     }
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite addSectionsInFrustum to directly inject the pre-computed culling results
+     * @reason Injects pre-computed culling results directly from the background culling thread.
      */
     @Overwrite
     public void addSectionsInFrustum(
-       final Frustum frustum,
-       final List<SectionRenderDispatcher.RenderSection> visibleSections,
-       final List<SectionRenderDispatcher.RenderSection> nearbyVisibleSections
+            final Frustum frustum,
+            final List<SectionRenderDispatcher.RenderSection> visibleSections,
+            final List<SectionRenderDispatcher.RenderSection> nearbyVisibleSections
     ) {
         if (this.xenoCullingThread == null) return;
         CullingOutput output = this.xenoCullingThread.getLatestOutput();
@@ -110,7 +112,7 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite consumeFrustumUpdate to check if culling thread produced a new result
+     * @reason Checks the asynchronous culling thread for new frustum update results.
      */
     @Overwrite
     public boolean consumeFrustumUpdate() {
@@ -120,7 +122,7 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite schedulePropagationFrom to queue propagation task to culling thread
+     * @reason Queues propagation tasks locally to be batch-submitted to the culling thread.
      */
     @Overwrite
     public void schedulePropagationFrom(final SectionRenderDispatcher.RenderSection section) {
@@ -129,55 +131,53 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite update to submit a new culling request to the culling thread
+     * @reason Submits a complete snapshot of the render state to the background culling thread.
      */
     @Overwrite
     public void update(final CameraRenderState camera, final int fov, final ChunkLoadingRenderState chunkLoadingRenderState) {
         if (this.xenoCullingThread == null || this.xenoViewArea == null) return;
-        
-        // Enqueue loaded chunks and empty sections changes
+
         this.updateLoadedChunks(chunkLoadingRenderState.addedLoadedChunks, chunkLoadingRenderState.removedLoadedChunks);
         this.updateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
 
         if (!camera.isFrustumCaptured) {
-            // 1. Build section snapshot array
-            net.minecraft.client.RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = 
-                ((ViewAreaAccessor) this.xenoViewArea).getSections();
-            RotatingSectionStorageExt storageExt = (RotatingSectionStorageExt) storage;
-            SectionRenderDispatcher.RenderSection[] sectionArraySnapshot = 
-                (SectionRenderDispatcher.RenderSection[]) storageExt.xeno$GetValues();
-                
+            RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((ViewAreaAccessor) this.xenoViewArea).getSections();
+
             int minY = this.xenoViewArea.minSectionY();
             int maxY = this.xenoViewArea.maxSectionY();
-            int sizeY = storageExt.xeno$GetGridSizeY();
-            int sizeXZ = storageExt.xeno$GetGridSizeXZ();
             int viewDistance = this.xenoViewArea.getViewDistance();
+            int sizeY = maxY - minY + 1;
+            int sizeXZ = viewDistance * 2 + 1;
 
-            // 2. Clone empty sections and loaded chunks snapshots without synchronization
+            SectionRenderDispatcher.RenderSection[] sectionArraySnapshot = new SectionRenderDispatcher.RenderSection[sizeXZ * sizeY * sizeXZ];
+            for (SectionRenderDispatcher.RenderSection section : storage) {
+                if (section != null) {
+                    sectionArraySnapshot[section.index] = section;
+                }
+            }
+
             LongOpenHashSet emptySectionsSnapshot = this.emptySections.clone();
             LongOpenHashSet loadedChunksSnapshot = this.loadedChunks.clone();
 
-            // 3. Clone propagation queue without synchronization
             List<SectionRenderDispatcher.RenderSection> propagationsSnapshot = new ArrayList<>(this.pendingPropagations);
             this.pendingPropagations.clear();
 
-            // 4. Submit request to culling thread
             CullingRequest request = new CullingRequest(
-                camera.blockPos,
-                camera.pos,
-                camera.smartCull,
-                new Frustum(camera.cullFrustum),
-                fov,
-                this.xenoViewArea,
-                sectionArraySnapshot,
-                minY,
-                maxY,
-                sizeY,
-                sizeXZ,
-                viewDistance,
-                emptySectionsSnapshot,
-                loadedChunksSnapshot,
-                propagationsSnapshot
+                    camera.blockPos,
+                    camera.pos,
+                    camera.smartCull,
+                    new Frustum(camera.cullFrustum),
+                    fov,
+                    this.xenoViewArea,
+                    sectionArraySnapshot,
+                    minY,
+                    maxY,
+                    sizeY,
+                    sizeXZ,
+                    viewDistance,
+                    emptySectionsSnapshot,
+                    loadedChunksSnapshot,
+                    propagationsSnapshot
             );
             this.xenoCullingThread.submitRequest(request);
         }
@@ -185,12 +185,12 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite updateEmptySections to queue empty section changes to culling thread
+     * @reason Intercepts empty section updates to schedule propagations and update the local tracker.
      */
     @Overwrite
     public void updateEmptySections(final LongOpenHashSet added, final LongOpenHashSet removed) {
         this.emptySections.addAll(added);
-        it.unimi.dsi.fastutil.longs.LongIterator iter = removed.longIterator();
+        LongIterator iter = removed.longIterator();
         while (iter.hasNext()) {
             long sectionNode = iter.nextLong();
             if (this.emptySections.remove(sectionNode)) {
@@ -205,7 +205,7 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite updateLoadedChunks to queue loaded chunks changes to culling thread
+     * @reason Updates local tracking of loaded chunks for the asynchronous culling thread.
      */
     @Overwrite
     public void updateLoadedChunks(final LongOpenHashSet added, final LongOpenHashSet removed) {
@@ -215,7 +215,7 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite getOctree as a stub since frustum culling is fully done in background
+     * @reason Fetches the dummy octree from the culling thread for debug rendering compatibility.
      */
     @Overwrite
     public @Nullable Octree getOctree() {
@@ -225,7 +225,7 @@ public class SectionOcclusionGraphMixin {
 
     /**
      * @author ExodusCoder9
-     * @reason Overwrite getNode as a stub
+     * @reason Stubbed to return null as node tracking is internal to the background culling thread.
      */
     @Overwrite
     @VisibleForDebug

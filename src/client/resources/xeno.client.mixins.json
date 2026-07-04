@@ -5,8 +5,7 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"ViewAreaAccessor",
-		"SectionOcclusionGraphMixin",
-		"RotatingSectionStorageMixin"
+		"SectionOcclusionGraphMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
