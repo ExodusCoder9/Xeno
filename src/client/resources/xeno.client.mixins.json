@@ -3,7 +3,14 @@
 	"package": "com.xeno.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-
+		"LevelRendererMixin",
+		"LevelExtractorMixin",
+		"ViewAreaMixin",
+		"ChunkSectionsToRenderMixin",
+		"SectionOcclusionGraphMixin",
+		"GameRendererMixin",
+		"DebugScreenOverlayMixin",
+		"OptionsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
