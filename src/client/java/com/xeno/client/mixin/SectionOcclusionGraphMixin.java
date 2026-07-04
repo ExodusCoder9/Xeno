@@ -13,7 +13,6 @@ import net.minecraft.client.renderer.state.level.ChunkLoadingRenderState;
 import net.minecraft.util.VisibleForDebug;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongCollection;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.List;
 import java.util.ArrayList;
 import org.jspecify.annotations.Nullable;
@@ -141,15 +140,18 @@ public class SectionOcclusionGraphMixin {
         this.updateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
 
         if (!camera.isFrustumCaptured) {
-            // 1. Build sectionMap snapshot (shallow copy)
+            // 1. Build section snapshot array
             net.minecraft.client.RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = 
                 ((ViewAreaAccessor) this.xenoViewArea).getSections();
-            Long2ObjectOpenHashMap<SectionRenderDispatcher.RenderSection> sectionMapSnapshot = new Long2ObjectOpenHashMap<>(storage.size());
-            for (SectionRenderDispatcher.RenderSection section : storage) {
-                if (section != null) {
-                    sectionMapSnapshot.put(section.getSectionNode(), section);
-                }
-            }
+            RotatingSectionStorageExt storageExt = (RotatingSectionStorageExt) (Object) storage;
+            SectionRenderDispatcher.RenderSection[] sectionArraySnapshot = 
+                (SectionRenderDispatcher.RenderSection[]) (Object) storageExt.xenoGetValues();
+                
+            int minY = this.xenoViewArea.minSectionY();
+            int maxY = this.xenoViewArea.maxSectionY();
+            int sizeY = storageExt.xenoGetGridSizeY();
+            int sizeXZ = storageExt.xenoGetGridSizeXZ();
+            int viewDistance = this.xenoViewArea.getViewDistance();
 
             // 2. Clone empty sections and loaded chunks snapshots without synchronization
             LongOpenHashSet emptySectionsSnapshot = this.emptySections.clone();
@@ -167,7 +169,12 @@ public class SectionOcclusionGraphMixin {
                 new Frustum(camera.cullFrustum),
                 fov,
                 this.xenoViewArea,
-                sectionMapSnapshot,
+                sectionArraySnapshot,
+                minY,
+                maxY,
+                sizeY,
+                sizeXZ,
+                viewDistance,
                 emptySectionsSnapshot,
                 loadedChunksSnapshot,
                 propagationsSnapshot

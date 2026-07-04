@@ -1,6 +1,5 @@
 package com.xeno.client.culling;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.util.Queue;
 import java.util.ArrayDeque;
@@ -44,6 +43,7 @@ public class CullingThread extends Thread {
     private final Queue<CullNode> bfsQueue = new ArrayDeque<>(1024);
     
     private Octree dummyOctree;
+    private Frustum localFrustum;
 
     public CullingThread() {
         super("Xeno-CullingThread");
@@ -82,6 +82,7 @@ public class CullingThread extends Thread {
         emptySections.clear();
         occlusionVisible.clear();
         dummyOctree = null;
+        localFrustum = null;
         LockSupport.unpark(this);
     }
 
@@ -90,7 +91,7 @@ public class CullingThread extends Thread {
         while (!Thread.interrupted()) {
             CullingRequest request = pendingRequest;
             if (request == null) {
-                LockSupport.parkNanos(5_000_000L);
+                LockSupport.parkNanos(5_000_000L); // Sleep up to 5ms
                 continue;
             }
             pendingRequest = null;
@@ -124,7 +125,7 @@ public class CullingThread extends Thread {
         ViewArea viewArea = request.viewArea();
         if (viewArea == null) return;
 
-        Long2ObjectOpenHashMap<SectionRenderDispatcher.RenderSection> sectionMap = request.sectionMap();
+        SectionRenderDispatcher.RenderSection[] sectionArray = request.sectionArray();
 
         // 1. Copy snapshot empty sections into thread-local set
         emptySections.clear();
@@ -140,17 +141,25 @@ public class CullingThread extends Thread {
         }
 
         // 3. Initialize BFS queue and run occlusion culling
-        initializeQueueForFullUpdate(request.cameraBlockPos(), bfsQueue, viewArea, sectionMap);
-        runUpdates(request, bfsQueue, request.smartCull(), viewArea.getViewDistance(), sectionMap);
+        initializeQueueForFullUpdate(request, bfsQueue, viewArea, sectionArray);
+        runUpdates(request, bfsQueue, request.smartCull(), request.viewDistance(), sectionArray);
 
         // 4. Linear Frustum Culling on BFS-visible sections (No octree builder or traverser!)
         List<SectionRenderDispatcher.RenderSection> visibleList = new ArrayList<>(occlusionVisible.size());
         List<SectionRenderDispatcher.RenderSection> nearbyList = new ArrayList<>();
-        Frustum offsetFrustum = new Frustum(request.frustum()).offsetToFullyIncludeCameraCube(8);
+        
+        // Reuse local frustum instance to avoid allocating a new Frustum object per frame
+        if (localFrustum == null) {
+            localFrustum = new Frustum(request.frustum());
+        } else {
+            localFrustum.set(request.frustum());
+        }
+        localFrustum.offsetToFullyIncludeCameraCube(8);
+        
         BlockPos cameraCenter = SectionPos.of(request.cameraPos()).center();
 
         for (SectionRenderDispatcher.RenderSection section : occlusionVisible) {
-            if (offsetFrustum.isVisible(section.getBoundingBox())) {
+            if (localFrustum.isVisible(section.getBoundingBox())) {
                 visibleList.add(section);
                 if (isClose(section.getBoundingBox(), cameraCenter)) {
                     nearbyList.add(section);
@@ -183,10 +192,18 @@ public class CullingThread extends Thread {
             && cameraCenter.getZ() < bb.maxZ + 32;
     }
 
-    private void initializeQueueForFullUpdate(final BlockPos cameraPosition, final Queue<CullNode> queue, ViewArea viewArea, Long2ObjectOpenHashMap<SectionRenderDispatcher.RenderSection> sectionMap) {
+    private void initializeQueueForFullUpdate(final CullingRequest request, final Queue<CullNode> queue, ViewArea viewArea, SectionRenderDispatcher.RenderSection[] sectionArray) {
+        BlockPos cameraPosition = request.cameraBlockPos();
         long cameraSectionNode = SectionPos.asLong(cameraPosition);
         int cameraSectionY = SectionPos.y(cameraSectionNode);
-        SectionRenderDispatcher.RenderSection cameraSection = sectionMap.get(cameraSectionNode);
+        
+        SectionRenderDispatcher.RenderSection cameraSection = getRelativeAt(
+            SectionPos.x(cameraSectionNode), cameraSectionY, SectionPos.z(cameraSectionNode),
+            SectionPos.x(cameraSectionNode), cameraSectionY, SectionPos.z(cameraSectionNode),
+            request.viewDistance(), request.minY(), request.maxY(), request.sizeY(), request.sizeXZ(),
+            sectionArray
+        );
+
         if (cameraSection == null) {
             boolean isBelowTheWorld = cameraSectionY < viewArea.minSectionY();
             int sectionY = isBelowTheWorld ? viewArea.minSectionY() : viewArea.maxSectionY();
@@ -197,8 +214,13 @@ public class CullingThread extends Thread {
 
             for (int sectionX = -viewDistance; sectionX <= viewDistance; sectionX++) {
                 for (int sectionZ = -viewDistance; sectionZ <= viewDistance; sectionZ++) {
-                    SectionRenderDispatcher.RenderSection renderSectionAt = sectionMap.get(SectionPos.asLong(sectionX + cameraSectionX, sectionY, sectionZ + cameraSectionZ));
-                    if (renderSectionAt != null && this.isInViewDistance(cameraSectionNode, renderSectionAt.getSectionNode(), viewDistance)) {
+                    SectionRenderDispatcher.RenderSection renderSectionAt = getRelativeAt(
+                        cameraSectionX, cameraSectionY, cameraSectionZ,
+                        sectionX + cameraSectionX, sectionY, sectionZ + cameraSectionZ,
+                        viewDistance, request.minY(), request.maxY(), request.sizeY(), request.sizeXZ(),
+                        sectionArray
+                    );
+                    if (renderSectionAt != null) {
                         Direction sourceDirection = isBelowTheWorld ? Direction.UP : Direction.DOWN;
                         
                         CullNode node = nodeArray[renderSectionAt.index];
@@ -237,12 +259,20 @@ public class CullingThread extends Thread {
         final Queue<CullNode> queue,
         final boolean smartCull,
         int viewDistance,
-        Long2ObjectOpenHashMap<SectionRenderDispatcher.RenderSection> sectionMap
+        SectionRenderDispatcher.RenderSection[] sectionArray
     ) {
         Vec3 cameraPos = request.cameraPos();
         SectionPos cameraSectionPos = SectionPos.of(cameraPos);
+        int cameraSectionX = cameraSectionPos.x();
+        int cameraSectionY = cameraSectionPos.y();
+        int cameraSectionZ = cameraSectionPos.z();
         long cameraSectionNode = cameraSectionPos.asLong();
         BlockPos cameraSectionCenter = cameraSectionPos.center();
+
+        int minY = request.minY();
+        int maxY = request.maxY();
+        int sizeY = request.sizeY();
+        int sizeXZ = request.sizeXZ();
 
         while (!queue.isEmpty()) {
             CullNode node = queue.poll();
@@ -255,12 +285,26 @@ public class CullingThread extends Thread {
                 node.section.sectionMesh.compareAndSet(CompiledSectionMesh.UNCOMPILED, CompiledSectionMesh.EMPTY);
             }
 
-            boolean distantFromCamera = Math.abs(SectionPos.x(sectionNode) - cameraSectionPos.x()) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
-                || Math.abs(SectionPos.y(sectionNode) - cameraSectionPos.y()) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
-                || Math.abs(SectionPos.z(sectionNode) - cameraSectionPos.z()) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE;
+            boolean distantFromCamera = Math.abs(SectionPos.x(sectionNode) - cameraSectionX) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
+                || Math.abs(SectionPos.y(sectionNode) - cameraSectionY) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
+                || Math.abs(SectionPos.z(sectionNode) - cameraSectionZ) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE;
+
+            int sectionX = SectionPos.x(sectionNode);
+            int sectionY = SectionPos.y(sectionNode);
+            int sectionZ = SectionPos.z(sectionNode);
 
             for (Direction direction : DIRECTIONS) {
-                SectionRenderDispatcher.RenderSection renderSectionAt = this.getRelativeFrom(cameraSectionNode, currentSection, direction, viewDistance, sectionMap);
+                int neighborX = sectionX + direction.getStepX();
+                int neighborY = sectionY + direction.getStepY();
+                int neighborZ = sectionZ + direction.getStepZ();
+
+                SectionRenderDispatcher.RenderSection renderSectionAt = this.getRelativeAt(
+                    cameraSectionX, cameraSectionY, cameraSectionZ,
+                    neighborX, neighborY, neighborZ,
+                    viewDistance, minY, maxY, sizeY, sizeXZ,
+                    sectionArray
+                );
+
                 if (renderSectionAt != null && (!smartCull || !node.hasDirection(direction.getOpposite()))) {
                     if (smartCull && node.hasSourceDirections()) {
                         SectionMesh sectionMesh = currentSection.getSectionMesh();
@@ -289,8 +333,16 @@ public class CullingThread extends Thread {
                                 break;
                             }
 
-                            long checkNode = SectionPos.asLong(BlockPos.containing(checkPos.x, checkPos.y, checkPos.z));
-                            SectionRenderDispatcher.RenderSection checkSection = sectionMap.get(checkNode);
+                            int checkSecX = SectionPos.blockToSectionCoord(checkPos.x);
+                            int checkSecY = SectionPos.blockToSectionCoord(checkPos.y);
+                            int checkSecZ = SectionPos.blockToSectionCoord(checkPos.z);
+
+                            SectionRenderDispatcher.RenderSection checkSection = getRelativeAt(
+                                cameraSectionX, cameraSectionY, cameraSectionZ,
+                                checkSecX, checkSecY, checkSecZ,
+                                viewDistance, minY, maxY, sizeY, sizeXZ,
+                                sectionArray
+                            );
                             if (checkSection == null || !visited[checkSection.index]) {
                                 visible = false;
                                 break;
@@ -317,6 +369,28 @@ public class CullingThread extends Thread {
         }
     }
 
+    private SectionRenderDispatcher.RenderSection getRelativeAt(
+        int cameraX, int cameraY, int cameraZ,
+        int neighborX, int neighborY, int neighborZ,
+        int viewDistance, int minY, int maxY, int sizeY, int sizeXZ,
+        SectionRenderDispatcher.RenderSection[] sectionArray
+    ) {
+        if (neighborY < minY || neighborY > maxY) {
+            return null;
+        }
+        if (!net.minecraft.server.level.ChunkTrackingView.isInViewDistance(cameraX, cameraZ, viewDistance, neighborX, neighborZ)) {
+            return null;
+        }
+        if (Mth.abs(cameraY - neighborY) > viewDistance) {
+            return null;
+        }
+        int y = neighborY - minY;
+        int x = Math.floorMod(neighborX, sizeXZ);
+        int z = Math.floorMod(neighborZ, sizeXZ);
+        int index = (z * sizeY + y) * sizeXZ + x;
+        return sectionArray[index];
+    }
+
     private Vector3d getCheckPos(BlockPos cameraSectionCenter, long sectionNode, Direction direction) {
         int originX = SectionPos.sectionToBlockCoord(SectionPos.x(sectionNode));
         int originY = SectionPos.sectionToBlockCoord(SectionPos.y(sectionNode));
@@ -337,28 +411,5 @@ public class CullingThread extends Thread {
             originY + (maxY ? 16 : 0),
             originZ + (maxZ ? 16 : 0)
         );
-    }
-
-    private boolean isInViewDistance(final long cameraSectionNode, final long sectionNode, int viewDistance) {
-        return net.minecraft.server.level.ChunkTrackingView.isInViewDistance(
-            SectionPos.x(cameraSectionNode),
-            SectionPos.z(cameraSectionNode),
-            viewDistance,
-            SectionPos.x(sectionNode),
-            SectionPos.z(sectionNode)
-        );
-    }
-
-    private SectionRenderDispatcher.RenderSection getRelativeFrom(
-        final long cameraSectionNode, final SectionRenderDispatcher.RenderSection renderSection, final Direction direction, int viewDistance, Long2ObjectOpenHashMap<SectionRenderDispatcher.RenderSection> sectionMap
-    ) {
-        long relative = renderSection.getNeighborSectionNode(direction);
-        if (!this.isInViewDistance(cameraSectionNode, relative, viewDistance)) {
-            return null;
-        } else {
-            return Mth.abs(SectionPos.y(cameraSectionNode) - SectionPos.y(relative)) > viewDistance
-                ? null
-                : sectionMap.get(relative);
-        }
     }
 }

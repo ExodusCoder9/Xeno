@@ -1,6 +1,5 @@
 package com.xeno.client.culling;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.util.List;
 import net.minecraft.client.renderer.ViewArea;
@@ -16,7 +15,12 @@ public record CullingRequest(
     Frustum frustum,
     int fov,
     ViewArea viewArea,
-    Long2ObjectOpenHashMap<SectionRenderDispatcher.RenderSection> sectionMap,
+    SectionRenderDispatcher.RenderSection[] sectionArray,
+    int minY,
+    int maxY,
+    int sizeY,
+    int sizeXZ,
+    int viewDistance,
     LongOpenHashSet emptySections,
     LongOpenHashSet loadedChunks,
     List<SectionRenderDispatcher.RenderSection> propagations
