@@ -6,7 +6,6 @@ import java.util.Queue;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
