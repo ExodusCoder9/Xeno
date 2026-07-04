@@ -1,4 +1,5 @@
 #version 330
+#define VERTEX_SHADER
 
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:globals.glsl>
@@ -17,6 +18,7 @@ out float sphericalVertexDistance;
 out float cylindricalVertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
+out flat int instanceId;
 
 void main() {
     // 1. Decode local position from millimeters to meters
@@ -28,6 +30,7 @@ void main() {
 
     sphericalVertexDistance = fog_spherical_distance(pos);
     cylindricalVertexDistance = fog_cylindrical_distance(pos);
+    instanceId = gl_InstanceID;
 
     // 3. Unpack packed lightmap coordinates (blockLight: x & 0x0F, skyLight: y & 0x0F)
     int blockLight = UV2.x & 0x0F;
