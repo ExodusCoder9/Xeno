@@ -40,10 +40,12 @@ public class SectionTaskDynamicQueueMixin implements XenoTaskQueue {
             return distSqr;
         }
 
+        // Compute direction vector to the center of the 16x16x16 section
         double dx = blockPos.getX() + 8.0 - cameraPos.x;
         double dy = blockPos.getY() + 8.0 - cameraPos.y;
         double dz = blockPos.getZ() + 8.0 - cameraPos.z;
-        double length = Math.sqrt(distSqr);
+        double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        
         if (length > 0.0) {
             double cosTheta = (this.xeno_lookX * dx + this.xeno_lookY * dy + this.xeno_lookZ * dz) / length;
             // CosTheta = 1.0 (directly in front) -> weight = 0.2 (highest priority)
