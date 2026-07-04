@@ -115,7 +115,17 @@ public class LevelRendererMixin implements com.xeno.client.render.LevelRendererE
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/LevelRenderer;compileSections(Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V"),
 		cancellable = true
 	)
-	private void xeno_cancelCompileSections(CallbackInfo ci) {
+	private void xeno_cancelCompileSections(
+		GraphicsResourceAllocator resourceAllocator,
+		DeltaTracker deltaTracker,
+		boolean renderOutline,
+		CameraRenderState cameraState,
+		Matrix4fc modelViewMatrix,
+		GpuBufferSlice terrainFog,
+		Vector4f fogColor,
+		boolean shouldRenderSky,
+		CallbackInfo ci
+	) {
 		if (XenoConfig.INSTANCE.enableXenoTerrain) {
 			XenoWorldRenderer.getInstance().endFrame();
 			ci.cancel();
@@ -127,7 +137,17 @@ public class LevelRendererMixin implements com.xeno.client.render.LevelRendererE
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/chunk/SectionRenderDispatcher;uploadTerrainBuffersToGpu()V"),
 		cancellable = true
 	)
-	private void xeno_cancelUploadTerrainBuffers(CallbackInfo ci) {
+	private void xeno_cancelUploadTerrainBuffers(
+		GraphicsResourceAllocator resourceAllocator,
+		DeltaTracker deltaTracker,
+		boolean renderOutline,
+		CameraRenderState cameraState,
+		Matrix4fc modelViewMatrix,
+		GpuBufferSlice terrainFog,
+		Vector4f fogColor,
+		boolean shouldRenderSky,
+		CallbackInfo ci
+	) {
 		if (XenoConfig.INSTANCE.enableXenoTerrain) {
 			ci.cancel();
 		}
@@ -138,7 +158,17 @@ public class LevelRendererMixin implements com.xeno.client.render.LevelRendererE
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/SectionOcclusionGraph;update(Lnet/minecraft/client/renderer/state/level/CameraRenderState;ILnet/minecraft/client/renderer/state/level/ChunkLoadingRenderState;)V"),
 		cancellable = true
 	)
-	private void xeno_cancelOcclusionUpdate(CallbackInfo ci) {
+	private void xeno_cancelOcclusionUpdate(
+		GraphicsResourceAllocator resourceAllocator,
+		DeltaTracker deltaTracker,
+		boolean renderOutline,
+		CameraRenderState cameraState,
+		Matrix4fc modelViewMatrix,
+		GpuBufferSlice terrainFog,
+		Vector4f fogColor,
+		boolean shouldRenderSky,
+		CallbackInfo ci
+	) {
 		if (XenoConfig.INSTANCE.enableXenoTerrain) {
 			ci.cancel();
 		}
@@ -156,7 +186,7 @@ public class LevelRendererMixin implements com.xeno.client.render.LevelRendererE
 
 	@ModifyArg(
 		method = "invalidateCompiledGeometry",
-		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/chunk/SectionRenderDispatcher;<init>(Lnet/minecraft/client/renderer/TracingExecutor;Lnet/minecraft/client/renderer/RenderBuffers;Lnet/minecraft/client/renderer/chunk/SectionCompiler;Ljava/util/function/Consumer;)V"),
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/chunk/SectionRenderDispatcher;<init>(Lnet/minecraft/TracingExecutor;Lnet/minecraft/client/renderer/RenderBuffers;Lnet/minecraft/client/renderer/chunk/SectionCompiler;Ljava/util/function/Consumer;)V"),
 		index = 3
 	)
 	private Consumer<SectionRenderDispatcher.RenderSection> xeno_routeMeshUpdate(Consumer<SectionRenderDispatcher.RenderSection> callback) {
@@ -171,7 +201,12 @@ public class LevelRendererMixin implements com.xeno.client.render.LevelRendererE
 		at = @At("HEAD"),
 		cancellable = true
 	)
-	private void xeno_cancelAlwaysOnTop(CallbackInfo ci) {
+	private void xeno_cancelAlwaysOnTop(
+		com.mojang.blaze3d.framegraph.FrameGraphBuilder frame,
+		net.minecraft.client.renderer.feature.FeatureRenderDispatcher.PreparedFrame featureFrame,
+		com.mojang.blaze3d.buffers.GpuBufferSlice fog,
+		CallbackInfo ci
+	) {
 		if (XenoConfig.INSTANCE.enableXenoTerrain) ci.cancel();
 	}
 
