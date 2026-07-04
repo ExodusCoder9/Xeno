@@ -1,5 +1,5 @@
 #version 330
-#moj_import <minecraft:extensions.glsl>
+
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:globals.glsl>
 #moj_import <minecraft:chunksection.glsl>

@@ -9,8 +9,8 @@ layout(std140) uniform ChunkSection {
     SectionData sections[1024];
 };
 
-// GL_ARB_shader_draw_parameters adds gl_DrawID to GLSL
-#define ModelViewMat sections[gl_DrawID].ModelViewMat
-#define ChunkVisibility sections[gl_DrawID].ChunkVisibility
-#define TextureSize sections[gl_DrawID].TextureSize
-#define ChunkPosition sections[gl_DrawID].ChunkPosition
+// Use gl_InstanceID instead of gl_DrawID (no extension needed)
+#define ModelViewMat sections[gl_InstanceID].ModelViewMat
+#define ChunkVisibility sections[gl_InstanceID].ChunkVisibility
+#define TextureSize sections[gl_InstanceID].TextureSize
+#define ChunkPosition sections[gl_InstanceID].ChunkPosition
