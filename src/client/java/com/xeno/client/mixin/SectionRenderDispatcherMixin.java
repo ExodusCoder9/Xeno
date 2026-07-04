@@ -21,9 +21,7 @@ public class SectionRenderDispatcherMixin {
     @Inject(method = "setCameraPosition", at = @At("HEAD"))
     private void xeno_updateCameraLook(Vec3 cameraPosition, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc != null && mc.gameRenderer != null && mc.gameRenderer.mainCamera() != null) {
-            Vector3fc look = mc.gameRenderer.mainCamera().forwardVector();
-            ((XenoTaskQueue) this.queue).xeno_updateCameraLook(look.x(), look.y(), look.z());
-        }
+        Vector3fc look = mc.gameRenderer.mainCamera().forwardVector();
+        ((XenoTaskQueue) this.queue).xeno_updateCameraLook(look.x(), look.y(), look.z());
     }
 }
