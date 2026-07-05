@@ -166,8 +166,8 @@ public abstract class LevelRendererMixin {
                             combinedHash = 31 * combinedHash + vertexBuffer.hashCode();
 
                             int firstIndex = 0;
-                            @Nullable GpuBuffer indexBuffer;
-                            @Nullable IndexType indexType;
+                            GpuBuffer indexBuffer;
+                            IndexType indexType;
 
                             if (!draw.hasCustomIndexBuffer()) {
                                 if (draw.indexCount() > largestIndexCount) {
@@ -209,8 +209,8 @@ public abstract class LevelRendererMixin {
                             combinedHash = 31 * combinedHash + vertexBuffer.hashCode();
 
                             int firstIndex = 0;
-                            @Nullable GpuBuffer indexBuffer;
-                            @Nullable IndexType indexType;
+                            GpuBuffer indexBuffer;
+                            IndexType indexType;
 
                             if (!draw.hasCustomIndexBuffer()) {
                                 if (draw.indexCount() > largestIndexCount) {
@@ -250,8 +250,8 @@ public abstract class LevelRendererMixin {
                             GpuBuffer vertexBuffer = slice.vertexBuffer();
 
                             int firstIndex = 0;
-                            @Nullable GpuBuffer indexBuffer;
-                            @Nullable IndexType indexType;
+                            GpuBuffer indexBuffer;
+                            IndexType indexType;
 
                             if (!draw.hasCustomIndexBuffer()) {
                                 if (draw.indexCount() > largestIndexCount) {
