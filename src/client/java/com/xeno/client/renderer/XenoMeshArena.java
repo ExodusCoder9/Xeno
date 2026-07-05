@@ -5,7 +5,6 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.GpuDevice;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
-import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +18,7 @@ public class XenoMeshArena implements AutoCloseable {
         public final long baseAddress;
         public int activeAllocations = 0;
 
-        public VertexSegment(GpuDevice device, boolean isIntegrated, long capacity, long align) {
+        public VertexSegment(GpuDevice device, boolean isIntegrated, long capacity) {
             int usage = GpuBuffer.USAGE_VERTEX;
             if (isIntegrated) {
                 usage |= GpuBuffer.USAGE_MAP_WRITE;
@@ -31,7 +30,7 @@ public class XenoMeshArena implements AutoCloseable {
             this.allocator = new OffsetAllocator(capacity);
             if (isIntegrated) {
                 this.mappedView = this.buffer.map(false, true);
-                this.baseAddress = MemorySegment.ofBuffer(this.mappedView.data()).address();
+                this.baseAddress = java.lang.foreign.MemorySegment.ofBuffer(this.mappedView.data()).address();
             } else {
                 this.mappedView = null;
                 this.baseAddress = 0;
@@ -51,7 +50,7 @@ public class XenoMeshArena implements AutoCloseable {
         public final long baseAddress;
         public int activeAllocations = 0;
 
-        public IndexSegment(GpuDevice device, boolean isIntegrated, long capacity, long align) {
+        public IndexSegment(GpuDevice device, boolean isIntegrated, long capacity) {
             int usage = GpuBuffer.USAGE_INDEX;
             if (isIntegrated) {
                 usage |= GpuBuffer.USAGE_MAP_WRITE;
@@ -63,7 +62,7 @@ public class XenoMeshArena implements AutoCloseable {
             this.allocator = new OffsetAllocator(capacity);
             if (isIntegrated) {
                 this.mappedView = this.buffer.map(false, true);
-                this.baseAddress = MemorySegment.ofBuffer(this.mappedView.data()).address();
+                this.baseAddress = java.lang.foreign.MemorySegment.ofBuffer(this.mappedView.data()).address();
             } else {
                 this.mappedView = null;
                 this.baseAddress = 0;
@@ -100,8 +99,8 @@ public class XenoMeshArena implements AutoCloseable {
         this.indexAlign = indexAlign;
         
         // Allocate initial segments
-        this.vertexSegments.add(new VertexSegment(device, isIntegrated, defaultVertexCapacity, vertexAlign));
-        this.indexSegments.add(new IndexSegment(device, isIntegrated, defaultIndexCapacity, indexAlign));
+        this.vertexSegments.add(new VertexSegment(device, isIntegrated, defaultVertexCapacity));
+        this.indexSegments.add(new IndexSegment(device, isIntegrated, defaultIndexCapacity));
     }
 
     public boolean isIntegrated() {
@@ -123,7 +122,7 @@ public class XenoMeshArena implements AutoCloseable {
         }
 
         // Segment overflow
-        VertexSegment newSegment = new VertexSegment(device, isIntegrated, defaultVertexCapacity, vertexAlign);
+        VertexSegment newSegment = new VertexSegment(device, isIntegrated, defaultVertexCapacity);
         vertexSegments.add(newSegment);
         
         OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, vertexAlign);
@@ -149,7 +148,7 @@ public class XenoMeshArena implements AutoCloseable {
         }
 
         // Segment overflow
-        IndexSegment newSegment = new IndexSegment(device, isIntegrated, defaultIndexCapacity, indexAlign);
+        IndexSegment newSegment = new IndexSegment(device, isIntegrated, defaultIndexCapacity);
         indexSegments.add(newSegment);
         
         OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, indexAlign);
