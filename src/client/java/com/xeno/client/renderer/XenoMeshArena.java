@@ -5,7 +5,6 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.GpuDevice;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
-import java.nio.ByteBuffer;
 import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 public class XenoMeshArena implements AutoCloseable {
-    public static class Segment implements AutoCloseable {
+    public static class Segment {
         public final GpuBuffer vertexBuffer;
         public final GpuBuffer indexBuffer;
         public final OffsetAllocator vertexAllocator;
@@ -54,7 +53,6 @@ public class XenoMeshArena implements AutoCloseable {
             }
         }
 
-        @Override
         public void close() {
             if (vertexMappedView != null) vertexMappedView.close();
             if (indexMappedView != null) indexMappedView.close();

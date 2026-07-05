@@ -11,6 +11,7 @@
 		"RenderPipelineBuilderMixin",
 		"SectionTaskDynamicQueueMixin",
 		"SectionRenderDispatcherMixin",
+		"SectionRenderDispatcherRenderSectionMixin",
 		"LevelRendererMixin",
 		"DebugScreenOverlayMixin",
 		"DebugScreenEntriesMixin",

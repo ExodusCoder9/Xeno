@@ -51,7 +51,8 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
         boolean isIntegrated = device.getDeviceInfo().type() == DeviceType.INTEGRATED;
         this.xeno$arenas = Util.makeEnumMap(ChunkSectionLayer.class, layer -> {
             VertexFormat format = layer.pipeline().getVertexFormatBinding(0);
-            return new XenoMeshArena(device, isIntegrated, 134217728, 33554432, format.getVertexSize(), 8);
+            int vertexSize = format != null ? format.getVertexSize() : 20;
+            return new XenoMeshArena(device, isIntegrated, 134217728, 33554432, vertexSize, 8);
         });
     }
 

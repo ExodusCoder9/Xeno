@@ -80,9 +80,4 @@ public class OffsetAllocator {
             }
         }
     }
-
-    public synchronized void reset() {
-        freeSlots.clear();
-        currentEnd = 0;
-    }
 }
