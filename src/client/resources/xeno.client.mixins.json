@@ -19,7 +19,10 @@
 		"BlockModelLighterCacheMixin",
 		"ChunkSectionsToRenderMixin",
 		"VulkanBackendMixin",
-		"LevelRendererCompilerMixin"
+		"LevelRendererCompilerMixin",
+		"FrameGraphExecuteMixin",
+		"FrameGraphPassAccessor",
+		"FrameGraphResourceAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
