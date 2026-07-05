@@ -16,9 +16,7 @@ public final class MemoryIntrinsics {
 
     private MemoryIntrinsics() {}
 
-    public static void putFloat(long address, float value) {
-        HEAP.set(FLOAT_UNALIGNED, address, value);
-    }
+    public static void putFloat(long address, float value) {HEAP.set(FLOAT_UNALIGNED, address, value);}
 
     public static float getFloat(long address) {
         return HEAP.get(FLOAT_UNALIGNED, address);
