@@ -21,9 +21,7 @@ public class XenoMdiRenderer {
         IndexType lastIndexType = null;
         GpuBuffer lastVertexBuffer = null;
 
-        int drawCount = draws.size();
-        for (int i = 0; i < drawCount; i++) {
-            RenderPass.Draw<GpuBufferSlice[]> draw = draws.get(i);
+        for (RenderPass.Draw<GpuBufferSlice[]> draw : draws) {
 
             // 1. Bind Index Buffer (avoid redundant binds)
             GpuBuffer ib = draw.indexBuffer() != null ? draw.indexBuffer() : defaultIndexBuffer;

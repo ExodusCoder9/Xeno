@@ -151,8 +151,7 @@ public abstract class LevelRendererMixin {
                         }
                     }
 
-                    for (int i = 0; i < solidList.size(); i++) {
-                        SectionRenderDispatcher.RenderSection section = solidList.get(i);
+                    for (SectionRenderDispatcher.RenderSection section : solidList) {
                         SectionMesh sectionMesh = section.getSectionMesh();
                         ChunkSectionLayer layer = ChunkSectionLayer.SOLID;
                         SectionMesh.SectionDraw draw = sectionMesh.getSectionDraw(layer);
@@ -177,8 +176,8 @@ public abstract class LevelRendererMixin {
                                 indexBuffer = null;
                                 indexType = null;
                             } else {
-                                indexBuffer = slice.indexBuffer();
-                                indexType = draw.indexType();
+                                indexBuffer = Objects.requireNonNull(slice.indexBuffer());
+                                indexType = Objects.requireNonNull(draw.indexType());
                                 combinedHash = 31 * combinedHash + indexBuffer.hashCode();
                                 combinedHash = 31 * combinedHash + indexType.hashCode();
                                 firstIndex = (int) (slice.indexBufferOffset() / indexType.bytes);
@@ -195,8 +194,7 @@ public abstract class LevelRendererMixin {
                         }
                     }
 
-                    for (int i = 0; i < cutoutList.size(); i++) {
-                        SectionRenderDispatcher.RenderSection section = cutoutList.get(i);
+                    for (SectionRenderDispatcher.RenderSection section : cutoutList) {
                         SectionMesh sectionMesh = section.getSectionMesh();
                         ChunkSectionLayer layer = ChunkSectionLayer.CUTOUT;
                         SectionMesh.SectionDraw draw = sectionMesh.getSectionDraw(layer);
@@ -221,8 +219,8 @@ public abstract class LevelRendererMixin {
                                 indexBuffer = null;
                                 indexType = null;
                             } else {
-                                indexBuffer = slice.indexBuffer();
-                                indexType = draw.indexType();
+                                indexBuffer = Objects.requireNonNull(slice.indexBuffer());
+                                indexType = Objects.requireNonNull(draw.indexType());
                                 combinedHash = 31 * combinedHash + indexBuffer.hashCode();
                                 combinedHash = 31 * combinedHash + indexType.hashCode();
                                 firstIndex = (int) (slice.indexBufferOffset() / indexType.bytes);
@@ -239,8 +237,7 @@ public abstract class LevelRendererMixin {
                         }
                     }
 
-                    for (int i = 0; i < translucentList.size(); i++) {
-                        SectionRenderDispatcher.RenderSection section = translucentList.get(i);
+                    for (SectionRenderDispatcher.RenderSection section : translucentList) {
                         SectionMesh sectionMesh = section.getSectionMesh();
                         ChunkSectionLayer layer = ChunkSectionLayer.TRANSLUCENT;
                         SectionMesh.SectionDraw draw = sectionMesh.getSectionDraw(layer);
