@@ -19,7 +19,8 @@
 		"SectionCompilerMixin",
 		"BlockModelLighterCacheMixin",
 		"ChunkSectionsToRenderMixin",
-		"VulkanBackendMixin"
+		"VulkanBackendMixin",
+		"LevelRendererCompilerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -177,7 +177,6 @@ public class XenoMesher extends SectionCompiler {
         ByteBufferBuilder buf, float x, float y, float z, BakedQuad quad, QuadInstance instance
     ) {
         long ptr = buf.reserve(QUAD_SIZE);
-        var normal = quad.direction().getUnitVec3f();
         int lightEmission = quad.materialInfo().lightEmission();
 
         for (int v = 0; v < 4; v++) {
