@@ -4,17 +4,17 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
+/**
+ * Provides zero allocation Intrinsics access using the Foreign Function & Memory API.
+ */
 public final class MemoryIntrinsics {
     private static final MemorySegment HEAP = MemorySegment.ofAddress(0L).reinterpret(Long.MAX_VALUE);
 
     private static final ValueLayout.OfInt INT_UNALIGNED = ValueLayout.JAVA_INT.withByteAlignment(1);
-
     private static final ValueLayout.OfShort SHORT_UNALIGNED = ValueLayout.JAVA_SHORT.withByteAlignment(1);
-
     private static final ValueLayout.OfByte BYTE_UNALIGNED = ValueLayout.JAVA_BYTE;
 
-    private MemoryIntrinsics() {
-    }
+    private MemoryIntrinsics() {}
 
     public static void putInt(long address, int value) {
         HEAP.set(INT_UNALIGNED, address, value);
@@ -32,6 +32,9 @@ public final class MemoryIntrinsics {
         return HEAP.get(BYTE_UNALIGNED, address);
     }
 
+    /**
+     * Copies data from a ByteBuffer directly into native memory.
+     */
     public static void copy(ByteBuffer src, long destAddress, long length) {
         MemorySegment srcSegment = MemorySegment.ofBuffer(src);
         MemorySegment.copy(srcSegment, 0L, HEAP, destAddress, length);

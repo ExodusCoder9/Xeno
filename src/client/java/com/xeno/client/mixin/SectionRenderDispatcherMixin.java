@@ -34,15 +34,19 @@ import java.util.concurrent.locks.ReentrantLock;
 public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
     @Shadow @Final
     private SectionTaskDynamicQueue queue;
+
     @Shadow
     private volatile boolean closed;
+
     @Shadow @Final
     private ReentrantLock copyLock;
 
     @Unique
     private Map<ChunkSectionLayer, XenoMeshArena> xeno$arenas;
+
     @Unique
     private final ConcurrentLinkedQueue<PendingUpload> xeno$pendingUploads = new ConcurrentLinkedQueue<>();
+
     @Unique
     private final ConcurrentLinkedQueue<Runnable> xeno$renderThreadCallbacks = new ConcurrentLinkedQueue<>();
 
@@ -50,6 +54,7 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
     private void onInit(CallbackInfo ci) {
         GpuDevice device = RenderSystem.getDevice();
         boolean isIntegrated = device.getDeviceInfo().type() == DeviceType.INTEGRATED;
+
         this.xeno$arenas = Util.makeEnumMap(ChunkSectionLayer.class, layer -> {
             VertexFormat format = layer.pipeline().getVertexFormatBinding(0);
             int vertexSize = format != null ? format.getVertexSize() : 16;
@@ -74,40 +79,38 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
 
     @Inject(method = "uploadTerrainBuffersToGpu", at = @At("HEAD"), cancellable = true)
     private void onUploadTerrainBuffersToGpu(CallbackInfo ci) {
-        // 1. Run all render thread callbacks first (these update the meshes)
         Runnable callback;
         while ((callback = this.xeno$renderThreadCallbacks.poll()) != null) {
             callback.run();
         }
 
-        // 2. Perform all pending uploads for dGPU (Approach B)
-        PendingUpload upload;
-        GpuDevice device = RenderSystem.getDevice();
+        if (!this.xeno$pendingUploads.isEmpty()) {
+            GpuDevice device = RenderSystem.getDevice();
+            CommandEncoder encoder = device.createCommandEncoder();
+            PendingUpload upload;
 
-        // Cache the encoder to avoid generating massive amounts of command encoder objects
-        CommandEncoder encoder = device.createCommandEncoder();
-
-        while ((upload = this.xeno$pendingUploads.poll()) != null) {
-            XenoMeshArena arena = this.xeno$arenas.get(upload.layer());
-            if (arena != null) {
-                if (upload.vertexData() != null) {
-                    long vSize = upload.vertexData().remaining();
-                    XenoMeshArena.VertexAllocation alloc = arena.allocateVertex(upload.mesh(), vSize);
-                    encoder.writeToBuffer(
-                            alloc.segment().buffer.slice(alloc.slot().offset, vSize),
-                            upload.vertexData()
-                    );
-                }
-                if (upload.indexData() != null) {
-                    long iSize = upload.indexData().remaining();
-                    XenoMeshArena.IndexAllocation alloc = arena.allocateIndex(upload.mesh(), iSize);
-                    encoder.writeToBuffer(
-                            alloc.segment().buffer.slice(alloc.slot().offset, iSize),
-                            upload.indexData()
-                    );
-                }
-                if (upload.callback() != null) {
-                    upload.callback().run();
+            while ((upload = this.xeno$pendingUploads.poll()) != null) {
+                XenoMeshArena arena = this.xeno$arenas.get(upload.layer());
+                if (arena != null) {
+                    if (upload.vertexData() != null) {
+                        long vSize = upload.vertexData().remaining();
+                        XenoMeshArena.VertexAllocation alloc = arena.allocateVertex(upload.mesh(), vSize);
+                        encoder.writeToBuffer(
+                                alloc.segment().buffer.slice(alloc.slot().offset, vSize),
+                                upload.vertexData()
+                        );
+                    }
+                    if (upload.indexData() != null) {
+                        long iSize = upload.indexData().remaining();
+                        XenoMeshArena.IndexAllocation alloc = arena.allocateIndex(upload.mesh(), iSize);
+                        encoder.writeToBuffer(
+                                alloc.segment().buffer.slice(alloc.slot().offset, iSize),
+                                upload.indexData()
+                        );
+                    }
+                    if (upload.callback() != null) {
+                        upload.callback().run();
+                    }
                 }
             }
         }
@@ -117,7 +120,7 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
     @Inject(method = "dispose", at = @At("HEAD"), cancellable = true)
     private void onDispose(CallbackInfo ci) {
         this.closed = true;
-        this.queue.clear(); // clearCompileQueue
+        this.queue.clear();
         this.copyLock.lock();
         try {
             for (XenoMeshArena arena : this.xeno$arenas.values()) {

@@ -10,7 +10,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Manages contiguous blocks of GPU memory for terrain meshes.
+ */
 public class XenoMeshArena implements AutoCloseable {
+
     public static class VertexSegment {
         public final GpuBuffer buffer;
         public final OffsetAllocator allocator;
@@ -28,6 +32,7 @@ public class XenoMeshArena implements AutoCloseable {
 
             this.buffer = device.createBuffer(() -> "Xeno Vertex Segment", usage, capacity);
             this.allocator = new OffsetAllocator(capacity);
+
             if (isIntegrated) {
                 this.mappedView = this.buffer.map(false, true);
                 this.baseAddress = java.lang.foreign.MemorySegment.ofBuffer(this.mappedView.data()).address();
@@ -38,8 +43,10 @@ public class XenoMeshArena implements AutoCloseable {
         }
 
         public void close() {
-            if (mappedView != null) mappedView.close();
-            buffer.close();
+            if (this.mappedView != null) {
+                this.mappedView.close();
+            }
+            this.buffer.close();
         }
     }
 
@@ -60,6 +67,7 @@ public class XenoMeshArena implements AutoCloseable {
 
             this.buffer = device.createBuffer(() -> "Xeno Index Segment", usage, capacity);
             this.allocator = new OffsetAllocator(capacity);
+
             if (isIntegrated) {
                 this.mappedView = this.buffer.map(false, true);
                 this.baseAddress = java.lang.foreign.MemorySegment.ofBuffer(this.mappedView.data()).address();
@@ -70,8 +78,10 @@ public class XenoMeshArena implements AutoCloseable {
         }
 
         public void close() {
-            if (mappedView != null) mappedView.close();
-            buffer.close();
+            if (this.mappedView != null) {
+                this.mappedView.close();
+            }
+            this.buffer.close();
         }
     }
 
@@ -98,7 +108,6 @@ public class XenoMeshArena implements AutoCloseable {
         this.vertexAlign = vertexAlign;
         this.indexAlign = indexAlign;
 
-        // Allocate initial segments
         this.vertexSegments.add(new VertexSegment(device, isIntegrated, defaultVertexCapacity));
         this.indexSegments.add(new IndexSegment(device, isIntegrated, defaultIndexCapacity));
     }
@@ -108,93 +117,91 @@ public class XenoMeshArena implements AutoCloseable {
     }
 
     public synchronized VertexAllocation allocateVertex(SectionMesh key, long size) {
-        freeVertex(key);
+        this.freeVertex(key);
         if (size <= 0) return null;
 
-        for (VertexSegment segment : vertexSegments) {
-            OffsetAllocator.Slot slot = segment.allocator.allocate(size, vertexAlign);
+        for (VertexSegment segment : this.vertexSegments) {
+            OffsetAllocator.Slot slot = segment.allocator.allocate(size, this.vertexAlign);
             if (slot != null) {
                 segment.activeAllocations++;
                 VertexAllocation alloc = new VertexAllocation(segment, slot);
-                vertexAllocations.put(key, alloc);
+                this.vertexAllocations.put(key, alloc);
                 return alloc;
             }
         }
 
-        // Segment overflow
-        VertexSegment newSegment = new VertexSegment(device, isIntegrated, defaultVertexCapacity);
-        vertexSegments.add(newSegment);
+        VertexSegment newSegment = new VertexSegment(this.device, this.isIntegrated, this.defaultVertexCapacity);
+        this.vertexSegments.add(newSegment);
 
-        OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, vertexAlign);
+        OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, this.vertexAlign);
         newSegment.activeAllocations++;
 
         VertexAllocation alloc = new VertexAllocation(newSegment, slot);
-        vertexAllocations.put(key, alloc);
+        this.vertexAllocations.put(key, alloc);
         return alloc;
     }
 
     public synchronized IndexAllocation allocateIndex(SectionMesh key, long size) {
-        freeIndex(key);
+        this.freeIndex(key);
         if (size <= 0) return null;
 
-        for (IndexSegment segment : indexSegments) {
-            OffsetAllocator.Slot slot = segment.allocator.allocate(size, indexAlign);
+        for (IndexSegment segment : this.indexSegments) {
+            OffsetAllocator.Slot slot = segment.allocator.allocate(size, this.indexAlign);
             if (slot != null) {
                 segment.activeAllocations++;
                 IndexAllocation alloc = new IndexAllocation(segment, slot);
-                indexAllocations.put(key, alloc);
+                this.indexAllocations.put(key, alloc);
                 return alloc;
             }
         }
 
-        // Segment overflow
-        IndexSegment newSegment = new IndexSegment(device, isIntegrated, defaultIndexCapacity);
-        indexSegments.add(newSegment);
+        IndexSegment newSegment = new IndexSegment(this.device, this.isIntegrated, this.defaultIndexCapacity);
+        this.indexSegments.add(newSegment);
 
-        OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, indexAlign);
+        OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, this.indexAlign);
         newSegment.activeAllocations++;
 
         IndexAllocation alloc = new IndexAllocation(newSegment, slot);
-        indexAllocations.put(key, alloc);
+        this.indexAllocations.put(key, alloc);
         return alloc;
     }
 
     public synchronized void freeVertex(SectionMesh key) {
-        VertexAllocation alloc = vertexAllocations.remove(key);
+        VertexAllocation alloc = this.vertexAllocations.remove(key);
         if (alloc != null) {
             alloc.segment.allocator.free(alloc.slot);
             alloc.segment.activeAllocations--;
 
-            if (alloc.segment.activeAllocations == 0 && vertexSegments.size() > 1) {
-                vertexSegments.remove(alloc.segment);
+            if (alloc.segment.activeAllocations == 0 && this.vertexSegments.size() > 1) {
+                this.vertexSegments.remove(alloc.segment);
                 alloc.segment.close();
             }
         }
     }
 
     public synchronized void freeIndex(SectionMesh key) {
-        IndexAllocation alloc = indexAllocations.remove(key);
+        IndexAllocation alloc = this.indexAllocations.remove(key);
         if (alloc != null) {
             alloc.segment.allocator.free(alloc.slot);
             alloc.segment.activeAllocations--;
 
-            if (alloc.segment.activeAllocations == 0 && indexSegments.size() > 1) {
-                indexSegments.remove(alloc.segment);
+            if (alloc.segment.activeAllocations == 0 && this.indexSegments.size() > 1) {
+                this.indexSegments.remove(alloc.segment);
                 alloc.segment.close();
             }
         }
     }
 
     public synchronized void free(SectionMesh key) {
-        freeVertex(key);
-        freeIndex(key);
+        this.freeVertex(key);
+        this.freeIndex(key);
     }
 
     public synchronized SectionRenderDispatcher.RenderSectionBufferSlice getSlice(SectionMesh key) {
-        VertexAllocation vAlloc = vertexAllocations.get(key);
+        VertexAllocation vAlloc = this.vertexAllocations.get(key);
         if (vAlloc == null) return null;
 
-        IndexAllocation iAlloc = indexAllocations.get(key);
+        IndexAllocation iAlloc = this.indexAllocations.get(key);
         GpuBuffer indexBuffer = iAlloc != null ? iAlloc.segment.buffer : null;
         long indexBufferOffset = iAlloc != null ? iAlloc.slot.offset : 0L;
 
@@ -206,16 +213,16 @@ public class XenoMeshArena implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        for (VertexSegment segment : vertexSegments) {
+        for (VertexSegment segment : this.vertexSegments) {
             segment.close();
         }
-        vertexSegments.clear();
-        vertexAllocations.clear();
+        this.vertexSegments.clear();
+        this.vertexAllocations.clear();
 
-        for (IndexSegment segment : indexSegments) {
+        for (IndexSegment segment : this.indexSegments) {
             segment.close();
         }
-        indexSegments.clear();
-        indexAllocations.clear();
+        this.indexSegments.clear();
+        this.indexAllocations.clear();
     }
 }

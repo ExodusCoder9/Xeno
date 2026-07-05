@@ -27,6 +27,7 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
 
     @Shadow
     protected abstract void vertexBufferUploadCallback(final CompiledSectionMesh sectionMesh, final ChunkSectionLayer layer);
+
     @Shadow
     protected abstract void indexBufferUploadCallback(final CompiledSectionMesh sectionMesh, final ChunkSectionLayer layer, final boolean sortedIndexBuffer);
 
@@ -51,6 +52,7 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     MemoryIntrinsics.copy(vertexBuffer, destAddress, vSize);
                     access.xeno$getRenderThreadCallbacks().add(() -> this.vertexBufferUploadCallback(key, layer));
                 }
+
                 if (indexBuffer != null) {
                     long iSize = indexBuffer.remaining();
                     XenoMeshArena.IndexAllocation alloc = arena.allocateIndex(key, iSize);
@@ -58,8 +60,8 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
                     boolean sortedIndexBuffer = vertexBuffer == null;
                     access.xeno$getRenderThreadCallbacks().add(() -> this.indexBufferUploadCallback(key, layer, sortedIndexBuffer));
-                } else if (vertexBuffer == null) {
-                    // Match vanilla fallback logic for empty index buffers
+                } else {
+                    // Critical Fix: Always mark as uploaded if there is no custom index buffer
                     key.setIndexBufferUploaded(layer);
                 }
             } else {
@@ -83,6 +85,11 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                 boolean sortedIndexBuffer = vertexBuffer == null;
 
                 Runnable callback = () -> {
+                    // Mark index buffer as uploaded BEFORE firing the vertex callback
+                    if (finalICopy == null) {
+                        key.setIndexBufferUploaded(layer);
+                    }
+
                     if (finalVCopy != null) {
                         this.vertexBufferUploadCallback(key, layer);
                         MemoryUtil.memFree(finalVCopy);
@@ -90,9 +97,6 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     if (finalICopy != null) {
                         this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
                         MemoryUtil.memFree(finalICopy);
-                    } else if (finalVCopy == null) {
-                        // Match vanilla fallback logic for empty index buffers
-                        key.setIndexBufferUploaded(layer);
                     }
                 };
 
