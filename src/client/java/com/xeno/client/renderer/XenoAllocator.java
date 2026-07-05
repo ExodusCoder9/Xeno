@@ -79,11 +79,12 @@ public class XenoAllocator {
         return indexBuffer;
     }
 
+    @SuppressWarnings("SameParameterValue")
     private static long allocate(LinkedList<FreeBlock> freeList, long size, long alignment) {
-        long alignedSize = (size + alignment - 1) & ~(alignment - 1);
+        long alignedSize = (size + alignment - 1) & -alignment;
         for (int i = 0; i < freeList.size(); i++) {
             FreeBlock block = freeList.get(i);
-            long alignedOffset = (block.offset + alignment - 1) & ~(alignment - 1);
+            long alignedOffset = (block.offset + alignment - 1) & -alignment;
             long unusedBefore = alignedOffset - block.offset;
             if (block.size >= alignedSize + unusedBefore) {
                 freeList.remove(i);
