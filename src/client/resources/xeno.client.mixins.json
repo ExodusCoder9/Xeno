@@ -7,17 +7,13 @@
 		"ViewAreaAccessor",
 		"SectionOcclusionGraphMixin",
 		"LevelExtractorMixin",
-		"BufferBuilderMixin",
-		"RenderPipelineBuilderMixin",
 		"SectionTaskDynamicQueueMixin",
 		"SectionRenderDispatcherMixin",
-		"LevelRendererMixin",
 		"DebugScreenOverlayMixin",
 		"DebugScreenEntriesMixin",
 		"DebugScreenEntryListMixin",
 		"SectionCompilerMixin",
-		"BlockModelLighterCacheMixin",
-		"ChunkSectionsToRenderMixin"
+		"BlockModelLighterCacheMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
