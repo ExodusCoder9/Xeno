@@ -36,17 +36,7 @@ public class ChunkSectionsToRenderMixin {
     ) {
         GpuBufferSlice[] chunkSectionInfos = ((ChunkSectionsToRender) (Object) this).chunkSectionInfos();
 
-        // Try Multi-Draw Indirect (MDI) chunk rendering
-        if (XenoMdiRenderer.tryRenderMdi(
-            renderPass,
-            (List<RenderPass.Draw<GpuBufferSlice[]>>) (Object) draws,
-            defaultIndexBuffer,
-            defaultIndexType
-        )) {
-            return; // Successfully rendered using modern MDI!
-        }
-
-        // Fallback to our own optimized direct drawing loop (zero-overhead, zero redundant binds)
+        // Use our own optimized direct drawing loop (zero-overhead, zero redundant binds)
         XenoMdiRenderer.renderDirect(
             renderPass,
             (List<RenderPass.Draw<GpuBufferSlice[]>>) (Object) draws,
