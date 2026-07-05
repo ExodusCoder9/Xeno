@@ -4,7 +4,6 @@ import com.xeno.client.culling.CullingOutput;
 import com.xeno.client.culling.CullingRequest;
 import com.xeno.client.culling.CullingThread;
 import com.xeno.client.culling.XenoOcclusionGraph;
-import com.xeno.client.mixin.FrustumAccessor;
 import org.joml.FrustumIntersection;
 import net.minecraft.world.phys.AABB;
 import it.unimi.dsi.fastutil.longs.LongCollection;
