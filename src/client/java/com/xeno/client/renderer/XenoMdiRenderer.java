@@ -20,8 +20,11 @@ public class XenoMdiRenderer {
         GpuBuffer lastIndexBuffer = null;
         IndexType lastIndexType = null;
         GpuBuffer lastVertexBuffer = null;
+        int lastSlot = -1;
 
-        for (RenderPass.Draw<GpuBufferSlice[]> draw : draws) {
+        int drawCount = draws.size();
+        for (int i = 0; i < drawCount; i++) {
+            RenderPass.Draw<GpuBufferSlice[]> draw = draws.get(i);
 
             // 1. Bind Index Buffer (avoid redundant binds)
             GpuBuffer ib = draw.indexBuffer() != null ? draw.indexBuffer() : defaultIndexBuffer;
@@ -32,11 +35,13 @@ public class XenoMdiRenderer {
                 lastIndexType = it;
             }
 
-            // 2. Bind Vertex Buffer (avoid redundant binds)
+            // 2. Bind Vertex Buffer (avoid redundant binds, respect slot changes)
             GpuBuffer vb = draw.vertexBuffer();
-            if (vb != lastVertexBuffer) {
-                renderPass.setVertexBuffer(draw.slot(), vb.slice());
+            int slot = draw.slot();
+            if (vb != lastVertexBuffer || slot != lastSlot) {
+                renderPass.setVertexBuffer(slot, vb.slice());
                 lastVertexBuffer = vb;
+                lastSlot = slot;
             }
 
             // 3. Bind Uniform slice
