@@ -5,6 +5,7 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.GpuDevice;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
+import java.nio.ByteBuffer;
 import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,56 +13,72 @@ import java.util.List;
 import java.util.Map;
 
 public class XenoMeshArena implements AutoCloseable {
-    public static class Segment {
-        public final GpuBuffer vertexBuffer;
-        public final GpuBuffer indexBuffer;
-        public final OffsetAllocator vertexAllocator;
-        public final OffsetAllocator indexAllocator;
-        
-        public final GpuBufferSlice.MappedView vertexMappedView;
-        public final GpuBufferSlice.MappedView indexMappedView;
-        public final long vertexBaseAddress;
-        public final long indexBaseAddress;
+    public static class VertexSegment {
+        public final GpuBuffer buffer;
+        public final OffsetAllocator allocator;
+        public final GpuBufferSlice.MappedView mappedView;
+        public final long baseAddress;
         public int activeAllocations = 0;
 
-        public Segment(GpuDevice device, boolean isIntegrated, long vertexSize, long indexSize) {
-            int vertexUsage = GpuBuffer.USAGE_VERTEX;
-            int indexUsage = GpuBuffer.USAGE_INDEX;
+        public VertexSegment(GpuDevice device, boolean isIntegrated, long capacity, long align) {
+            int usage = GpuBuffer.USAGE_VERTEX;
             if (isIntegrated) {
-                vertexUsage |= GpuBuffer.USAGE_MAP_WRITE;
-                indexUsage |= GpuBuffer.USAGE_MAP_WRITE;
+                usage |= GpuBuffer.USAGE_MAP_WRITE;
             } else {
-                vertexUsage |= GpuBuffer.USAGE_COPY_DST;
-                indexUsage |= GpuBuffer.USAGE_COPY_DST;
+                usage |= GpuBuffer.USAGE_COPY_DST;
             }
 
-            this.vertexBuffer = device.createBuffer(() -> "Xeno Vertex Segment", vertexUsage, vertexSize);
-            this.indexBuffer = device.createBuffer(() -> "Xeno Index Segment", indexUsage, indexSize);
-            this.vertexAllocator = new OffsetAllocator(vertexSize);
-            this.indexAllocator = new OffsetAllocator(indexSize);
-
+            this.buffer = device.createBuffer(() -> "Xeno Vertex Segment", usage, capacity);
+            this.allocator = new OffsetAllocator(capacity);
             if (isIntegrated) {
-                this.vertexMappedView = this.vertexBuffer.map(false, true);
-                this.indexMappedView = this.indexBuffer.map(false, true);
-                this.vertexBaseAddress = MemorySegment.ofBuffer(this.vertexMappedView.data()).address();
-                this.indexBaseAddress = MemorySegment.ofBuffer(this.indexMappedView.data()).address();
+                this.mappedView = this.buffer.map(false, true);
+                this.baseAddress = MemorySegment.ofBuffer(this.mappedView.data()).address();
             } else {
-                this.vertexMappedView = null;
-                this.indexMappedView = null;
-                this.vertexBaseAddress = 0;
-                this.indexBaseAddress = 0;
+                this.mappedView = null;
+                this.baseAddress = 0;
             }
         }
 
         public void close() {
-            if (vertexMappedView != null) vertexMappedView.close();
-            if (indexMappedView != null) indexMappedView.close();
-            vertexBuffer.close();
-            indexBuffer.close();
+            if (mappedView != null) mappedView.close();
+            buffer.close();
         }
     }
 
-    public record Allocation(Segment segment, OffsetAllocator.Slot vertexSlot, OffsetAllocator.Slot indexSlot) {}
+    public static class IndexSegment {
+        public final GpuBuffer buffer;
+        public final OffsetAllocator allocator;
+        public final GpuBufferSlice.MappedView mappedView;
+        public final long baseAddress;
+        public int activeAllocations = 0;
+
+        public IndexSegment(GpuDevice device, boolean isIntegrated, long capacity, long align) {
+            int usage = GpuBuffer.USAGE_INDEX;
+            if (isIntegrated) {
+                usage |= GpuBuffer.USAGE_MAP_WRITE;
+            } else {
+                usage |= GpuBuffer.USAGE_COPY_DST;
+            }
+
+            this.buffer = device.createBuffer(() -> "Xeno Index Segment", usage, capacity);
+            this.allocator = new OffsetAllocator(capacity);
+            if (isIntegrated) {
+                this.mappedView = this.buffer.map(false, true);
+                this.baseAddress = MemorySegment.ofBuffer(this.mappedView.data()).address();
+            } else {
+                this.mappedView = null;
+                this.baseAddress = 0;
+            }
+        }
+
+        public void close() {
+            if (mappedView != null) mappedView.close();
+            buffer.close();
+        }
+    }
+
+    public record VertexAllocation(VertexSegment segment, OffsetAllocator.Slot slot) {}
+    public record IndexAllocation(IndexSegment segment, OffsetAllocator.Slot slot) {}
 
     private final GpuDevice device;
     private final boolean isIntegrated;
@@ -70,8 +87,10 @@ public class XenoMeshArena implements AutoCloseable {
     private final long vertexAlign;
     private final long indexAlign;
     
-    private final List<Segment> segments = new ArrayList<>();
-    private final Map<SectionMesh, Allocation> allocations = new HashMap<>();
+    private final List<VertexSegment> vertexSegments = new ArrayList<>();
+    private final List<IndexSegment> indexSegments = new ArrayList<>();
+    private final Map<SectionMesh, VertexAllocation> vertexAllocations = new HashMap<>();
+    private final Map<SectionMesh, IndexAllocation> indexAllocations = new HashMap<>();
 
     public XenoMeshArena(GpuDevice device, boolean isIntegrated, long defaultVertexCapacity, long defaultIndexCapacity, long vertexAlign, long indexAlign) {
         this.device = device;
@@ -81,75 +100,124 @@ public class XenoMeshArena implements AutoCloseable {
         this.vertexAlign = vertexAlign;
         this.indexAlign = indexAlign;
         
-        // Allocate initial segment
-        this.segments.add(new Segment(device, isIntegrated, defaultVertexCapacity, defaultIndexCapacity));
+        // Allocate initial segments
+        this.vertexSegments.add(new VertexSegment(device, isIntegrated, defaultVertexCapacity, vertexAlign));
+        this.indexSegments.add(new IndexSegment(device, isIntegrated, defaultIndexCapacity, indexAlign));
     }
 
     public boolean isIntegrated() {
         return this.isIntegrated;
     }
 
-    public synchronized Allocation allocate(SectionMesh key, long vertexSize, long indexSize) {
-        free(key);
+    public synchronized VertexAllocation allocateVertex(SectionMesh key, long size) {
+        freeVertex(key);
+        if (size <= 0) return null;
 
-        for (Segment segment : segments) {
-            OffsetAllocator.Slot vertexSlot = segment.vertexAllocator.allocate(vertexSize, vertexAlign);
-            if (vertexSlot != null) {
-                OffsetAllocator.Slot indexSlot = segment.indexAllocator.allocate(indexSize, indexAlign);
-                if (indexSlot != null) {
-                    segment.activeAllocations++;
-                    Allocation alloc = new Allocation(segment, vertexSlot, indexSlot);
-                    allocations.put(key, alloc);
-                    return alloc;
-                } else {
-                    segment.vertexAllocator.free(vertexSlot);
-                }
+        for (VertexSegment segment : vertexSegments) {
+            OffsetAllocator.Slot slot = segment.allocator.allocate(size, vertexAlign);
+            if (slot != null) {
+                segment.activeAllocations++;
+                VertexAllocation alloc = new VertexAllocation(segment, slot);
+                vertexAllocations.put(key, alloc);
+                return alloc;
             }
         }
 
-        // Segment overflow: Create and append new segment
-        Segment newSegment = new Segment(device, isIntegrated, defaultVertexCapacity, defaultIndexCapacity);
-        segments.add(newSegment);
+        // Segment overflow
+        VertexSegment newSegment = new VertexSegment(device, isIntegrated, defaultVertexCapacity, vertexAlign);
+        vertexSegments.add(newSegment);
         
-        OffsetAllocator.Slot vertexSlot = newSegment.vertexAllocator.allocate(vertexSize, vertexAlign);
-        OffsetAllocator.Slot indexSlot = newSegment.indexAllocator.allocate(indexSize, indexAlign);
+        OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, vertexAlign);
         newSegment.activeAllocations++;
 
-        Allocation alloc = new Allocation(newSegment, vertexSlot, indexSlot);
-        allocations.put(key, alloc);
+        VertexAllocation alloc = new VertexAllocation(newSegment, slot);
+        vertexAllocations.put(key, alloc);
         return alloc;
     }
 
-    public synchronized void free(SectionMesh key) {
-        Allocation alloc = allocations.remove(key);
+    public synchronized IndexAllocation allocateIndex(SectionMesh key, long size) {
+        freeIndex(key);
+        if (size <= 0) return null;
+
+        for (IndexSegment segment : indexSegments) {
+            OffsetAllocator.Slot slot = segment.allocator.allocate(size, indexAlign);
+            if (slot != null) {
+                segment.activeAllocations++;
+                IndexAllocation alloc = new IndexAllocation(segment, slot);
+                indexAllocations.put(key, alloc);
+                return alloc;
+            }
+        }
+
+        // Segment overflow
+        IndexSegment newSegment = new IndexSegment(device, isIntegrated, defaultIndexCapacity, indexAlign);
+        indexSegments.add(newSegment);
+        
+        OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, indexAlign);
+        newSegment.activeAllocations++;
+
+        IndexAllocation alloc = new IndexAllocation(newSegment, slot);
+        indexAllocations.put(key, alloc);
+        return alloc;
+    }
+
+    public synchronized void freeVertex(SectionMesh key) {
+        VertexAllocation alloc = vertexAllocations.remove(key);
         if (alloc != null) {
-            alloc.segment.vertexAllocator.free(alloc.vertexSlot);
-            alloc.segment.indexAllocator.free(alloc.indexSlot);
+            alloc.segment.allocator.free(alloc.slot);
             alloc.segment.activeAllocations--;
 
-            // Garbage collect empty non-primary segments
-            if (alloc.segment.activeAllocations == 0 && segments.size() > 1) {
-                segments.remove(alloc.segment);
+            if (alloc.segment.activeAllocations == 0 && vertexSegments.size() > 1) {
+                vertexSegments.remove(alloc.segment);
                 alloc.segment.close();
             }
         }
     }
 
+    public synchronized void freeIndex(SectionMesh key) {
+        IndexAllocation alloc = indexAllocations.remove(key);
+        if (alloc != null) {
+            alloc.segment.allocator.free(alloc.slot);
+            alloc.segment.activeAllocations--;
+
+            if (alloc.segment.activeAllocations == 0 && indexSegments.size() > 1) {
+                indexSegments.remove(alloc.segment);
+                alloc.segment.close();
+            }
+        }
+    }
+
+    public synchronized void free(SectionMesh key) {
+        freeVertex(key);
+        freeIndex(key);
+    }
+
     public synchronized SectionRenderDispatcher.RenderSectionBufferSlice getSlice(SectionMesh key) {
-        Allocation alloc = allocations.get(key);
-        if (alloc == null) return null;
+        VertexAllocation vAlloc = vertexAllocations.get(key);
+        if (vAlloc == null) return null;
+
+        IndexAllocation iAlloc = indexAllocations.get(key);
+        GpuBuffer indexBuffer = iAlloc != null ? iAlloc.segment.buffer : null;
+        long indexBufferOffset = iAlloc != null ? iAlloc.slot.offset : 0L;
+
         return new SectionRenderDispatcher.RenderSectionBufferSlice(
-            alloc.segment.vertexBuffer, alloc.vertexSlot.offset,
-            alloc.segment.indexBuffer, alloc.indexSlot.offset
+            vAlloc.segment.buffer, vAlloc.slot.offset,
+            indexBuffer, indexBufferOffset
         );
     }
 
     @Override
     public synchronized void close() {
-        for (Segment segment : segments) {
+        for (VertexSegment segment : vertexSegments) {
             segment.close();
         }
-        segments.clear();
-        allocations.clear();
+        vertexSegments.clear();
+        vertexAllocations.clear();
+
+        for (IndexSegment segment : indexSegments) {
+            segment.close();
+        }
+        indexSegments.clear();
+        indexAllocations.clear();
     }
 }

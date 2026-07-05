@@ -43,17 +43,17 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
         if (arena != null) {
             if (arena.isIntegrated()) {
                 // Approach A: iGPU - direct copy from worker thread using MemoryIntrinsics
-                long vSize = vertexBuffer != null ? vertexBuffer.remaining() : 0;
-                long iSize = indexBuffer != null ? indexBuffer.remaining() : 0;
-                XenoMeshArena.Allocation alloc = arena.allocate(key, vSize, iSize);
-
                 if (vertexBuffer != null) {
-                    long destAddress = alloc.segment().vertexBaseAddress + alloc.vertexSlot().offset;
+                    long vSize = vertexBuffer.remaining();
+                    XenoMeshArena.VertexAllocation alloc = arena.allocateVertex(key, vSize);
+                    long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
                     MemoryIntrinsics.copy(vertexBuffer, destAddress, vSize);
                     access.xeno$getRenderThreadCallbacks().add(() -> this.vertexBufferUploadCallback(key, layer));
                 }
                 if (indexBuffer != null) {
-                    long destAddress = alloc.segment().indexBaseAddress + alloc.indexSlot().offset;
+                    long iSize = indexBuffer.remaining();
+                    XenoMeshArena.IndexAllocation alloc = arena.allocateIndex(key, iSize);
+                    long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
                     MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
                     boolean sortedIndexBuffer = vertexBuffer == null;
                     access.xeno$getRenderThreadCallbacks().add(() -> this.indexBufferUploadCallback(key, layer, sortedIndexBuffer));

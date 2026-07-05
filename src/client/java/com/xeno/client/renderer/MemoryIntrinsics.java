@@ -32,6 +32,6 @@ public final class MemoryIntrinsics {
 
     public static void copy(java.nio.ByteBuffer src, long destAddress, long length) {
         MemorySegment srcSegment = MemorySegment.ofBuffer(src);
-        MemorySegment.copy(srcSegment, 0L, HEAP, destAddress, length);
+        MemorySegment.copy(srcSegment, (long) src.position(), HEAP, destAddress, length);
     }
 }

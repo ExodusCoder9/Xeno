@@ -7,9 +7,9 @@ import com.xeno.client.renderer.PendingUpload;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.DeviceType;
 import com.mojang.blaze3d.systems.GpuDevice;
-import net.minecraft.client.renderer.chunk.SectionMesh;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.chunk.SectionTaskDynamicQueue;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
@@ -85,19 +85,19 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
         while ((upload = this.xeno$pendingUploads.poll()) != null) {
             XenoMeshArena arena = this.xeno$arenas.get(upload.layer());
             if (arena != null) {
-                long vSize = upload.vertexData() != null ? upload.vertexData().remaining() : 0;
-                long iSize = upload.indexData() != null ? upload.indexData().remaining() : 0;
-                XenoMeshArena.Allocation alloc = arena.allocate(upload.mesh(), vSize, iSize);
-
                 if (upload.vertexData() != null) {
+                    long vSize = upload.vertexData().remaining();
+                    XenoMeshArena.VertexAllocation alloc = arena.allocateVertex(upload.mesh(), vSize);
                     device.createCommandEncoder().writeToBuffer(
-                        alloc.segment().vertexBuffer.slice(alloc.vertexSlot().offset, vSize),
+                        alloc.segment().buffer.slice(alloc.slot().offset, vSize),
                         upload.vertexData()
                     );
                 }
                 if (upload.indexData() != null) {
+                    long iSize = upload.indexData().remaining();
+                    XenoMeshArena.IndexAllocation alloc = arena.allocateIndex(upload.mesh(), iSize);
                     device.createCommandEncoder().writeToBuffer(
-                        alloc.segment().indexBuffer.slice(alloc.indexSlot().offset, iSize),
+                        alloc.segment().buffer.slice(alloc.slot().offset, iSize),
                         upload.indexData()
                     );
                 }
