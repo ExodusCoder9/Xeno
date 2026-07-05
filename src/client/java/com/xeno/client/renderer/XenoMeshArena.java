@@ -64,7 +64,6 @@ public class XenoMeshArena implements AutoCloseable {
     private final Map<SectionMesh, Allocation> vertexAllocations = new HashMap<>();
     private final Map<SectionMesh, Allocation> indexAllocations = new HashMap<>();
 
-    // 3-frame deferred freeing queue to prevent Vulkan memory flickering
     private final List<List<Runnable>> deferredFrees = new ArrayList<>();
 
     public XenoMeshArena(GpuDevice device, boolean isIntegrated, long defaultVertexCapacity, long defaultIndexCapacity, long vertexAlign, long indexAlign) {

@@ -74,7 +74,6 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
 
     @Inject(method = "uploadTerrainBuffersToGpu", at = @At("HEAD"), cancellable = true)
     private void onUploadTerrainBuffersToGpu(CallbackInfo ci) {
-        // Cycle memory arenas to allow safe deletion of GPU buffers
         for (XenoMeshArena arena : this.xeno$arenas.values()) {
             arena.tickFrees();
         }

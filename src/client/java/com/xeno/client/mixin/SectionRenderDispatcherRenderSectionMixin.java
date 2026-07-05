@@ -50,7 +50,6 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
 
         if (arena != null) {
             if (arena.isIntegrated()) {
-                // Approach A: iGPU - direct copy from worker thread using MemoryIntrinsics
                 if (vertexBuffer != null) {
                     long vSize = vertexBuffer.remaining();
                     XenoMeshArena.Allocation alloc = arena.allocateVertex(key, vSize);
@@ -66,12 +65,10 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
                     boolean sortedIndexBuffer = vertexBuffer == null;
                     access.xeno$getRenderThreadCallbacks().add(() -> this.indexBufferUploadCallback(key, layer, sortedIndexBuffer));
-                } else if (draw.hasCustomIndexBuffer()) {
-                    //Only flag missing buffers as uploaded if they are actively tracked by the mesh
+                } else {
                     key.setIndexBufferUploaded(layer);
                 }
             } else {
-                // Approach B: dGPU - copy ByteBuffers using native malloc and queue for render thread
                 ByteBuffer vCopy = null;
                 ByteBuffer iCopy = null;
 
@@ -91,8 +88,7 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                 boolean sortedIndexBuffer = vertexBuffer == null;
 
                 Runnable callback = () -> {
-                    // Mark index buffer as uploaded before firing the vertex callback
-                    if (finalICopy == null && draw.hasCustomIndexBuffer()) {
+                    if (finalICopy == null) {
                         key.setIndexBufferUploaded(layer);
                     }
 

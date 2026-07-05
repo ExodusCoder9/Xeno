@@ -5,7 +5,7 @@ import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
 /**
- * Provides zero allocation, Intrinsic memory access using the Foreign Function & Memory API.
+ * Provides zero allocation , Intrinsic memory access using the Foreign Function & Memory API.
  */
 public final class MemoryIntrinsics {
     private static final MemorySegment HEAP = MemorySegment.ofAddress(0L).reinterpret(Long.MAX_VALUE);
@@ -34,7 +34,7 @@ public final class MemoryIntrinsics {
 
     /**
      * Copies data from a ByteBuffer directly into native memory.
-     * The ofBuffer() method wraps the buffer from its current position, so the offset is 0L.
+     * The ofBuffer() method wraps the buffer from its current position, offset must be 0L.
      */
     public static void copy(ByteBuffer src, long destAddress, long length) {
         MemorySegment srcSegment = MemorySegment.ofBuffer(src);
