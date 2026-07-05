@@ -18,7 +18,8 @@
 		"DebugScreenEntryListMixin",
 		"SectionCompilerMixin",
 		"BlockModelLighterCacheMixin",
-		"ChunkSectionsToRenderMixin"
+		"ChunkSectionsToRenderMixin",
+		"VulkanBackendMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
