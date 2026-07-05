@@ -1,11 +1,11 @@
 struct SectionData {
-    mat4 ModelViewMat;
     float ChunkVisibility;
     ivec2 TextureSize;
     ivec3 ChunkPosition;
 };
 
 layout(std140) uniform ChunkSection {
+    mat4 ModelViewMat;
     SectionData sections[1024];
 };
 
@@ -17,7 +17,6 @@ layout(std140) uniform ChunkSection {
 #define INSTANCE_ID instanceId
 #endif
 
-#define ModelViewMat sections[INSTANCE_ID].ModelViewMat
 #define ChunkVisibility sections[INSTANCE_ID].ChunkVisibility
 #define TextureSize sections[INSTANCE_ID].TextureSize
 #define ChunkPosition sections[INSTANCE_ID].ChunkPosition
