@@ -33,7 +33,7 @@ public class CullingThread extends Thread {
     private final LongOpenHashSet emptySections = new LongOpenHashSet();
     private final List<SectionRenderDispatcher.RenderSection> occlusionVisible = new ArrayList<>(4096);
 
-    private final java.lang.foreign.Arena cullingArena = java.lang.foreign.Arena.ofConfined();
+    private java.lang.foreign.Arena cullingArena;
     private java.lang.foreign.MemorySegment nodeSegment = java.lang.foreign.MemorySegment.NULL;
     private boolean[] visited = new boolean[0];
     private boolean[] emptyArray = new boolean[0];
@@ -140,6 +140,9 @@ public class CullingThread extends Thread {
     }
 
     private void prepareCache(int size) {
+        if (this.cullingArena == null) {
+            this.cullingArena = java.lang.foreign.Arena.ofConfined();
+        }
         long requiredBytes = size * 8L;
         if (this.nodeSegment == java.lang.foreign.MemorySegment.NULL || this.nodeSegment.byteSize() < requiredBytes) {
             this.nodeSegment = this.cullingArena.allocate(requiredBytes, 8);
