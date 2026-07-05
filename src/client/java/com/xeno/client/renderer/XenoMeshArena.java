@@ -91,7 +91,7 @@ public class XenoMeshArena implements AutoCloseable {
      * Shifts the deferred free queue. Executed once per frame by the Render Thread.
      */
     public synchronized void tickFrees() {
-        List<Runnable> readyToFree = this.deferredFrees.removeFirst();
+        List<Runnable> readyToFree = this.deferredFrees.remove(0);
         for (Runnable freeAction : readyToFree) {
             freeAction.run();
         }
@@ -100,7 +100,7 @@ public class XenoMeshArena implements AutoCloseable {
     }
 
     private void queueFree(Runnable freeAction) {
-        this.deferredFrees.getLast().add(freeAction);
+        this.deferredFrees.get(this.deferredFrees.size() - 1).add(freeAction);
     }
 
     private Allocation allocate(SectionMesh key, long size, long align, List<ArenaSegment> segments, Map<SectionMesh, Allocation> allocations, String name, int usage, long defaultCapacity) {

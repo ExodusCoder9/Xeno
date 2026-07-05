@@ -84,31 +84,33 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
             callback.run();
         }
 
-        PendingUpload upload;
-        GpuDevice device = RenderSystem.getDevice();
-        CommandEncoder encoder = device.createCommandEncoder();
+        if (!this.xeno$pendingUploads.isEmpty()) {
+            PendingUpload upload;
+            GpuDevice device = RenderSystem.getDevice();
+            CommandEncoder encoder = device.createCommandEncoder();
 
-        while ((upload = this.xeno$pendingUploads.poll()) != null) {
-            XenoMeshArena arena = this.xeno$arenas.get(upload.layer());
-            if (arena != null) {
-                if (upload.vertexData() != null) {
-                    long vSize = upload.vertexData().remaining();
-                    XenoMeshArena.Allocation alloc = arena.allocateVertex(upload.mesh(), vSize);
-                    encoder.writeToBuffer(
-                            alloc.segment().buffer.slice(alloc.slot().offset, vSize),
-                            upload.vertexData()
-                    );
-                }
-                if (upload.indexData() != null) {
-                    long iSize = upload.indexData().remaining();
-                    XenoMeshArena.Allocation alloc = arena.allocateIndex(upload.mesh(), iSize);
-                    encoder.writeToBuffer(
-                            alloc.segment().buffer.slice(alloc.slot().offset, iSize),
-                            upload.indexData()
-                    );
-                }
-                if (upload.callback() != null) {
-                    upload.callback().run();
+            while ((upload = this.xeno$pendingUploads.poll()) != null) {
+                XenoMeshArena arena = this.xeno$arenas.get(upload.layer());
+                if (arena != null) {
+                    if (upload.vertexData() != null) {
+                        long vSize = upload.vertexData().remaining();
+                        XenoMeshArena.Allocation alloc = arena.allocateVertex(upload.mesh(), vSize);
+                        encoder.writeToBuffer(
+                                alloc.segment().buffer.slice(alloc.slot().offset, vSize),
+                                upload.vertexData()
+                        );
+                    }
+                    if (upload.indexData() != null) {
+                        long iSize = upload.indexData().remaining();
+                        XenoMeshArena.Allocation alloc = arena.allocateIndex(upload.mesh(), iSize);
+                        encoder.writeToBuffer(
+                                alloc.segment().buffer.slice(alloc.slot().offset, iSize),
+                                upload.indexData()
+                        );
+                    }
+                    if (upload.callback() != null) {
+                        upload.callback().run();
+                    }
                 }
             }
         }

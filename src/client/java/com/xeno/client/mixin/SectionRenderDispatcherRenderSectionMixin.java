@@ -39,8 +39,6 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
             @Nullable ByteBuffer indexBuffer,
             CallbackInfoReturnable<Boolean> cir
     ) {
-        // VERY IMPORTANT FIX: If the draw state does not exist for this layer, silently ignore.
-        // This completely prevents the NPE when setting IndexBufferUploaded on non-existent maps.
         SectionMesh.SectionDraw draw = key.getSectionDraw(layer);
         if (draw == null) {
             cir.setReturnValue(true);
@@ -68,7 +66,8 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
                     boolean sortedIndexBuffer = vertexBuffer == null;
                     access.xeno$getRenderThreadCallbacks().add(() -> this.indexBufferUploadCallback(key, layer, sortedIndexBuffer));
-                } else {
+                } else if (draw.hasCustomIndexBuffer()) {
+                    //Only flag missing buffers as uploaded if they are actively tracked by the mesh
                     key.setIndexBufferUploaded(layer);
                 }
             } else {
@@ -92,9 +91,11 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                 boolean sortedIndexBuffer = vertexBuffer == null;
 
                 Runnable callback = () -> {
-                    if (finalICopy == null) {
+                    // Mark index buffer as uploaded before firing the vertex callback
+                    if (finalICopy == null && draw.hasCustomIndexBuffer()) {
                         key.setIndexBufferUploaded(layer);
                     }
+
                     if (finalVCopy != null) {
                         this.vertexBufferUploadCallback(key, layer);
                         MemoryUtil.memFree(finalVCopy);
