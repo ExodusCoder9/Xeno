@@ -143,7 +143,13 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
         if (this.xeno_cullingThread == null) return;
         CullingOutput output = this.xeno_cullingThread.getLatestOutput();
         if (output != null) {
-            visibleSections.addAll(output.visibleSections());
+            List<SectionRenderDispatcher.RenderSection> sections = output.visibleSections();
+            for (int i = 0; i < sections.size(); i++) {
+                SectionRenderDispatcher.RenderSection section = sections.get(i);
+                if (frustum.isVisible(section.getBoundingBox())) {
+                    visibleSections.add(section);
+                }
+            }
             nearbyVisibleSections.addAll(output.nearbyVisibleSections());
         }
     }

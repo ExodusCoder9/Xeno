@@ -14,13 +14,11 @@ import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
-import net.minecraft.core.Direction.Axis;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
 
 public class CullingThread extends Thread {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE = SectionPos.blockToSectionCoord(60);
     private static final Direction[] DIRECTIONS = Direction.values();
 
     public static volatile double profiledLatencyMs = 0.0;
@@ -203,31 +201,29 @@ public class CullingThread extends Thread {
             SectionRenderDispatcher.RenderSection section = this.occlusionVisible.get(i);
             AABB bb = section.getBoundingBox();
 
-            if (request.frustum.isVisible(bb)) {
-                if (this.sortArray.length <= visibleCount) {
-                    int newSize = Math.max(this.sortArray.length * 2, visibleCount + 1024);
+            if (this.sortArray.length <= visibleCount) {
+                int newSize = Math.max(this.sortArray.length * 2, visibleCount + 1024);
 
-                    SectionRenderDispatcher.RenderSection[] newArr = new SectionRenderDispatcher.RenderSection[newSize];
-                    System.arraycopy(this.sortArray, 0, newArr, 0, this.sortArray.length);
-                    this.sortArray = newArr;
+                SectionRenderDispatcher.RenderSection[] newArr = new SectionRenderDispatcher.RenderSection[newSize];
+                System.arraycopy(this.sortArray, 0, newArr, 0, this.sortArray.length);
+                this.sortArray = newArr;
 
-                    double[] newDist = new double[newSize];
-                    System.arraycopy(this.sortDistances, 0, newDist, 0, this.sortDistances.length);
-                    this.sortDistances = newDist;
-                }
-
-                this.sortArray[visibleCount] = section;
-                if (this.isClose(bb, cameraCenter)) {
-                    nearbyList.add(section);
-                }
-
-                double cx = (bb.minX + bb.maxX) * 0.5 - camX;
-                double cy = (bb.minY + bb.maxY) * 0.5 - camY;
-                double cz = (bb.minZ + bb.maxZ) * 0.5 - camZ;
-                this.sortDistances[visibleCount] = cx * cx + cy * cy + cz * cz;
-
-                visibleCount++;
+                double[] newDist = new double[newSize];
+                System.arraycopy(this.sortDistances, 0, newDist, 0, this.sortDistances.length);
+                this.sortDistances = newDist;
             }
+
+            this.sortArray[visibleCount] = section;
+            if (this.isClose(bb, cameraCenter)) {
+                nearbyList.add(section);
+            }
+
+            double cx = (bb.minX + bb.maxX) * 0.5 - camX;
+            double cy = (bb.minY + bb.maxY) * 0.5 - camY;
+            double cz = (bb.minZ + bb.maxZ) * 0.5 - camZ;
+            this.sortDistances[visibleCount] = cx * cx + cy * cy + cz * cz;
+
+            visibleCount++;
         }
 
         if (visibleCount > 0) {
