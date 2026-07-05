@@ -39,6 +39,14 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
             @Nullable ByteBuffer indexBuffer,
             CallbackInfoReturnable<Boolean> cir
     ) {
+        // VERY IMPORTANT FIX: If the draw state does not exist for this layer, silently ignore.
+        // This completely prevents the NPE when setting IndexBufferUploaded on non-existent maps.
+        SectionMesh.SectionDraw draw = key.getSectionDraw(layer);
+        if (draw == null) {
+            cir.setReturnValue(true);
+            return;
+        }
+
         XenoDispatcherAccess access = (XenoDispatcherAccess) this$0;
         XenoMeshArena arena = access.xeno$getArenas().get(layer);
 
@@ -47,7 +55,7 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                 // Approach A: iGPU - direct copy from worker thread using MemoryIntrinsics
                 if (vertexBuffer != null) {
                     long vSize = vertexBuffer.remaining();
-                    XenoMeshArena.VertexAllocation alloc = arena.allocateVertex(key, vSize);
+                    XenoMeshArena.Allocation alloc = arena.allocateVertex(key, vSize);
                     long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
                     MemoryIntrinsics.copy(vertexBuffer, destAddress, vSize);
                     access.xeno$getRenderThreadCallbacks().add(() -> this.vertexBufferUploadCallback(key, layer));
@@ -55,13 +63,12 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
 
                 if (indexBuffer != null) {
                     long iSize = indexBuffer.remaining();
-                    XenoMeshArena.IndexAllocation alloc = arena.allocateIndex(key, iSize);
+                    XenoMeshArena.Allocation alloc = arena.allocateIndex(key, iSize);
                     long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
                     MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
                     boolean sortedIndexBuffer = vertexBuffer == null;
                     access.xeno$getRenderThreadCallbacks().add(() -> this.indexBufferUploadCallback(key, layer, sortedIndexBuffer));
                 } else {
-                    // Critical Fix: Always mark as uploaded if there is no custom index buffer
                     key.setIndexBufferUploaded(layer);
                 }
             } else {
@@ -85,11 +92,9 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                 boolean sortedIndexBuffer = vertexBuffer == null;
 
                 Runnable callback = () -> {
-                    // Mark index buffer as uploaded BEFORE firing the vertex callback
                     if (finalICopy == null) {
                         key.setIndexBufferUploaded(layer);
                     }
-
                     if (finalVCopy != null) {
                         this.vertexBufferUploadCallback(key, layer);
                         MemoryUtil.memFree(finalVCopy);
@@ -111,7 +116,7 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
         oldMesh.close();
         XenoDispatcherAccess access = (XenoDispatcherAccess) this$0;
         for (XenoMeshArena arena : access.xeno$getArenas().values()) {
-            arena.free(oldMesh);
+            arena.freeAll(oldMesh);
         }
         ci.cancel();
     }
