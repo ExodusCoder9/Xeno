@@ -34,6 +34,7 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
+import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.NullMarked;
 
 @NullMarked
@@ -213,7 +214,7 @@ public class XenoMesher extends SectionCompiler {
     }
 
     private static class DirectVertexConsumer implements VertexConsumer {
-        private ByteBufferBuilder buffer;
+        private @Nullable ByteBufferBuilder buffer;
         private long vertexPointer = -1L;
         private int vertices;
 
@@ -229,6 +230,7 @@ public class XenoMesher extends SectionCompiler {
                 throw new IllegalStateException("Too many vertices");
             }
             this.vertices++;
+            assert this.buffer != null;
             long ptr = this.buffer.reserve(VERTEX_SIZE);
             this.vertexPointer = ptr;
             MemoryIntrinsics.putFloat(ptr, x);
@@ -301,6 +303,7 @@ public class XenoMesher extends SectionCompiler {
                 throw new IllegalStateException("Too many vertices");
             }
             this.vertices++;
+            assert this.buffer != null;
             long ptr = this.buffer.reserve(VERTEX_SIZE);
             this.vertexPointer = ptr;
             MemoryIntrinsics.putFloat(ptr, x);
