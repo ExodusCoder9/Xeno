@@ -68,7 +68,7 @@ public class UberGpuBufferMixin {
     }
 
     @Shadow @Final
-    private Map stagedAllocations;
+    private it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap stagedAllocations;
 
     @Inject(method = "uploadStagedAllocations", at = @At("HEAD"), cancellable = true)
     private void inject_uploadStagedAllocations(GpuDevice gpuDevice, StagingBuffer.Uploader uploader, CallbackInfoReturnable<Boolean> cir) {
