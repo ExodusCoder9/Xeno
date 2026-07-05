@@ -3,39 +3,48 @@ package com.xeno.client.renderer;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
-@SuppressWarnings("unused")
 public final class MemoryIntrinsics {
+    private static final MemorySegment HEAP = MemorySegment.ofAddress(0L).reinterpret(Long.MAX_VALUE);
+
+    private static final ValueLayout.OfFloat FLOAT_UNALIGNED = ValueLayout.JAVA_FLOAT.withByteAlignment(1);
+
+    private static final ValueLayout.OfInt INT_UNALIGNED = ValueLayout.JAVA_INT.withByteAlignment(1);
+
+    private static final ValueLayout.OfShort SHORT_UNALIGNED = ValueLayout.JAVA_SHORT.withByteAlignment(1);
+
+    private static final ValueLayout.OfByte BYTE_UNALIGNED = ValueLayout.JAVA_BYTE;
+
     private MemoryIntrinsics() {}
 
     public static void putFloat(long address, float value) {
-        MemorySegment.ofAddress(address).reinterpret(Float.BYTES).set(ValueLayout.JAVA_FLOAT, 0, value);
+        HEAP.set(FLOAT_UNALIGNED, address, value);
     }
 
     public static float getFloat(long address) {
-        return MemorySegment.ofAddress(address).reinterpret(Float.BYTES).get(ValueLayout.JAVA_FLOAT, 0);
+        return HEAP.get(FLOAT_UNALIGNED, address);
     }
 
     public static void putInt(long address, int value) {
-        MemorySegment.ofAddress(address).reinterpret(Integer.BYTES).set(ValueLayout.JAVA_INT, 0, value);
+        HEAP.set(INT_UNALIGNED, address, value);
     }
 
     public static int getInt(long address) {
-        return MemorySegment.ofAddress(address).reinterpret(Integer.BYTES).get(ValueLayout.JAVA_INT, 0);
+        return HEAP.get(INT_UNALIGNED, address);
     }
 
     public static void putShort(long address, short value) {
-        MemorySegment.ofAddress(address).reinterpret(Short.BYTES).set(ValueLayout.JAVA_SHORT, 0, value);
+        HEAP.set(SHORT_UNALIGNED, address, value);
     }
 
     public static short getShort(long address) {
-        return MemorySegment.ofAddress(address).reinterpret(Short.BYTES).get(ValueLayout.JAVA_SHORT, 0);
+        return HEAP.get(SHORT_UNALIGNED, address);
     }
 
     public static void putByte(long address, byte value) {
-        MemorySegment.ofAddress(address).reinterpret(Byte.BYTES).set(ValueLayout.JAVA_BYTE, 0, value);
+        HEAP.set(BYTE_UNALIGNED, address, value);
     }
 
     public static byte getByte(long address) {
-        return MemorySegment.ofAddress(address).reinterpret(Byte.BYTES).get(ValueLayout.JAVA_BYTE, 0);
+        return HEAP.get(BYTE_UNALIGNED, address);
     }
 }

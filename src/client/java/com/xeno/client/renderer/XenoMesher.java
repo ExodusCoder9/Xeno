@@ -34,13 +34,14 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
+import org.joml.Vector3fc;
 import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.NullMarked;
 
 @NullMarked
 public class XenoMesher extends SectionCompiler {
-    private static final int VERTEX_SIZE = 28;
-    private static final int QUAD_SIZE = 112;
+    private static final int VERTEX_SIZE = 16;
+    private static final int QUAD_SIZE = 64;
     private static final int MAX_VERTICES = 16777215;
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
@@ -51,11 +52,11 @@ public class XenoMesher extends SectionCompiler {
     private final BlockColors blockColors;
 
     public XenoMesher(
-        boolean ambientOcclusion,
-        boolean cutoutLeaves,
-        BlockStateModelSet blockModelSet,
-        FluidStateModelSet fluidModelSet,
-        BlockColors blockColors
+            boolean ambientOcclusion,
+            boolean cutoutLeaves,
+            BlockStateModelSet blockModelSet,
+            FluidStateModelSet fluidModelSet,
+            BlockColors blockColors
     ) {
         super(ambientOcclusion, cutoutLeaves, blockModelSet, fluidModelSet, blockColors);
         this.ambientOcclusion = ambientOcclusion;
@@ -67,7 +68,7 @@ public class XenoMesher extends SectionCompiler {
 
     @Override
     public SectionCompiler.Results compile(
-        SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders
+            SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders
     ) {
         SectionCompiler.Results results = new SectionCompiler.Results();
         BlockPos minPos = sectionPos.origin();
@@ -118,15 +119,15 @@ public class XenoMesher extends SectionCompiler {
 
                     if (blockState.getRenderShape() == RenderShape.MODEL) {
                         blockRenderer.tesselateBlock(
-                            ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
-                            SectionPos.sectionRelative(pos.getX()),
-                            SectionPos.sectionRelative(pos.getY()),
-                            SectionPos.sectionRelative(pos.getZ()),
-                            region,
-                            pos,
-                            blockState,
-                            this.blockModelSet.get(blockState),
-                            blockState.getSeed(pos)
+                                ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
+                                SectionPos.sectionRelative(pos.getX()),
+                                SectionPos.sectionRelative(pos.getY()),
+                                SectionPos.sectionRelative(pos.getZ()),
+                                region,
+                                pos,
+                                blockState,
+                                this.blockModelSet.get(blockState),
+                                blockState.getSeed(pos)
                         );
                     }
                 } catch (Throwable t) {
@@ -148,7 +149,7 @@ public class XenoMesher extends SectionCompiler {
             int indices = PrimitiveTopology.QUADS.indexCount(vertexCount);
             IndexType indexType = IndexType.least(vertexCount);
             MeshData mesh = new MeshData(vertexResult, new MeshData.DrawState(
-                layer.vertexFormat(), vertexCount, indices, PrimitiveTopology.QUADS, indexType
+                    layer.vertexFormat(), vertexCount, indices, PrimitiveTopology.QUADS, indexType
             ));
 
             if (layer == ChunkSectionLayer.TRANSLUCENT) {
@@ -164,7 +165,7 @@ public class XenoMesher extends SectionCompiler {
     }
 
     private static ByteBufferBuilder getOrCreateBuffer(
-        Map<ChunkSectionLayer, ByteBufferBuilder> layerBuilders, SectionBufferBuilderPack builders, ChunkSectionLayer layer
+            Map<ChunkSectionLayer, ByteBufferBuilder> layerBuilders, SectionBufferBuilderPack builders, ChunkSectionLayer layer
     ) {
         ByteBufferBuilder buf = layerBuilders.get(layer);
         if (buf == null) {
@@ -175,42 +176,62 @@ public class XenoMesher extends SectionCompiler {
     }
 
     private static void writeQuad(
-        ByteBufferBuilder buf, float x, float y, float z, BakedQuad quad, QuadInstance instance
+            ByteBufferBuilder buf, float x, float y, float z, BakedQuad quad, QuadInstance instance
     ) {
         long ptr = buf.reserve(QUAD_SIZE);
         int lightEmission = quad.materialInfo().lightEmission();
+        Vector3fc normal = quad.direction().getUnitVec3f();
+        byte normalId = (byte) getNormalId(normal.x(), normal.y(), normal.z());
 
         for (int v = 0; v < 4; v++) {
             var pos = quad.position(v);
             long packedUv = quad.packedUV(v);
             int vertexColor = instance.getColor(v);
             int light = instance.getLightCoordsWithEmission(v, lightEmission);
-            float u = UVPair.unpackU(packedUv);
-            float vt = UVPair.unpackV(packedUv);
 
-            MemoryIntrinsics.putFloat(ptr, pos.x() + x);
-            MemoryIntrinsics.putFloat(ptr + 4, pos.y() + y);
-            MemoryIntrinsics.putFloat(ptr + 8, pos.z() + z);
-            putRgba(ptr + 12, vertexColor);
-            MemoryIntrinsics.putFloat(ptr + 16, u);
-            MemoryIntrinsics.putFloat(ptr + 20, vt);
-            putPackedUv(ptr + 24, light);
+            short posX = (short) Math.round((pos.x() + x) * 1000.0f);
+            short posY = (short) Math.round((pos.y() + y) * 1000.0f);
+            short posZ = (short) Math.round((pos.z() + z) * 1000.0f);
+
+            MemoryIntrinsics.putShort(ptr, posX);
+            MemoryIntrinsics.putShort(ptr + 2L, posY);
+            MemoryIntrinsics.putShort(ptr + 4L, posZ);
+
+            putRgba(ptr + 6L, vertexColor);
+
+            short texU = (short) Math.round(UVPair.unpackU(packedUv) * 32767.0f);
+            short texV = (short) Math.round(UVPair.unpackV(packedUv) * 32767.0f);
+
+            MemoryIntrinsics.putShort(ptr + 10L, texU);
+            MemoryIntrinsics.putShort(ptr + 12L, texV);
+
+            byte lightBlock = (byte) ((light & 0xFFFF) / 16);
+            byte lightSky = (byte) (((light >> 16) & 0xFFFF) / 16);
+
+            MemoryIntrinsics.putByte(ptr + 14L, (byte) (lightBlock | (normalId << 4)));
+            MemoryIntrinsics.putByte(ptr + 15L, lightSky);
+
             ptr += VERTEX_SIZE;
+        }
+    }
+
+    private static int getNormalId(float nx, float ny, float nz) {
+        float absX = Math.abs(nx);
+        float absY = Math.abs(ny);
+        float absZ = Math.abs(nz);
+
+        if (absX > absY && absX > absZ) {
+            return nx > 0.0f ? 5 : 4;
+        } else if (absY > absX && absY > absZ) {
+            return ny > 0.0f ? 1 : 0;
+        } else {
+            return nz > 0.0f ? 3 : 2;
         }
     }
 
     private static void putRgba(long pointer, int argb) {
         int abgr = ARGB.toABGR(argb);
         MemoryIntrinsics.putInt(pointer, IS_LITTLE_ENDIAN ? abgr : Integer.reverseBytes(abgr));
-    }
-
-    private static void putPackedUv(long pointer, int packedUv) {
-        if (IS_LITTLE_ENDIAN) {
-            MemoryIntrinsics.putInt(pointer, packedUv);
-        } else {
-            MemoryIntrinsics.putShort(pointer, (short)(packedUv & 65535));
-            MemoryIntrinsics.putShort(pointer + 2, (short)(packedUv >> 16 & 65535));
-        }
     }
 
     private static class DirectVertexConsumer implements VertexConsumer {
@@ -233,9 +254,14 @@ public class XenoMesher extends SectionCompiler {
             assert this.buffer != null;
             long ptr = this.buffer.reserve(VERTEX_SIZE);
             this.vertexPointer = ptr;
-            MemoryIntrinsics.putFloat(ptr, x);
-            MemoryIntrinsics.putFloat(ptr + 4, y);
-            MemoryIntrinsics.putFloat(ptr + 8, z);
+
+            short posX = (short) Math.round(x * 1000.0f);
+            short posY = (short) Math.round(y * 1000.0f);
+            short posZ = (short) Math.round(z * 1000.0f);
+            MemoryIntrinsics.putShort(ptr, posX);
+            MemoryIntrinsics.putShort(ptr + 2L, posY);
+            MemoryIntrinsics.putShort(ptr + 4L, posZ);
+
             return this;
         }
 
@@ -243,10 +269,10 @@ public class XenoMesher extends SectionCompiler {
         public VertexConsumer setColor(int r, int g, int b, int a) {
             long ptr = this.vertexPointer;
             if (ptr != -1L) {
-                MemoryIntrinsics.putByte(ptr + 12, (byte)r);
-                MemoryIntrinsics.putByte(ptr + 13, (byte)g);
-                MemoryIntrinsics.putByte(ptr + 14, (byte)b);
-                MemoryIntrinsics.putByte(ptr + 15, (byte)a);
+                MemoryIntrinsics.putByte(ptr + 6L, (byte)r);
+                MemoryIntrinsics.putByte(ptr + 7L, (byte)g);
+                MemoryIntrinsics.putByte(ptr + 8L, (byte)b);
+                MemoryIntrinsics.putByte(ptr + 9L, (byte)a);
             }
             return this;
         }
@@ -255,7 +281,7 @@ public class XenoMesher extends SectionCompiler {
         public VertexConsumer setColor(int color) {
             long ptr = this.vertexPointer;
             if (ptr != -1L) {
-                putRgba(ptr + 12, color);
+                putRgba(ptr + 6L, color);
             }
             return this;
         }
@@ -264,8 +290,10 @@ public class XenoMesher extends SectionCompiler {
         public VertexConsumer setUv(float u, float v) {
             long ptr = this.vertexPointer;
             if (ptr != -1L) {
-                MemoryIntrinsics.putFloat(ptr + 16, u);
-                MemoryIntrinsics.putFloat(ptr + 20, v);
+                short texU = (short) Math.round(u * 32767.0f);
+                short texV = (short) Math.round(v * 32767.0f);
+                MemoryIntrinsics.putShort(ptr + 10L, texU);
+                MemoryIntrinsics.putShort(ptr + 12L, texV);
             }
             return this;
         }
@@ -279,14 +307,24 @@ public class XenoMesher extends SectionCompiler {
         public VertexConsumer setUv2(int u, int v) {
             long ptr = this.vertexPointer;
             if (ptr != -1L) {
-                MemoryIntrinsics.putShort(ptr + 24, (short)u);
-                MemoryIntrinsics.putShort(ptr + 26, (short)v);
+                byte lightBlock = (byte) ((u & 0xFFFF) / 16);
+                byte lightSky = (byte) ((v & 0xFFFF) / 16);
+                byte currentId = (byte) (MemoryIntrinsics.getByte(ptr + 14L) & 0xF0);
+
+                MemoryIntrinsics.putByte(ptr + 14L, (byte) (lightBlock | currentId));
+                MemoryIntrinsics.putByte(ptr + 15L, lightSky);
             }
             return this;
         }
 
         @Override
         public VertexConsumer setNormal(float x, float y, float z) {
+            long ptr = this.vertexPointer;
+            if (ptr != -1L) {
+                byte normalId = (byte) getNormalId(x, y, z);
+                byte currentLight = (byte) (MemoryIntrinsics.getByte(ptr + 14L) & 0x0F);
+                MemoryIntrinsics.putByte(ptr + 14L, (byte) (currentLight | (normalId << 4)));
+            }
             return this;
         }
 
@@ -297,7 +335,7 @@ public class XenoMesher extends SectionCompiler {
 
         @Override
         public void addVertex(
-            float x, float y, float z, int color, float u, float v, int overlayCoords, int lightCoords, float nx, float ny, float nz
+                float x, float y, float z, int color, float u, float v, int overlayCoords, int lightCoords, float nx, float ny, float nz
         ) {
             if (this.vertices >= MAX_VERTICES) {
                 throw new IllegalStateException("Too many vertices");
@@ -306,13 +344,29 @@ public class XenoMesher extends SectionCompiler {
             assert this.buffer != null;
             long ptr = this.buffer.reserve(VERTEX_SIZE);
             this.vertexPointer = ptr;
-            MemoryIntrinsics.putFloat(ptr, x);
-            MemoryIntrinsics.putFloat(ptr + 4, y);
-            MemoryIntrinsics.putFloat(ptr + 8, z);
-            putRgba(ptr + 12, color);
-            MemoryIntrinsics.putFloat(ptr + 16, u);
-            MemoryIntrinsics.putFloat(ptr + 20, v);
-            putPackedUv(ptr + 24, lightCoords);
+
+            short posX = (short) Math.round(x * 1000.0f);
+            short posY = (short) Math.round(y * 1000.0f);
+            short posZ = (short) Math.round(z * 1000.0f);
+
+            MemoryIntrinsics.putShort(ptr, posX);
+            MemoryIntrinsics.putShort(ptr + 2L, posY);
+            MemoryIntrinsics.putShort(ptr + 4L, posZ);
+
+            putRgba(ptr + 6L, color);
+
+            short texU = (short) Math.round(u * 32767.0f);
+            short texV = (short) Math.round(v * 32767.0f);
+
+            MemoryIntrinsics.putShort(ptr + 10L, texU);
+            MemoryIntrinsics.putShort(ptr + 12L, texV);
+
+            byte lightBlock = (byte) ((lightCoords & 0xFFFF) / 16);
+            byte lightSky = (byte) (((lightCoords >> 16) & 0xFFFF) / 16);
+            byte normalId = (byte) getNormalId(nx, ny, nz);
+
+            MemoryIntrinsics.putByte(ptr + 14L, (byte) (lightBlock | (normalId << 4)));
+            MemoryIntrinsics.putByte(ptr + 15L, lightSky);
         }
     }
 }
