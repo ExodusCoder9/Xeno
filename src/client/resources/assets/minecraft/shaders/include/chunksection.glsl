@@ -9,12 +9,18 @@ layout(std140) uniform ChunkSection {
     SectionData sections[1024];
 };
 
-// In vertex shader, use gl_InstanceID directly
+#extension GL_ARB_shader_draw_parameters : enable
+
+// In vertex shader, use gl_DrawIDARB when available
 // In fragment shader, use the flat instanceId varying passed from vertex shader
 #ifdef VERTEX_SHADER
-#define INSTANCE_ID gl_InstanceID
+  #ifdef GL_ARB_shader_draw_parameters
+    #define INSTANCE_ID gl_DrawIDARB
+  #else
+    #define INSTANCE_ID gl_InstanceID
+  #endif
 #else
-#define INSTANCE_ID instanceId
+  #define INSTANCE_ID instanceId
 #endif
 
 #define ChunkVisibility sections[INSTANCE_ID].ChunkVisibility

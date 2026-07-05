@@ -30,7 +30,7 @@ void main() {
 
     sphericalVertexDistance = fog_spherical_distance(pos);
     cylindricalVertexDistance = fog_cylindrical_distance(pos);
-    instanceId = gl_InstanceID;
+    instanceId = INSTANCE_ID;
 
     // 3. Unpack packed lightmap coordinates (blockLight: x & 0x0F, skyLight: y & 0x0F)
     int blockLight = UV2.x & 0x0F;
