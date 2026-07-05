@@ -198,7 +198,7 @@ public class XenoAllocator {
 
         long nextFreeOffset = 0;
         GpuBufferSlice fullSlice = buffer.slice(0, capacity);
-        try (GpuBufferSlice.MappedView view = fullSlice.map(true, true)) {
+        try (GpuBufferSlice.MappedView view = fullSlice.map(false, true)) {
             ByteBuffer fullBuffer = view.data().order(ByteOrder.nativeOrder());
             MemorySegment segment = MemorySegment.ofBuffer(fullBuffer);
 
