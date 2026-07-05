@@ -2,7 +2,6 @@ package com.xeno.client.mixin;
 
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import java.util.BitSet;
-import java.util.List;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
@@ -14,9 +13,6 @@ public interface FrameGraphPassAccessor {
 
     @Accessor("task")
     Runnable xeno_getTask();
-
-    @Accessor("resourcesToAcquire")
-    List<?> xeno_getResourcesToAcquire();
 
     @Accessor("resourcesToRelease")
     BitSet xeno_getResourcesToRelease();
