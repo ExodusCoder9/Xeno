@@ -29,4 +29,9 @@ public final class MemoryIntrinsics {
     public static byte getByte(long address) {
         return HEAP.get(BYTE_UNALIGNED, address);
     }
+
+    public static void copy(java.nio.ByteBuffer src, long destAddress, long length) {
+        MemorySegment srcSegment = MemorySegment.ofBuffer(src);
+        MemorySegment.copy(srcSegment, 0L, HEAP, destAddress, length);
+    }
 }
