@@ -1,6 +1,6 @@
 package com.xeno.client.mixin;
 
-import com.xeno.client.renderer.XenoDrawCache;
+import com.xeno.client.renderer.XenoUploader;
 import com.xeno.client.renderer.XenoMdiRenderer;
 import com.mojang.blaze3d.IndexType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
@@ -132,18 +132,18 @@ public abstract class LevelRendererMixin {
                             List<RenderPass.Draw<GpuBufferSlice[]>> draws = drawGroups.get(layer)
                                 .computeIfAbsent(combinedHash, k -> new ArrayList<>());
 
-                            // Optimize chunk Draw allocations by fetching/mutating pre-allocated objects from XenoDrawCache
-                            RenderPass.Draw<GpuBufferSlice[]> drawObj = XenoDrawCache.getOrCreate(
-                                vertexBuffer,
-                                indexBuffer,
-                                indexType,
-                                firstIndex,
-                                draw.indexCount(),
-                                baseVertex,
-                                finalUboIndex
-                            );
+                             RenderPass.Draw<GpuBufferSlice[]> drawObj = new RenderPass.Draw<>(
+                                 0,
+                                 vertexBuffer,
+                                 indexBuffer,
+                                 indexType,
+                                 firstIndex,
+                                 draw.indexCount(),
+                                 baseVertex,
+                                 new XenoUploader(finalUboIndex)
+                             );
 
-                            draws.add(drawObj);
+                             draws.add(drawObj);
                         }
                     }
                 }
