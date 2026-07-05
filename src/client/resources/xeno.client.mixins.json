@@ -19,7 +19,10 @@
 		"SectionCompilerMixin",
 		"BlockModelLighterCacheMixin",
 		"ChunkSectionsToRenderMixin",
-		"VulkanBackendMixin"
+		"VulkanBackendMixin",
+		"AllocationMixin",
+		"UberGpuBufferMixin",
+		"UberGpuBufferAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
