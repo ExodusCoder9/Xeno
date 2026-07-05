@@ -70,8 +70,8 @@ public class XenoMdiRenderer {
         try (GpuBufferSlice.MappedView cmdMap = indirectSlice.map(false, true);
              GpuBufferSlice.MappedView uboMap = uniformSlice.map(false, true)) {
 
-            ByteBuffer cmdData = cmdMap.data();
-            ByteBuffer uboData = uboMap.data();
+            ByteBuffer cmdData = cmdMap.data().order(java.nio.ByteOrder.nativeOrder());
+            ByteBuffer uboData = uboMap.data().order(java.nio.ByteOrder.nativeOrder());
 
             RenderPass.Draw<GpuBufferSlice[]> firstDraw = draws.getFirst();
             GpuBuffer vertexBuffer = firstDraw.vertexBuffer();
