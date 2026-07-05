@@ -7,6 +7,7 @@ import com.xeno.client.renderer.PendingUpload;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.DeviceType;
 import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.chunk.SectionMesh;
@@ -51,7 +52,7 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
         boolean isIntegrated = device.getDeviceInfo().type() == DeviceType.INTEGRATED;
         this.xeno$arenas = Util.makeEnumMap(ChunkSectionLayer.class, layer -> {
             VertexFormat format = layer.pipeline().getVertexFormatBinding(0);
-            int vertexSize = format != null ? format.getVertexSize() : 20;
+            int vertexSize = format != null ? format.getVertexSize() : 16;
             return new XenoMeshArena(device, isIntegrated, 134217728, 33554432, vertexSize, 8);
         });
     }
@@ -82,23 +83,27 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
         // 2. Perform all pending uploads for dGPU (Approach B)
         PendingUpload upload;
         GpuDevice device = RenderSystem.getDevice();
+
+        // Cache the encoder to avoid generating massive amounts of command encoder objects
+        CommandEncoder encoder = device.createCommandEncoder();
+
         while ((upload = this.xeno$pendingUploads.poll()) != null) {
             XenoMeshArena arena = this.xeno$arenas.get(upload.layer());
             if (arena != null) {
                 if (upload.vertexData() != null) {
                     long vSize = upload.vertexData().remaining();
                     XenoMeshArena.VertexAllocation alloc = arena.allocateVertex(upload.mesh(), vSize);
-                    device.createCommandEncoder().writeToBuffer(
-                        alloc.segment().buffer.slice(alloc.slot().offset, vSize),
-                        upload.vertexData()
+                    encoder.writeToBuffer(
+                            alloc.segment().buffer.slice(alloc.slot().offset, vSize),
+                            upload.vertexData()
                     );
                 }
                 if (upload.indexData() != null) {
                     long iSize = upload.indexData().remaining();
                     XenoMeshArena.IndexAllocation alloc = arena.allocateIndex(upload.mesh(), iSize);
-                    device.createCommandEncoder().writeToBuffer(
-                        alloc.segment().buffer.slice(alloc.slot().offset, iSize),
-                        upload.indexData()
+                    encoder.writeToBuffer(
+                            alloc.segment().buffer.slice(alloc.slot().offset, iSize),
+                            upload.indexData()
                     );
                 }
                 if (upload.callback() != null) {

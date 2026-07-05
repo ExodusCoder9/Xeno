@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -31,11 +32,11 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
 
     @Inject(method = "addSectionBuffersToUberBuffer", at = @At("HEAD"), cancellable = true)
     private void onAddSectionBuffersToUberBuffer(
-        ChunkSectionLayer layer,
-        CompiledSectionMesh key,
-        @Nullable ByteBuffer vertexBuffer,
-        @Nullable ByteBuffer indexBuffer,
-        CallbackInfoReturnable<Boolean> cir
+            ChunkSectionLayer layer,
+            CompiledSectionMesh key,
+            @Nullable ByteBuffer vertexBuffer,
+            @Nullable ByteBuffer indexBuffer,
+            CallbackInfoReturnable<Boolean> cir
     ) {
         XenoDispatcherAccess access = (XenoDispatcherAccess) this$0;
         XenoMeshArena arena = access.xeno$getArenas().get(layer);
@@ -57,28 +58,41 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
                     boolean sortedIndexBuffer = vertexBuffer == null;
                     access.xeno$getRenderThreadCallbacks().add(() -> this.indexBufferUploadCallback(key, layer, sortedIndexBuffer));
+                } else if (vertexBuffer == null) {
+                    // Match vanilla fallback logic for empty index buffers
+                    key.setIndexBufferUploaded(layer);
                 }
             } else {
-                // Approach B: dGPU - copy ByteBuffers and queue for render thread
+                // Approach B: dGPU - copy ByteBuffers using native malloc and queue for render thread
                 ByteBuffer vCopy = null;
                 ByteBuffer iCopy = null;
+
                 if (vertexBuffer != null) {
-                    vCopy = ByteBuffer.allocateDirect(vertexBuffer.remaining()).put(vertexBuffer.duplicate()).flip();
+                    int size = vertexBuffer.remaining();
+                    vCopy = MemoryUtil.memAlloc(size);
+                    MemoryUtil.memCopy(MemoryUtil.memAddress(vertexBuffer), MemoryUtil.memAddress(vCopy), size);
                 }
                 if (indexBuffer != null) {
-                    iCopy = ByteBuffer.allocateDirect(indexBuffer.remaining()).put(indexBuffer.duplicate()).flip();
+                    int size = indexBuffer.remaining();
+                    iCopy = MemoryUtil.memAlloc(size);
+                    MemoryUtil.memCopy(MemoryUtil.memAddress(indexBuffer), MemoryUtil.memAddress(iCopy), size);
                 }
-                
+
                 final ByteBuffer finalVCopy = vCopy;
                 final ByteBuffer finalICopy = iCopy;
-                
                 boolean sortedIndexBuffer = vertexBuffer == null;
+
                 Runnable callback = () -> {
                     if (finalVCopy != null) {
                         this.vertexBufferUploadCallback(key, layer);
+                        MemoryUtil.memFree(finalVCopy);
                     }
                     if (finalICopy != null) {
                         this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
+                        MemoryUtil.memFree(finalICopy);
+                    } else if (finalVCopy == null) {
+                        // Match vanilla fallback logic for empty index buffers
+                        key.setIndexBufferUploaded(layer);
                     }
                 };
 
