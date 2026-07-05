@@ -1,6 +1,7 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.culling.XenoVertexFormat;
+import com.xeno.client.renderer.MemoryIntrinsics;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.VertexFormat;
@@ -10,7 +11,7 @@ import net.minecraft.client.model.geom.builders.UVPair;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import org.joml.Vector3fc;
 import org.jspecify.annotations.NonNull;
-import org.lwjgl.system.MemoryUtil;
+
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -58,9 +59,9 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
             short posX = (short) Math.round(x * 1000.0f);
             short posY = (short) Math.round(y * 1000.0f);
             short posZ = (short) Math.round(z * 1000.0f);
-            MemoryUtil.memPutShort(pointer, posX);
-            MemoryUtil.memPutShort(pointer + 2L, posY);
-            MemoryUtil.memPutShort(pointer + 4L, posZ);
+            MemoryIntrinsics.putShort(pointer, posX);
+            MemoryIntrinsics.putShort(pointer + 2L, posY);
+            MemoryIntrinsics.putShort(pointer + 4L, posZ);
 
             // 2. Pack Color (RGBA8_UNORM = 4 bytes, Offset 6)
             putRgba(pointer + 6L, color);
@@ -68,16 +69,16 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
             // 3. Pack UV0 (RG16_SINT = 4 bytes, Offset 10)
             short texU = (short) Math.round(u * 32767.0f);
             short texV = (short) Math.round(v * 32767.0f);
-            MemoryUtil.memPutShort(pointer + 10L, texU);
-            MemoryUtil.memPutShort(pointer + 12L, texV);
+            MemoryIntrinsics.putShort(pointer + 10L, texU);
+            MemoryIntrinsics.putShort(pointer + 12L, texV);
 
             // 4. Pack UV2 / Lightmap & Normal ID (RG8_SINT = 2 bytes, Offset 14)
             byte lightBlock = (byte) ((lightCoords & 0xFFFF) / 16);
             byte lightSky = (byte) (((lightCoords >> 16) & 0xFFFF) / 16);
             byte normalId = (byte) xeno_getNormalId(nx, ny, nz);
 
-            MemoryUtil.memPutByte(pointer + 14L, (byte) (lightBlock | (normalId << 4)));
-            MemoryUtil.memPutByte(pointer + 15L, lightSky);
+            MemoryIntrinsics.putByte(pointer + 14L, (byte) (lightBlock | (normalId << 4)));
+            MemoryIntrinsics.putByte(pointer + 15L, lightSky);
 
             ci.cancel();
         }
@@ -116,23 +117,23 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
                 short posX = (short) Math.round((pos.x() + x) * 1000.0f);
                 short posY = (short) Math.round((pos.y() + y) * 1000.0f);
                 short posZ = (short) Math.round((pos.z() + z) * 1000.0f);
-                MemoryUtil.memPutShort(pointer, posX);
-                MemoryUtil.memPutShort(pointer + 2L, posY);
-                MemoryUtil.memPutShort(pointer + 4L, posZ);
+                MemoryIntrinsics.putShort(pointer, posX);
+                MemoryIntrinsics.putShort(pointer + 2L, posY);
+                MemoryIntrinsics.putShort(pointer + 4L, posZ);
 
                 putRgba(pointer + 6L, instance.getColor(0));
 
                 long packedUv = quad.packedUV(0);
                 short texU = (short) Math.round(UVPair.unpackU(packedUv) * 32767.0f);
                 short texV = (short) Math.round(UVPair.unpackV(packedUv) * 32767.0f);
-                MemoryUtil.memPutShort(pointer + 10L, texU);
-                MemoryUtil.memPutShort(pointer + 12L, texV);
+                MemoryIntrinsics.putShort(pointer + 10L, texU);
+                MemoryIntrinsics.putShort(pointer + 12L, texV);
 
                 int light = instance.getLightCoordsWithEmission(0, lightEmission);
                 byte lightBlock = (byte) ((light & 0xFFFF) / 16);
                 byte lightSky = (byte) (((light >> 16) & 0xFFFF) / 16);
-                MemoryUtil.memPutByte(pointer + 14L, (byte) (lightBlock | (normalId << 4)));
-                MemoryUtil.memPutByte(pointer + 15L, lightSky);
+                MemoryIntrinsics.putByte(pointer + 14L, (byte) (lightBlock | (normalId << 4)));
+                MemoryIntrinsics.putByte(pointer + 15L, lightSky);
             }
 
             // Vertex 1 (Offset 16)
@@ -141,23 +142,23 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
                 short posX = (short) Math.round((pos.x() + x) * 1000.0f);
                 short posY = (short) Math.round((pos.y() + y) * 1000.0f);
                 short posZ = (short) Math.round((pos.z() + z) * 1000.0f);
-                MemoryUtil.memPutShort(pointer + 16L, posX);
-                MemoryUtil.memPutShort(pointer + 18L, posY);
-                MemoryUtil.memPutShort(pointer + 20L, posZ);
+                MemoryIntrinsics.putShort(pointer + 16L, posX);
+                MemoryIntrinsics.putShort(pointer + 18L, posY);
+                MemoryIntrinsics.putShort(pointer + 20L, posZ);
 
                 putRgba(pointer + 22L, instance.getColor(1));
 
                 long packedUv = quad.packedUV(1);
                 short texU = (short) Math.round(UVPair.unpackU(packedUv) * 32767.0f);
                 short texV = (short) Math.round(UVPair.unpackV(packedUv) * 32767.0f);
-                MemoryUtil.memPutShort(pointer + 26L, texU);
-                MemoryUtil.memPutShort(pointer + 28L, texV);
+                MemoryIntrinsics.putShort(pointer + 26L, texU);
+                MemoryIntrinsics.putShort(pointer + 28L, texV);
 
                 int light = instance.getLightCoordsWithEmission(1, lightEmission);
                 byte lightBlock = (byte) ((light & 0xFFFF) / 16);
                 byte lightSky = (byte) (((light >> 16) & 0xFFFF) / 16);
-                MemoryUtil.memPutByte(pointer + 30L, (byte) (lightBlock | (normalId << 4)));
-                MemoryUtil.memPutByte(pointer + 31L, lightSky);
+                MemoryIntrinsics.putByte(pointer + 30L, (byte) (lightBlock | (normalId << 4)));
+                MemoryIntrinsics.putByte(pointer + 31L, lightSky);
             }
 
             // Vertex 2 (Offset 32)
@@ -166,23 +167,23 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
                 short posX = (short) Math.round((pos.x() + x) * 1000.0f);
                 short posY = (short) Math.round((pos.y() + y) * 1000.0f);
                 short posZ = (short) Math.round((pos.z() + z) * 1000.0f);
-                MemoryUtil.memPutShort(pointer + 32L, posX);
-                MemoryUtil.memPutShort(pointer + 34L, posY);
-                MemoryUtil.memPutShort(pointer + 36L, posZ);
+                MemoryIntrinsics.putShort(pointer + 32L, posX);
+                MemoryIntrinsics.putShort(pointer + 34L, posY);
+                MemoryIntrinsics.putShort(pointer + 36L, posZ);
 
                 putRgba(pointer + 38L, instance.getColor(2));
 
                 long packedUv = quad.packedUV(2);
                 short texU = (short) Math.round(UVPair.unpackU(packedUv) * 32767.0f);
                 short texV = (short) Math.round(UVPair.unpackV(packedUv) * 32767.0f);
-                MemoryUtil.memPutShort(pointer + 42L, texU);
-                MemoryUtil.memPutShort(pointer + 44L, texV);
+                MemoryIntrinsics.putShort(pointer + 42L, texU);
+                MemoryIntrinsics.putShort(pointer + 44L, texV);
 
                 int light = instance.getLightCoordsWithEmission(2, lightEmission);
                 byte lightBlock = (byte) ((light & 0xFFFF) / 16);
                 byte lightSky = (byte) (((light >> 16) & 0xFFFF) / 16);
-                MemoryUtil.memPutByte(pointer + 46L, (byte) (lightBlock | (normalId << 4)));
-                MemoryUtil.memPutByte(pointer + 47L, lightSky);
+                MemoryIntrinsics.putByte(pointer + 46L, (byte) (lightBlock | (normalId << 4)));
+                MemoryIntrinsics.putByte(pointer + 47L, lightSky);
             }
 
             // Vertex 3 (Offset 48)
@@ -191,23 +192,23 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
                 short posX = (short) Math.round((pos.x() + x) * 1000.0f);
                 short posY = (short) Math.round((pos.y() + y) * 1000.0f);
                 short posZ = (short) Math.round((pos.z() + z) * 1000.0f);
-                MemoryUtil.memPutShort(pointer + 48L, posX);
-                MemoryUtil.memPutShort(pointer + 50L, posY);
-                MemoryUtil.memPutShort(pointer + 52L, posZ);
+                MemoryIntrinsics.putShort(pointer + 48L, posX);
+                MemoryIntrinsics.putShort(pointer + 50L, posY);
+                MemoryIntrinsics.putShort(pointer + 52L, posZ);
 
                 putRgba(pointer + 54L, instance.getColor(3));
 
                 long packedUv = quad.packedUV(3);
                 short texU = (short) Math.round(UVPair.unpackU(packedUv) * 32767.0f);
                 short texV = (short) Math.round(UVPair.unpackV(packedUv) * 32767.0f);
-                MemoryUtil.memPutShort(pointer + 58L, texU);
-                MemoryUtil.memPutShort(pointer + 60L, texV);
+                MemoryIntrinsics.putShort(pointer + 58L, texU);
+                MemoryIntrinsics.putShort(pointer + 60L, texV);
 
                 int light = instance.getLightCoordsWithEmission(3, lightEmission);
                 byte lightBlock = (byte) ((light & 0xFFFF) / 16);
                 byte lightSky = (byte) (((light >> 16) & 0xFFFF) / 16);
-                MemoryUtil.memPutByte(pointer + 62L, (byte) (lightBlock | (normalId << 4)));
-                MemoryUtil.memPutByte(pointer + 63L, lightSky);
+                MemoryIntrinsics.putByte(pointer + 62L, (byte) (lightBlock | (normalId << 4)));
+                MemoryIntrinsics.putByte(pointer + 63L, lightSky);
             }
         } else {
             // Fallback to the interface's default method implementation
