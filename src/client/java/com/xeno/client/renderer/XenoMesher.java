@@ -75,6 +75,7 @@ public class XenoMesher extends SectionCompiler {
         BlockPos maxPos = minPos.offset(15, 15, 15);
         VisGraph visGraph = new VisGraph();
         BlockModelLighter.enableCaching();
+        XenoMeshingCache.get().init(region, sectionPos.origin());
 
         ModelBlockRenderer blockRenderer = new ModelBlockRenderer(this.ambientOcclusion, true, this.blockColors);
         FluidRenderer fluidRenderer = new FluidRenderer(this.fluidModelSet);
@@ -159,6 +160,7 @@ public class XenoMesher extends SectionCompiler {
             results.renderedLayers.put(layer, mesh);
         }
 
+        XenoMeshingCache.get().disable();
         BlockModelLighter.clearCache();
         results.visibilitySet = visGraph.resolve();
         return results;
