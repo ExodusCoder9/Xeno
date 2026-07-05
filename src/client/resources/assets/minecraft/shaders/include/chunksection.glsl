@@ -9,9 +9,6 @@ layout(std140) uniform ChunkSection {
     SectionData sections[1024];
 };
 
-#extension GL_ARB_shader_draw_parameters : enable
-#extension GL_EXT_shader_draw_parameters : enable
-
 // In vertex shader, use gl_DrawID when available
 // In fragment shader, use the flat instanceId varying passed from vertex shader
 #ifdef VERTEX_SHADER
