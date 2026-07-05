@@ -33,7 +33,8 @@ public class CullingThread extends Thread {
     private final LongOpenHashSet emptySections = new LongOpenHashSet();
     private final List<SectionRenderDispatcher.RenderSection> occlusionVisible = new ArrayList<>(4096);
 
-    private CullNode[] nodeArray = new CullNode[0];
+    private final java.lang.foreign.Arena cullingArena = java.lang.foreign.Arena.ofConfined();
+    private java.lang.foreign.MemorySegment nodeSegment = java.lang.foreign.MemorySegment.NULL;
     private boolean[] visited = new boolean[0];
     private boolean[] emptyArray = new boolean[0];
 
@@ -139,21 +140,16 @@ public class CullingThread extends Thread {
     }
 
     private void prepareCache(int size) {
-        if (this.nodeArray.length < size) {
-            CullNode[] newArray = new CullNode[size];
-            System.arraycopy(this.nodeArray, 0, newArray, 0, this.nodeArray.length);
-            for (int i = this.nodeArray.length; i < size; i++) {
-                newArray[i] = new CullNode(null, null, 0);
-            }
-            this.nodeArray = newArray;
-        }
-        if (this.visited.length < size) {
+        long requiredBytes = size * 8L;
+        if (this.nodeSegment == java.lang.foreign.MemorySegment.NULL || this.nodeSegment.byteSize() < requiredBytes) {
+            this.nodeSegment = this.cullingArena.allocate(requiredBytes, 8);
             this.visited = new boolean[size];
             this.emptyArray = new boolean[size];
             this.bfsQueue = new int[size];
             this.fallbackNodes = new int[size];
             this.fallbackDist = new double[size];
         } else {
+            this.nodeSegment.fill((byte) 0);
             java.util.Arrays.fill(this.visited, false);
             java.util.Arrays.fill(this.emptyArray, false);
         }
@@ -343,21 +339,25 @@ public class CullingThread extends Thread {
                     );
                     if (renderSectionAt != null) {
                         Direction sourceDirection = isBelowTheWorld ? Direction.UP : Direction.DOWN;
+                        long offset = renderSectionAt.index * 8L;
 
-                        CullNode node = this.nodeArray[renderSectionAt.index];
-                        node.reset(renderSectionAt, sourceDirection, 0);
-                        node.setDirections(node.directions, sourceDirection);
+                        byte srcDir = (byte) (1 << sourceDirection.ordinal());
+                        this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_BYTE, offset + 1L, srcDir);
+                        this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_SHORT, offset + 2L, (short) 0);
+
+                        byte dirs = srcDir;
                         if (sectionX > 0) {
-                            node.setDirections(node.directions, Direction.EAST);
+                            dirs |= (byte) (1 << Direction.EAST.ordinal());
                         } else if (sectionX < 0) {
-                            node.setDirections(node.directions, Direction.WEST);
+                            dirs |= (byte) (1 << Direction.WEST.ordinal());
                         }
 
                         if (sectionZ > 0) {
-                            node.setDirections(node.directions, Direction.SOUTH);
+                            dirs |= (byte) (1 << Direction.SOUTH.ordinal());
                         } else if (sectionZ < 0) {
-                            node.setDirections(node.directions, Direction.NORTH);
+                            dirs |= (byte) (1 << Direction.NORTH.ordinal());
                         }
+                        this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_BYTE, offset, dirs);
 
                         this.fallbackNodes[count] = renderSectionAt.index;
                         int secNodeX = SectionPos.x(renderSectionAt.getSectionNode());
@@ -379,8 +379,10 @@ public class CullingThread extends Thread {
                 }
             }
         } else {
-            CullNode node = this.nodeArray[cameraSection.index];
-            node.reset(cameraSection, null, 0);
+            long offset = cameraSection.index * 8L;
+            this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_BYTE, offset, (byte) 0);
+            this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_BYTE, offset + 1L, (byte) 0);
+            this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_SHORT, offset + 2L, (short) 0);
             this.visited[cameraSection.index] = true;
             this.bfsQueue[this.queueTail++] = cameraSection.index;
         }
@@ -404,9 +406,9 @@ public class CullingThread extends Thread {
 
         while (this.queueHead < this.queueTail) {
             int nodeIndex = this.bfsQueue[this.queueHead++];
-            CullNode node = this.nodeArray[nodeIndex];
-            SectionRenderDispatcher.RenderSection currentSection = node.section;
+            SectionRenderDispatcher.RenderSection currentSection = sectionArray[nodeIndex];
             long sectionNode = currentSection.getSectionNode();
+            long nodeOffset = nodeIndex * 8L;
 
             if (!this.emptyArray[currentSection.index]) {
                 this.occlusionVisible.add(currentSection);
@@ -430,32 +432,49 @@ public class CullingThread extends Thread {
                         sectionArray
                 );
 
-                if (renderSectionAt != null && (!smartCull || !node.hasDirection(direction.getOpposite()))) {
-                    if (smartCull && node.hasSourceDirections()) {
-                        SectionMesh sectionMesh = currentSection.getSectionMesh();
-                        boolean visible = false;
+                if (renderSectionAt != null) {
+                    byte parentDirs = this.nodeSegment.get(java.lang.foreign.ValueLayout.JAVA_BYTE, nodeOffset);
+                    boolean hasOppositeDir = (parentDirs & (1 << direction.getOpposite().ordinal())) != 0;
 
-                        for (int i = 0; i < DIRECTIONS.length; i++) {
-                            if (node.hasSourceDirection(i) && sectionMesh.facesCanSeeEachother(DIRECTIONS[i].getOpposite(), direction)) {
-                                visible = true;
-                                break;
+                    if (!smartCull || !hasOppositeDir) {
+                        if (smartCull) {
+                            byte parentSrcDirs = this.nodeSegment.get(java.lang.foreign.ValueLayout.JAVA_BYTE, nodeOffset + 1L);
+                            if (parentSrcDirs != 0) {
+                                SectionMesh sectionMesh = currentSection.getSectionMesh();
+                                boolean visible = false;
+
+                                for (int i = 0; i < DIRECTIONS.length; i++) {
+                                    boolean hasSrcDir = (parentSrcDirs & (1 << i)) != 0;
+                                    if (hasSrcDir && sectionMesh.facesCanSeeEachother(DIRECTIONS[i].getOpposite(), direction)) {
+                                        visible = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!visible) {
+                                    continue;
+                                }
                             }
                         }
 
-                        if (!visible) {
-                            continue;
-                        }
-                    }
+                        if (this.visited[renderSectionAt.index]) {
+                            long neighborOffset = renderSectionAt.index * 8L;
+                            byte oldSrc = this.nodeSegment.get(java.lang.foreign.ValueLayout.JAVA_BYTE, neighborOffset + 1L);
+                            this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_BYTE, neighborOffset + 1L, (byte) (oldSrc | (1 << direction.ordinal())));
+                        } else {
+                            this.visited[renderSectionAt.index] = true;
+                            long neighborOffset = renderSectionAt.index * 8L;
+                            short parentStep = this.nodeSegment.get(java.lang.foreign.ValueLayout.JAVA_SHORT, nodeOffset + 2L);
 
-                    if (this.visited[renderSectionAt.index]) {
-                        CullNode existingNode = this.nodeArray[renderSectionAt.index];
-                        existingNode.addSourceDirection(direction);
-                    } else {
-                        this.visited[renderSectionAt.index] = true;
-                        CullNode newNode = this.nodeArray[renderSectionAt.index];
-                        newNode.reset(renderSectionAt, direction, node.step + 1);
-                        newNode.setDirections(node.directions, direction);
-                        this.bfsQueue[this.queueTail++] = renderSectionAt.index;
+                            byte newDirs = (byte) (parentDirs | (1 << direction.ordinal()));
+                            byte newSrcDirs = (byte) (1 << direction.ordinal());
+
+                            this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_BYTE, neighborOffset, newDirs);
+                            this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_BYTE, neighborOffset + 1L, newSrcDirs);
+                            this.nodeSegment.set(java.lang.foreign.ValueLayout.JAVA_SHORT, neighborOffset + 2L, (short) (parentStep + 1));
+
+                            this.bfsQueue[this.queueTail++] = renderSectionAt.index;
+                        }
                     }
                 }
             }

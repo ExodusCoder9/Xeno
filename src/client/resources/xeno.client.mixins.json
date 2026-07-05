@@ -17,7 +17,8 @@
 		"DebugScreenEntriesMixin",
 		"DebugScreenEntryListMixin",
 		"SectionCompilerMixin",
-		"BlockModelLighterCacheMixin"
+		"BlockModelLighterCacheMixin",
+		"ChunkSectionsToRenderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

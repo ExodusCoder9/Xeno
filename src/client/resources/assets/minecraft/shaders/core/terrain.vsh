@@ -1,4 +1,6 @@
 #version 330
+#extension GL_ARB_shader_draw_parameters : enable
+#extension GL_EXT_shader_draw_parameters : enable
 #define VERTEX_SHADER
 
 #moj_import <minecraft:fog.glsl>
@@ -18,13 +20,16 @@ out float sphericalVertexDistance;
 out float cylindricalVertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
+flat out int instanceId;
 
 void main() {
+    instanceId = INSTANCE_ID;
+
     // 1. Decode local position from millimeters to meters
     vec3 localPos = vec3(Position) / 1000.0;
 
-    // 2. Reconstruct world position using ChunkPosition (same as vanilla)
-    vec3 pos = localPos + (ChunkPosition - CameraBlockPos) + CameraOffset;
+    // 2. Reconstruct world position using the UBO array index
+    vec3 pos = localPos + (sections[INSTANCE_ID].ChunkPosition - CameraBlockPos) + CameraOffset;
     gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
 
     sphericalVertexDistance = fog_spherical_distance(pos);

@@ -1,4 +1,6 @@
 #version 330
+#extension GL_ARB_shader_draw_parameters : enable
+#extension GL_EXT_shader_draw_parameters : enable
 
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:globals.glsl>
@@ -10,6 +12,7 @@ in float sphericalVertexDistance;
 in float cylindricalVertexDistance;
 in vec4 vertexColor;
 in vec2 texCoord0;
+flat in int instanceId;
 
 out vec4 fragColor;
 
@@ -86,8 +89,11 @@ vec4 sampleRGSS(sampler2D source, vec2 uv, vec2 pixelSize) {
 }
 
 void main() {
-    vec4 color = (UseRgss == 1 ? sampleRGSS(Sampler0, texCoord0, 1.0f / TextureSize) : sampleNearest(Sampler0, texCoord0, 1.0f / TextureSize)) * vertexColor;
-    color = mix(FogColor * vec4(1, 1, 1, color.a), color, ChunkVisibility);
+    float visibility = sections[INSTANCE_ID].ChunkVisibility;
+    ivec2 texSize = sections[INSTANCE_ID].TextureSize;
+
+    vec4 color = (UseRgss == 1 ? sampleRGSS(Sampler0, texCoord0, 1.0f / texSize) : sampleNearest(Sampler0, texCoord0, 1.0f / texSize)) * vertexColor;
+    color = mix(FogColor * vec4(1, 1, 1, color.a), color, visibility);
 #ifdef ALPHA_CUTOUT
     if (color.a < ALPHA_CUTOUT) {
         discard;
