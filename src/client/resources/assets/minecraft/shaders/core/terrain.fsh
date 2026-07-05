@@ -1,6 +1,4 @@
-#version 330
-#extension GL_ARB_shader_draw_parameters : enable
-#extension GL_EXT_shader_draw_parameters : enable
+#version 460
 
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:globals.glsl>

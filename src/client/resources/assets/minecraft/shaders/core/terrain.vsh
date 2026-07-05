@@ -1,6 +1,4 @@
-#version 330
-#extension GL_ARB_shader_draw_parameters : enable
-#extension GL_EXT_shader_draw_parameters : enable
+#version 460
 #define VERTEX_SHADER
 
 #moj_import <minecraft:fog.glsl>
