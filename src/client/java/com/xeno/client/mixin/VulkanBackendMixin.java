@@ -17,13 +17,13 @@ public class VulkanBackendMixin {
         at = @At("HEAD")
     )
     private static void inject_createDevice(
-        Collection<String> extensions,
+        Collection<String> deviceExtensions,
         VulkanPhysicalDevice physicalDevice,
-        Set<VulkanFeature> features,
+        Set<VulkanFeature> vulkanFeatures,
         CallbackInfoReturnable<org.lwjgl.vulkan.VkDevice> cir
     ) {
         // Explicitly request drawIndirectFirstInstance Vulkan feature
-        features.add(new VulkanFeature(
+        vulkanFeatures.add(new VulkanFeature(
             VulkanBackend.VK10_FEATURES_STRUCT,
             "drawIndirectFirstInstance",
             org.lwjgl.vulkan.VkPhysicalDeviceFeatures.DRAWINDIRECTFIRSTINSTANCE
