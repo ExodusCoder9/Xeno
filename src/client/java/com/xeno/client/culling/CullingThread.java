@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.renderer.ViewArea;
 import net.minecraft.client.renderer.Octree;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
@@ -230,13 +231,35 @@ public class CullingThread extends Thread {
         }
 
         List<SectionRenderDispatcher.RenderSection> visibleList = new ArrayList<>(visibleCount);
+        List<SectionRenderDispatcher.RenderSection> solidList = new ArrayList<>();
+        List<SectionRenderDispatcher.RenderSection> cutoutList = new ArrayList<>();
+        List<SectionRenderDispatcher.RenderSection> translucentList = new ArrayList<>();
         java.util.BitSet visibleIndices = new java.util.BitSet(viewArea.size());
+
         for (int i = 0; i < visibleCount; i++) {
-            visibleList.add(this.sortArray[i]);
-            visibleIndices.set(this.sortArray[i].index);
+            SectionRenderDispatcher.RenderSection section = this.sortArray[i];
+            visibleList.add(section);
+            visibleIndices.set(section.index);
+
+            SectionMesh mesh = section.getSectionMesh();
+            if (mesh instanceof CompiledSectionMesh compiled) {
+                if (compiled.getSectionDraw(ChunkSectionLayer.SOLID) != null) {
+                    solidList.add(section);
+                }
+                if (compiled.getSectionDraw(ChunkSectionLayer.CUTOUT) != null) {
+                    cutoutList.add(section);
+                }
+                if (compiled.getSectionDraw(ChunkSectionLayer.TRANSLUCENT) != null) {
+                    translucentList.add(section);
+                }
+            } else {
+                solidList.add(section);
+                cutoutList.add(section);
+                translucentList.add(section);
+            }
         }
 
-        this.latestOutput = new CullingOutput(visibleList, nearbyList, visibleIndices);
+        this.latestOutput = new CullingOutput(visibleList, solidList, cutoutList, translucentList, nearbyList, visibleIndices);
         this.needsFrustumUpdate = true;
     }
 

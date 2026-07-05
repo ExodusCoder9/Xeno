@@ -20,7 +20,6 @@ public class XenoMdiRenderer {
         GpuBuffer lastIndexBuffer = null;
         IndexType lastIndexType = null;
         GpuBuffer lastVertexBuffer = null;
-        int lastSlot = -1;
 
         int drawCount = draws.size();
         for (int i = 0; i < drawCount; i++) {
@@ -35,19 +34,15 @@ public class XenoMdiRenderer {
                 lastIndexType = it;
             }
 
-            // 2. Bind Vertex Buffer (avoid redundant binds, respect slot changes)
+            // 2. Bind Vertex Buffer (always slot 0; avoid redundant binds)
             GpuBuffer vb = draw.vertexBuffer();
-            int slot = draw.slot();
-            if (vb != lastVertexBuffer || slot != lastSlot) {
-                renderPass.setVertexBuffer(slot, vb.slice());
+            if (vb != lastVertexBuffer) {
+                renderPass.setVertexBuffer(0, vb.slice());
                 lastVertexBuffer = vb;
-                lastSlot = slot;
             }
 
-            // 3. Bind Uniform slice
-            XenoUploader uploader = (XenoUploader) draw.uniformUploaderConsumer();
-            int uboIndex = uploader != null ? uploader.uboIndex : 0;
-            renderPass.setUniform("ChunkSection", chunkSectionInfos[uboIndex]);
+            // 3. Bind Uniform slice (uboIndex encoded in draw.slot)
+            renderPass.setUniform("ChunkSection", chunkSectionInfos[draw.slot()]);
 
             // 4. Draw
             renderPass.drawIndexed(draw.indexCount(), 1, draw.firstIndex(), draw.baseVertex(), 0);

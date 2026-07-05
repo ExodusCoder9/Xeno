@@ -52,6 +52,13 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     private final CullingRequest[] xeno_requests = new CullingRequest[] { new CullingRequest(), new CullingRequest() };
 
     @Unique
+    private List<SectionRenderDispatcher.RenderSection> xeno_frustumSolidSections = List.of();
+    @Unique
+    private List<SectionRenderDispatcher.RenderSection> xeno_frustumCutoutSections = List.of();
+    @Unique
+    private List<SectionRenderDispatcher.RenderSection> xeno_frustumTranslucentSections = List.of();
+
+    @Unique
     private int xeno_writeIndex = 0;
 
     @Unique
@@ -135,6 +142,8 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     /**
      * @author ExodusCoder9
      * @reason Injects pre-computed culling results directly from the background culling thread.
+     *         Also frustum-culls the pre-split per-layer lists and stores them for direct consumption
+     *         by prepareChunkRenders.
      */
     @Overwrite
     public void addSectionsInFrustum(
@@ -150,6 +159,8 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
             double camZ = frustum.getCamZ();
             FrustumIntersection intersection = ((FrustumAccessor) frustum).xeno$getIntersection();
 
+            java.util.HashSet<SectionRenderDispatcher.RenderSection> frustumPassed = new java.util.HashSet<>();
+
             for (SectionRenderDispatcher.RenderSection section : output.visibleSections()) {
                 AABB bb = section.getBoundingBox();
                 float minX = (float) (bb.minX - camX);
@@ -162,8 +173,35 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
                 int result = intersection.intersectAab(minX, minY, minZ, maxX, maxY, maxZ);
                 if (result == -2 || result == -1) {
                     visibleSections.add(section);
+                    frustumPassed.add(section);
                 }
             }
+
+            List<SectionRenderDispatcher.RenderSection> solidList = new ArrayList<>();
+            for (SectionRenderDispatcher.RenderSection section : output.solidSections()) {
+                if (frustumPassed.contains(section)) {
+                    solidList.add(section);
+                }
+            }
+
+            List<SectionRenderDispatcher.RenderSection> cutoutList = new ArrayList<>();
+            for (SectionRenderDispatcher.RenderSection section : output.cutoutSections()) {
+                if (frustumPassed.contains(section)) {
+                    cutoutList.add(section);
+                }
+            }
+
+            List<SectionRenderDispatcher.RenderSection> translucentList = new ArrayList<>();
+            for (SectionRenderDispatcher.RenderSection section : output.translucentSections()) {
+                if (frustumPassed.contains(section)) {
+                    translucentList.add(section);
+                }
+            }
+
+            this.xeno_frustumSolidSections = solidList;
+            this.xeno_frustumCutoutSections = cutoutList;
+            this.xeno_frustumTranslucentSections = translucentList;
+
             nearbyVisibleSections.addAll(output.nearbyVisibleSections());
         }
     }
@@ -324,5 +362,20 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
         CullingOutput output = this.xeno_cullingThread.getLatestOutput();
         if (output == null) return true;
         return output.isSectionVisible(sectionIndex);
+    }
+
+    @Override
+    public List<SectionRenderDispatcher.RenderSection> xeno$getSolidSections() {
+        return this.xeno_frustumSolidSections;
+    }
+
+    @Override
+    public List<SectionRenderDispatcher.RenderSection> xeno$getCutoutSections() {
+        return this.xeno_frustumCutoutSections;
+    }
+
+    @Override
+    public List<SectionRenderDispatcher.RenderSection> xeno$getTranslucentSections() {
+        return this.xeno_frustumTranslucentSections;
     }
 }
