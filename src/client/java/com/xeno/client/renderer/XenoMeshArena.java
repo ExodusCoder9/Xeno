@@ -84,7 +84,7 @@ public class XenoMeshArena implements AutoCloseable {
     private final long defaultIndexCapacity;
     private final long vertexAlign;
     private final long indexAlign;
-    
+
     private final List<VertexSegment> vertexSegments = new ArrayList<>();
     private final List<IndexSegment> indexSegments = new ArrayList<>();
     private final Map<SectionMesh, VertexAllocation> vertexAllocations = new HashMap<>();
@@ -97,7 +97,7 @@ public class XenoMeshArena implements AutoCloseable {
         this.defaultIndexCapacity = defaultIndexCapacity;
         this.vertexAlign = vertexAlign;
         this.indexAlign = indexAlign;
-        
+
         // Allocate initial segments
         this.vertexSegments.add(new VertexSegment(device, isIntegrated, defaultVertexCapacity));
         this.indexSegments.add(new IndexSegment(device, isIntegrated, defaultIndexCapacity));
@@ -124,7 +124,7 @@ public class XenoMeshArena implements AutoCloseable {
         // Segment overflow
         VertexSegment newSegment = new VertexSegment(device, isIntegrated, defaultVertexCapacity);
         vertexSegments.add(newSegment);
-        
+
         OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, vertexAlign);
         newSegment.activeAllocations++;
 
@@ -150,7 +150,7 @@ public class XenoMeshArena implements AutoCloseable {
         // Segment overflow
         IndexSegment newSegment = new IndexSegment(device, isIntegrated, defaultIndexCapacity);
         indexSegments.add(newSegment);
-        
+
         OffsetAllocator.Slot slot = newSegment.allocator.allocate(size, indexAlign);
         newSegment.activeAllocations++;
 
@@ -199,8 +199,8 @@ public class XenoMeshArena implements AutoCloseable {
         long indexBufferOffset = iAlloc != null ? iAlloc.slot.offset : 0L;
 
         return new SectionRenderDispatcher.RenderSectionBufferSlice(
-            vAlloc.segment.buffer, vAlloc.slot.offset,
-            indexBuffer, indexBufferOffset
+                vAlloc.segment.buffer, vAlloc.slot.offset,
+                indexBuffer, indexBufferOffset
         );
     }
 
