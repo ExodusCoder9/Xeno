@@ -18,7 +18,7 @@ out float sphericalVertexDistance;
 out float cylindricalVertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
-out flat int instanceId;
+flat out int instanceId;
 
 void main() {
     // 1. Decode local position from millimeters to meters
