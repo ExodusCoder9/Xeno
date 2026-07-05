@@ -2,6 +2,7 @@ package com.xeno.client.renderer;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.nio.ByteBuffer;
 
 public final class MemoryIntrinsics {
     private static final MemorySegment HEAP = MemorySegment.ofAddress(0L).reinterpret(Long.MAX_VALUE);
@@ -12,7 +13,8 @@ public final class MemoryIntrinsics {
 
     private static final ValueLayout.OfByte BYTE_UNALIGNED = ValueLayout.JAVA_BYTE;
 
-    private MemoryIntrinsics() {}
+    private MemoryIntrinsics() {
+    }
 
     public static void putInt(long address, int value) {
         HEAP.set(INT_UNALIGNED, address, value);
@@ -30,8 +32,8 @@ public final class MemoryIntrinsics {
         return HEAP.get(BYTE_UNALIGNED, address);
     }
 
-    public static void copy(java.nio.ByteBuffer src, long destAddress, long length) {
+    public static void copy(ByteBuffer src, long destAddress, long length) {
         MemorySegment srcSegment = MemorySegment.ofBuffer(src);
-        MemorySegment.copy(srcSegment, src.position(), HEAP, destAddress, length);
+        MemorySegment.copy(srcSegment, 0L, HEAP, destAddress, length);
     }
 }
