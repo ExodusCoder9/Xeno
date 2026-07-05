@@ -17,8 +17,6 @@ public class XenoMeshingCache {
     private final BlockState[] blockStates = new BlockState[18 * 18 * 18];
     private final int[] lightCoords = new int[18 * 18 * 18];
     private final float[] shadeBrightness = new float[18 * 18 * 18];
-    private final boolean[] lightPopulated = new boolean[18 * 18 * 18];
-    private final boolean[] shadePopulated = new boolean[18 * 18 * 18];
 
     public void init(BlockAndTintGetter region, BlockPos origin) {
         this.minX = origin.getX() - 1;
@@ -33,8 +31,8 @@ public class XenoMeshingCache {
                     int idx = x + y * 18 + z * 18 * 18;
                     mut.set(this.minX + x, this.minY + y, this.minZ + z);
                     this.blockStates[idx] = region.getBlockState(mut);
-                    this.lightPopulated[idx] = false;
-                    this.shadePopulated[idx] = false;
+                    this.lightCoords[idx] = -1;
+                    this.shadeBrightness[idx] = -1.0f;
                 }
             }
         }
@@ -72,11 +70,12 @@ public class XenoMeshingCache {
             return LightCoordsUtil.getLightCoords(LightCoordsUtil.BrightnessGetter.DEFAULT, region, state, pos);
         }
 
-        if (!this.lightPopulated[idx]) {
-            this.lightCoords[idx] = LightCoordsUtil.getLightCoords(LightCoordsUtil.BrightnessGetter.DEFAULT, region, state, pos);
-            this.lightPopulated[idx] = true;
+        int val = this.lightCoords[idx];
+        if (val == -1) {
+            val = LightCoordsUtil.getLightCoords(LightCoordsUtil.BrightnessGetter.DEFAULT, region, state, pos);
+            this.lightCoords[idx] = val;
         }
-        return this.lightCoords[idx];
+        return val;
     }
 
     public float getShadeBrightness(BlockAndTintGetter region, BlockState state, BlockPos pos) {
@@ -88,10 +87,11 @@ public class XenoMeshingCache {
             return state.getShadeBrightness(region, pos);
         }
 
-        if (!this.shadePopulated[idx]) {
-            this.shadeBrightness[idx] = state.getShadeBrightness(region, pos);
-            this.shadePopulated[idx] = true;
+        float val = this.shadeBrightness[idx];
+        if (val == -1.0f) {
+            val = state.getShadeBrightness(region, pos);
+            this.shadeBrightness[idx] = val;
         }
-        return this.shadeBrightness[idx];
+        return val;
     }
 }

@@ -4,6 +4,9 @@ import com.xeno.client.culling.CullingOutput;
 import com.xeno.client.culling.CullingRequest;
 import com.xeno.client.culling.CullingThread;
 import com.xeno.client.culling.XenoOcclusionGraph;
+import com.xeno.client.mixin.FrustumAccessor;
+import org.joml.FrustumIntersection;
+import net.minecraft.world.phys.AABB;
 import it.unimi.dsi.fastutil.longs.LongCollection;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -143,8 +146,22 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
         if (this.xeno_cullingThread == null) return;
         CullingOutput output = this.xeno_cullingThread.getLatestOutput();
         if (output != null) {
+            double camX = frustum.getCamX();
+            double camY = frustum.getCamY();
+            double camZ = frustum.getCamZ();
+            FrustumIntersection intersection = ((FrustumAccessor) frustum).xeno$getIntersection();
+
             for (SectionRenderDispatcher.RenderSection section : output.visibleSections()) {
-                if (frustum.isVisible(section.getBoundingBox())) {
+                AABB bb = section.getBoundingBox();
+                float minX = (float) (bb.minX - camX);
+                float minY = (float) (bb.minY - camY);
+                float minZ = (float) (bb.minZ - camZ);
+                float maxX = (float) (bb.maxX - camX);
+                float maxY = (float) (bb.maxY - camY);
+                float maxZ = (float) (bb.maxZ - camZ);
+
+                int result = intersection.intersectAab(minX, minY, minZ, maxX, maxY, maxZ);
+                if (result == -2 || result == -1) {
                     visibleSections.add(section);
                 }
             }

@@ -5,6 +5,7 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"ViewAreaAccessor",
+		"FrustumAccessor",
 		"SectionOcclusionGraphMixin",
 		"LevelExtractorMixin",
 		"BufferBuilderMixin",
