@@ -16,7 +16,6 @@
 		"DebugScreenOverlayMixin",
 		"DebugScreenEntriesMixin",
 		"DebugScreenEntryListMixin",
-		"SectionCompilerMixin",
 		"BlockModelLighterCacheMixin",
 		"ChunkSectionsToRenderMixin",
 		"VulkanBackendMixin",
