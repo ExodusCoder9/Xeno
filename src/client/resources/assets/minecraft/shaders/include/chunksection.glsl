@@ -10,7 +10,11 @@ layout(std140) uniform ChunkSection {
 };
 
 #ifdef VERTEX_SHADER
-  #define INSTANCE_ID gl_DrawID
+  #if defined(VULKAN) || defined(SPIRV) || defined(GL_SPIRV)
+    #define INSTANCE_ID gl_InstanceIndex
+  #else
+    #define INSTANCE_ID gl_DrawID
+  #endif
 #else
   #define INSTANCE_ID instanceId
 #endif

@@ -34,6 +34,8 @@ public class ChunkSectionsToRenderMixin {
         Collection<String> dynamicUniforms,
         T uniformArgument
     ) {
+        GpuBufferSlice[] chunkSectionInfos = ((ChunkSectionsToRender) (Object) this).chunkSectionInfos();
+
         // Try Multi-Draw Indirect (MDI) chunk rendering
         if (XenoMdiRenderer.tryRenderMdi(
             renderPass,
@@ -44,8 +46,14 @@ public class ChunkSectionsToRenderMixin {
             return; // Successfully rendered using modern MDI!
         }
 
-        // Fallback to vanilla multi-draw list path
-        renderPass.drawMultipleIndexed(draws, defaultIndexBuffer, defaultIndexType, dynamicUniforms, uniformArgument);
+        // Fallback to our own optimized direct drawing loop (zero-overhead, zero redundant binds)
+        XenoMdiRenderer.renderDirect(
+            renderPass,
+            (List<RenderPass.Draw<GpuBufferSlice[]>>) (Object) draws,
+            defaultIndexBuffer,
+            defaultIndexType,
+            chunkSectionInfos
+        );
     }
 
     @Inject(method = "renderGroup", at = @At("TAIL"))
