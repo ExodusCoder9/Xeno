@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(FrameGraphBuilder.class)
 public class FrameGraphExecuteMixin {
-    @Shadow @Final private List passes;
-    @Shadow @Final private List internalResources;
+    @Shadow @Final private List<?> passes;
+    @Shadow @Final private List<?> internalResources;
 
     @Inject(
         method = "execute(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lcom/mojang/blaze3d/framegraph/FrameGraphBuilder$Inspector;)V",
@@ -22,20 +22,16 @@ public class FrameGraphExecuteMixin {
         cancellable = true
     )
     private void xeno_executeSequential(
-        GraphicsResourceAllocator allocator,
+        GraphicsResourceAllocator resourceAllocator,
         FrameGraphBuilder.Inspector inspector,
         CallbackInfo ci
     ) {
         for (Object resource : this.internalResources) {
-            ((FrameGraphResourceAccessor) resource).xeno_acquire(allocator);
+            ((FrameGraphResourceAccessor) resource).xeno_acquire(resourceAllocator);
         }
 
         for (Object passObj : this.passes) {
             FrameGraphPassAccessor pass = (FrameGraphPassAccessor) passObj;
-
-            for (Object resource : pass.xeno_getResourcesToAcquire()) {
-                ((FrameGraphResourceAccessor) resource).xeno_acquire(allocator);
-            }
 
             inspector.beforeExecutePass(pass.xeno_getName());
             pass.xeno_getTask().run();
@@ -43,7 +39,7 @@ public class FrameGraphExecuteMixin {
 
             BitSet toRelease = pass.xeno_getResourcesToRelease();
             for (int id = toRelease.nextSetBit(0); id >= 0; id = toRelease.nextSetBit(id + 1)) {
-                ((FrameGraphResourceAccessor) this.internalResources.get(id)).xeno_release(allocator);
+                ((FrameGraphResourceAccessor) this.internalResources.get(id)).xeno_release(resourceAllocator);
             }
         }
 
