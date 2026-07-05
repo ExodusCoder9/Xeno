@@ -5,7 +5,7 @@ import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
 /**
- * Provides zero allocation,Intrinsic memory access using the Foreign Function & Memory API.
+ * Provides zero allocation, Intrinsic memory access using the Foreign Function & Memory API.
  */
 public final class MemoryIntrinsics {
     private static final MemorySegment HEAP = MemorySegment.ofAddress(0L).reinterpret(Long.MAX_VALUE);
