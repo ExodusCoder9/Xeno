@@ -396,18 +396,10 @@ public class CullingThread extends Thread {
             int viewDistance,
             SectionRenderDispatcher.RenderSection[] sectionArray
     ) {
-        double camX = request.cameraPos.x;
-        double camY = request.cameraPos.y;
-        double camZ = request.cameraPos.z;
         SectionPos cameraSectionPos = SectionPos.of(request.cameraPos);
         int cameraSectionX = cameraSectionPos.x();
         int cameraSectionY = cameraSectionPos.y();
         int cameraSectionZ = cameraSectionPos.z();
-
-        BlockPos cameraSectionCenter = cameraSectionPos.center();
-        double centerCamX = cameraSectionCenter.getX();
-        double centerCamY = cameraSectionCenter.getY();
-        double centerCamZ = cameraSectionCenter.getZ();
 
         int minY = request.minY;
         int maxY = request.maxY;
@@ -425,10 +417,6 @@ public class CullingThread extends Thread {
             } else {
                 currentSection.sectionMesh.compareAndSet(CompiledSectionMesh.UNCOMPILED, CompiledSectionMesh.EMPTY);
             }
-
-            boolean distantFromCamera = Math.abs(SectionPos.x(sectionNode) - cameraSectionX) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
-                    || Math.abs(SectionPos.y(sectionNode) - cameraSectionY) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE
-                    || Math.abs(SectionPos.z(sectionNode) - cameraSectionZ) > MINIMUM_ADVANCED_CULLING_SECTION_DISTANCE;
 
             int sectionX = SectionPos.x(sectionNode);
             int sectionY = SectionPos.y(sectionNode);
@@ -454,69 +442,6 @@ public class CullingThread extends Thread {
                         for (int i = 0; i < DIRECTIONS.length; i++) {
                             if (node.hasSourceDirection(i) && sectionMesh.facesCanSeeEachother(DIRECTIONS[i].getOpposite(), direction)) {
                                 visible = true;
-                                break;
-                            }
-                        }
-
-                        if (!visible) {
-                            continue;
-                        }
-                    }
-
-                    if (smartCull && distantFromCamera) {
-                        int originX = SectionPos.sectionToBlockCoord(sectionX);
-                        int originY = SectionPos.sectionToBlockCoord(sectionY);
-                        int originZ = SectionPos.sectionToBlockCoord(sectionZ);
-
-                        boolean bMaxX = direction.getAxis() == Axis.X ? centerCamX > originX : centerCamX < originX;
-                        boolean bMaxY = direction.getAxis() == Axis.Y ? centerCamY > originY : centerCamY < originY;
-                        boolean bMaxZ = direction.getAxis() == Axis.Z ? centerCamZ > originZ : centerCamZ < originZ;
-
-                        double checkX = originX + (bMaxX ? 16.0 : 0.0);
-                        double checkY = originY + (bMaxY ? 16.0 : 0.0);
-                        double checkZ = originZ + (bMaxZ ? 16.0 : 0.0);
-
-                        double dirX = camX - checkX;
-                        double dirY = camY - checkY;
-                        double dirZ = camZ - checkZ;
-
-                        double invLen = 1.0 / Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
-                        dirX *= invLen * 28.0;
-                        dirY *= invLen * 28.0;
-                        dirZ *= invLen * 28.0;
-
-                        boolean visible = true;
-
-                        while (true) {
-                            double dX = camX - checkX;
-                            double dY = camY - checkY;
-                            double dZ = camZ - checkZ;
-
-                            if (dX * dX + dY * dY + dZ * dZ <= 3600.0) {
-                                break;
-                            }
-
-                            checkX += dirX;
-                            checkY += dirY;
-                            checkZ += dirZ;
-
-                            if (checkY > 320.0 || checkY < -64.0) {
-                                break;
-                            }
-
-                            int checkSecX = SectionPos.blockToSectionCoord(checkX);
-                            int checkSecY = SectionPos.blockToSectionCoord(checkY);
-                            int checkSecZ = SectionPos.blockToSectionCoord(checkZ);
-
-                            SectionRenderDispatcher.RenderSection checkSection = this.getRelativeAt(
-                                    cameraSectionX, cameraSectionY, cameraSectionZ,
-                                    checkSecX, checkSecY, checkSecZ,
-                                    viewDistance, minY, maxY, sizeY, sizeXZ,
-                                    sectionArray
-                            );
-
-                            if (checkSection == null || !this.visited[checkSection.index]) {
-                                visible = false;
                                 break;
                             }
                         }
@@ -557,8 +482,10 @@ public class CullingThread extends Thread {
             return null;
         }
         int y = neighborY - minY;
-        int x = Math.floorMod(neighborX, sizeXZ);
-        int z = Math.floorMod(neighborZ, sizeXZ);
+        int x = neighborX % sizeXZ;
+        if (x < 0) x += sizeXZ;
+        int z = neighborZ % sizeXZ;
+        if (z < 0) z += sizeXZ;
         int index = (z * sizeY + y) * sizeXZ + x;
         return sectionArray[index];
     }
