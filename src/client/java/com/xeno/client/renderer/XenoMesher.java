@@ -34,9 +34,9 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
-import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
 
-
+@NullMarked
 public class XenoMesher extends SectionCompiler {
     private static final int VERTEX_SIZE = 28;
     private static final int QUAD_SIZE = 112;
@@ -250,7 +250,7 @@ public class XenoMesher extends SectionCompiler {
         }
 
         @Override
-        public @NonNull VertexConsumer setColor(int color) {
+        public VertexConsumer setColor(int color) {
             long ptr = this.vertexPointer;
             if (ptr != -1L) {
                 putRgba(ptr + 12, color);

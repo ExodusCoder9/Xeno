@@ -3,6 +3,7 @@ package com.xeno.client.renderer;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
+@SuppressWarnings("unused")
 public final class MemoryIntrinsics {
     private MemoryIntrinsics() {}
 
