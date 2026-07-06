@@ -90,6 +90,7 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
             CommandEncoder encoder = device.createCommandEncoder();
 
             while ((upload = this.xeno$pendingUploads.poll()) != null) {
+                // Skip stale meshes entirely to avoid unnecessary Gpu allocations and writes
                 if (upload.mesh().getSectionDraw(upload.layer()) == null) {
                     if (upload.vertexData() != null) MemoryUtil.memFree(upload.vertexData());
                     if (upload.indexData() != null) MemoryUtil.memFree(upload.indexData());
