@@ -41,21 +41,21 @@ public class DebugScreenOverlayMixin {
             boolean addedAny = false;
 
             if (rendererEnabled) {
-                leftLines.add(insertIndex++, "\u00a7dXenoRenderer-2.2.1+mc26.2");
+                leftLines.add(insertIndex++, "§dXenoRenderer-2.2.1+mc26.2");
                 addedAny = true;
             }
             if (cullingEnabled) {
-                leftLines.add(insertIndex++, "\u00a7fAsynchronous Culling");
-                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Cull thread latency: \u00a7f%.2fms", CullingThread.displayedLatencyMs));
-                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Cull thread usage: \u00a7f%.1f%%", CullingThread.profiledUsagePercent));
+                leftLines.add(insertIndex++, "§fAsynchronous Culling");
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "§7- Cull thread latency: §f%.2fms", CullingThread.displayedLatencyMs));
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "§7- Cull thread usage: §f%.1f%%", CullingThread.profiledUsagePercent));
                 addedAny = true;
             }
             if (entityStatsEnabled) {
                 XenoEntityStats.FrameStats stats = XenoEntityStats.get();
-                leftLines.add(insertIndex++, "\u00a7fEntity Rendering");
-                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- State: \u00a7f%s", stats.featuresEnabled ? "Enabled" : "Disabled"));
-                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Entities Submitted: \u00a7f%d", stats.entitiesSubmitted));
-                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Feature Phases: \u00a7f%d", stats.featurePhasesExecuted));
+                leftLines.add(insertIndex++, "§fEntity Rendering");
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "§7- State: §f%s", stats.featuresEnabled ? "Enabled" : "Disabled"));
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "§7- Entities Submitted: §f%d", stats.entitiesSubmitted));
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "§7- Feature Phases: §f%d", stats.featurePhasesExecuted));
                 addedAny = true;
             }
             if (addedAny) {
