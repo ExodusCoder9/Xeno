@@ -530,7 +530,6 @@ public class CullingThread extends Thread {
         if (x < 0 || x >= sizeXZ || z < 0 || z >= sizeXZ || y < 0 || y >= sizeY) {
             return null;
         }
-
         int index = (z * sizeY + y) * sizeXZ + x;
         return sectionArray[index];
     }
