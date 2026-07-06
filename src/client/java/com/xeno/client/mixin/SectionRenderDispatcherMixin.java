@@ -73,6 +73,7 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
         }
     }
 
+    @SuppressWarnings("try")
     @Inject(method = "uploadTerrainBuffersToGpu", at = @At("HEAD"), cancellable = true)
     private void onUploadTerrainBuffersToGpu(CallbackInfo ci) {
         for (XenoMeshArena arena : this.xeno$arenas.values()) {
