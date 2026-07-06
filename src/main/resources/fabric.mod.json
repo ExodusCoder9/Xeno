@@ -12,7 +12,7 @@
 		"homepage": "https://github.com/ExodusCoder9/Xeno/wiki",
 		"sources": "https://github.com/ExodusCoder9/Xeno"
 	},
-	"license": "MIT",
+	"license": "LicenseRef-PolyForm-Shield-1.0.0",
 	"icon": "assets/xeno/icon.png",
 	"environment": "*",
 	"entrypoints": {
@@ -33,7 +33,6 @@
 	"depends": {
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~26.2",
-		"java": ">=25",
-		"fabric-api": "*"
+		"java": ">=25"
 	}
 }
