@@ -9,7 +9,6 @@ import com.mojang.blaze3d.systems.DeviceType;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import org.lwjgl.system.MemoryUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
@@ -18,6 +17,7 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Util;
 import org.joml.Vector3fc;
+import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -73,7 +73,6 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
         }
     }
 
-    @SuppressWarnings("try")
     @Inject(method = "uploadTerrainBuffersToGpu", at = @At("HEAD"), cancellable = true)
     private void onUploadTerrainBuffersToGpu(CallbackInfo ci) {
         for (XenoMeshArena arena : this.xeno$arenas.values()) {
@@ -91,14 +90,14 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
             CommandEncoder encoder = device.createCommandEncoder();
 
             while ((upload = this.xeno$pendingUploads.poll()) != null) {
+                if (upload.mesh().getSectionDraw(upload.layer()) == null) {
+                    if (upload.vertexData() != null) MemoryUtil.memFree(upload.vertexData());
+                    if (upload.indexData() != null) MemoryUtil.memFree(upload.indexData());
+                    continue;
+                }
+
                 XenoMeshArena arena = this.xeno$arenas.get(upload.layer());
                 if (arena != null) {
-                    if (upload.mesh().getSectionDraw(upload.layer()) == null) {
-                        if (upload.vertexData() != null) MemoryUtil.memFree(upload.vertexData());
-                        if (upload.indexData() != null) MemoryUtil.memFree(upload.indexData());
-                        continue;
-                    }
-
                     if (upload.vertexData() != null) {
                         long vSize = upload.vertexData().remaining();
                         XenoMeshArena.Allocation alloc = arena.allocateVertex(upload.mesh(), vSize);

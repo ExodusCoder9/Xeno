@@ -18,16 +18,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Mixin(SectionRenderDispatcher.RenderSection.class)
 @SuppressWarnings({"unused"})
 public abstract class SectionRenderDispatcherRenderSectionMixin {
     @Shadow @Final
     SectionRenderDispatcher this$0;
-
-    @Shadow @Final
-    public AtomicReference<SectionMesh> sectionMesh;
 
     @Shadow
     protected abstract void vertexBufferUploadCallback(final CompiledSectionMesh sectionMesh, final ChunkSectionLayer layer);
@@ -54,6 +50,10 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
 
         if (arena != null) {
             if (arena.isIntegrated()) {
+                if (draw.hasCustomIndexBuffer() && indexBuffer == null) {
+                    key.setIndexBufferUploaded(layer);
+                }
+
                 if (vertexBuffer != null) {
                     long vSize = vertexBuffer.remaining();
                     XenoMeshArena.Allocation alloc = arena.allocateVertex(key, vSize);
@@ -61,15 +61,13 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     MemoryIntrinsics.copy(vertexBuffer, destAddress, vSize);
 
                     access.xeno$getRenderThreadCallbacks().add(() -> {
-                        if (this.sectionMesh.get() == key) {
-                            try {
-                                this.vertexBufferUploadCallback(key, layer);
-                            } catch (Exception ignored) {}
+                        if (key.getSectionDraw(layer) != null) {
+                            this.vertexBufferUploadCallback(key, layer);
                         }
                     });
                 }
 
-                if (indexBuffer != null) {
+                if (draw.hasCustomIndexBuffer() && indexBuffer != null) {
                     long iSize = indexBuffer.remaining();
                     XenoMeshArena.Allocation alloc = arena.allocateIndex(key, iSize);
                     long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
@@ -77,18 +75,8 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
 
                     boolean sortedIndexBuffer = vertexBuffer == null;
                     access.xeno$getRenderThreadCallbacks().add(() -> {
-                        if (this.sectionMesh.get() == key) {
-                            try {
-                                this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
-                            } catch (Exception ignored) {}
-                        }
-                    });
-                } else if (draw.hasCustomIndexBuffer()) {
-                    access.xeno$getRenderThreadCallbacks().add(() -> {
-                        if (this.sectionMesh.get() == key) {
-                            try {
-                                key.setIndexBufferUploaded(layer);
-                            } catch (Exception ignored) {}
+                        if (key.getSectionDraw(layer) != null) {
+                            this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
                         }
                     });
                 }
@@ -102,7 +90,7 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     MemoryUtil.memCopy(MemoryUtil.memAddress(vertexBuffer), MemoryUtil.memAddress(vCopy), size);
                 }
 
-                if (indexBuffer != null) {
+                if (draw.hasCustomIndexBuffer() && indexBuffer != null) {
                     int size = indexBuffer.remaining();
                     iCopy = MemoryUtil.memAlloc(size);
                     MemoryUtil.memCopy(MemoryUtil.memAddress(indexBuffer), MemoryUtil.memAddress(iCopy), size);
@@ -113,27 +101,24 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                 boolean sortedIndexBuffer = vertexBuffer == null;
 
                 Runnable callback = () -> {
-                    try {
-                        if (this.sectionMesh.get() != key) {
-                            return;
-                        }
-
-                        if (draw.hasCustomIndexBuffer() && finalICopy == null) {
-                            key.setIndexBufferUploaded(layer);
-                        }
-
-                        if (finalVCopy != null) {
-                            this.vertexBufferUploadCallback(key, layer);
-                        }
-
-                        if (draw.hasCustomIndexBuffer() && finalICopy != null) {
-                            this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
-                        }
-                    } catch (Exception e) {
-                        // Swallow race conditions where the mesh was closed mid-execution
-                    } finally {
+                    if (key.getSectionDraw(layer) == null) {
                         if (finalVCopy != null) MemoryUtil.memFree(finalVCopy);
                         if (finalICopy != null) MemoryUtil.memFree(finalICopy);
+                        return;
+                    }
+
+                    if (draw.hasCustomIndexBuffer() && finalICopy == null) {
+                        key.setIndexBufferUploaded(layer);
+                    }
+
+                    if (finalVCopy != null) {
+                        this.vertexBufferUploadCallback(key, layer);
+                        MemoryUtil.memFree(finalVCopy);
+                    }
+
+                    if (draw.hasCustomIndexBuffer() && finalICopy != null) {
+                        this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
+                        MemoryUtil.memFree(finalICopy);
                     }
                 };
 
