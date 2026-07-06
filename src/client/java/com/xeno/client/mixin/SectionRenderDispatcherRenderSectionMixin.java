@@ -55,13 +55,9 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     XenoMeshArena.Allocation alloc = arena.allocateVertex(key, vSize);
                     long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
                     MemoryIntrinsics.copy(vertexBuffer, destAddress, vSize);
-
                     access.xeno$getRenderThreadCallbacks().add(() -> {
-                        // Guard local callbacks from race conditions
                         if (key.getSectionDraw(layer) != null) {
-                            try {
-                                this.vertexBufferUploadCallback(key, layer);
-                            } catch (Exception ignored) {}
+                            this.vertexBufferUploadCallback(key, layer);
                         }
                     });
                 }
@@ -71,21 +67,16 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     XenoMeshArena.Allocation alloc = arena.allocateIndex(key, iSize);
                     long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
                     MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
-
                     boolean sortedIndexBuffer = vertexBuffer == null;
                     access.xeno$getRenderThreadCallbacks().add(() -> {
                         if (key.getSectionDraw(layer) != null) {
-                            try {
-                                this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
-                            } catch (Exception ignored) {}
+                            this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
                         }
                     });
-                } else if (draw.hasCustomIndexBuffer()) {
+                } else {
                     access.xeno$getRenderThreadCallbacks().add(() -> {
                         if (key.getSectionDraw(layer) != null) {
-                            try {
-                                key.setIndexBufferUploaded(layer);
-                            } catch (Exception ignored) {}
+                            key.setIndexBufferUploaded(layer);
                         }
                     });
                 }
@@ -98,7 +89,6 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     vCopy = MemoryUtil.memAlloc(size);
                     MemoryUtil.memCopy(MemoryUtil.memAddress(vertexBuffer), MemoryUtil.memAddress(vCopy), size);
                 }
-
                 if (indexBuffer != null) {
                     int size = indexBuffer.remaining();
                     iCopy = MemoryUtil.memAlloc(size);
@@ -110,27 +100,24 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                 boolean sortedIndexBuffer = vertexBuffer == null;
 
                 Runnable callback = () -> {
-                    try {
-                        if (key.getSectionDraw(layer) == null) {
-                            return;
-                        }
-
-                        if (draw.hasCustomIndexBuffer() && finalICopy == null) {
-                            key.setIndexBufferUploaded(layer);
-                        }
-
-                        if (finalVCopy != null) {
-                            this.vertexBufferUploadCallback(key, layer);
-                        }
-
-                        if (draw.hasCustomIndexBuffer() && finalICopy != null) {
-                            this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
-                        }
-                    } catch (Exception e) {
-                        // Swallow race conditions where the mesh was closed mid-execution
-                    } finally {
+                    if (key.getSectionDraw(layer) == null) {
                         if (finalVCopy != null) MemoryUtil.memFree(finalVCopy);
                         if (finalICopy != null) MemoryUtil.memFree(finalICopy);
+                        return;
+                    }
+
+                    if (finalICopy == null) {
+                        key.setIndexBufferUploaded(layer);
+                    }
+
+                    if (finalVCopy != null) {
+                        this.vertexBufferUploadCallback(key, layer);
+                        MemoryUtil.memFree(finalVCopy);
+                    }
+
+                    if (finalICopy != null) {
+                        this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
+                        MemoryUtil.memFree(finalICopy);
                     }
                 };
 
