@@ -142,7 +142,7 @@ public class SectionOcclusionGraphMixin implements XenoOcclusionGraph {
     /**
      * @author ExodusCoder9
      * @reason Injects pre-computed culling results directly from the background culling thread.
-     *         Also frustum-culls the pre-split per-layer lists and stores them for direct consumption
+     *         Also, frustum-culls the pre-split per-layer lists and stores them for direct consumption
      *         by prepareChunkRenders.
      */
     @Overwrite
