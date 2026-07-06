@@ -55,7 +55,11 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     XenoMeshArena.Allocation alloc = arena.allocateVertex(key, vSize);
                     long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
                     MemoryIntrinsics.copy(vertexBuffer, destAddress, vSize);
-                    access.xeno$getRenderThreadCallbacks().add(() -> this.vertexBufferUploadCallback(key, layer));
+                    access.xeno$getRenderThreadCallbacks().add(() -> {
+                        if (key.getSectionDraw(layer) != null) {
+                            this.vertexBufferUploadCallback(key, layer);
+                        }
+                    });
                 }
 
                 if (indexBuffer != null) {
@@ -64,7 +68,11 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                     long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
                     MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
                     boolean sortedIndexBuffer = vertexBuffer == null;
-                    access.xeno$getRenderThreadCallbacks().add(() -> this.indexBufferUploadCallback(key, layer, sortedIndexBuffer));
+                    access.xeno$getRenderThreadCallbacks().add(() -> {
+                        if (key.getSectionDraw(layer) != null) {
+                            this.indexBufferUploadCallback(key, layer, sortedIndexBuffer);
+                        }
+                    });
                 } else {
                     key.setIndexBufferUploaded(layer);
                 }
@@ -88,6 +96,12 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                 boolean sortedIndexBuffer = vertexBuffer == null;
 
                 Runnable callback = () -> {
+                    if (key.getSectionDraw(layer) == null) {
+                        if (finalVCopy != null) MemoryUtil.memFree(finalVCopy);
+                        if (finalICopy != null) MemoryUtil.memFree(finalICopy);
+                        return;
+                    }
+
                     if (finalICopy == null) {
                         key.setIndexBufferUploaded(layer);
                     }

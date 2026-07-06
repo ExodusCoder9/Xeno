@@ -9,6 +9,7 @@ import com.mojang.blaze3d.systems.DeviceType;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import org.lwjgl.system.MemoryUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
@@ -91,6 +92,12 @@ public class SectionRenderDispatcherMixin implements XenoDispatcherAccess {
             while ((upload = this.xeno$pendingUploads.poll()) != null) {
                 XenoMeshArena arena = this.xeno$arenas.get(upload.layer());
                 if (arena != null) {
+                    if (upload.mesh().getSectionDraw(upload.layer()) == null) {
+                        if (upload.vertexData() != null) MemoryUtil.memFree(upload.vertexData());
+                        if (upload.indexData() != null) MemoryUtil.memFree(upload.indexData());
+                        continue;
+                    }
+
                     if (upload.vertexData() != null) {
                         long vSize = upload.vertexData().remaining();
                         XenoMeshArena.Allocation alloc = arena.allocateVertex(upload.mesh(), vSize);
