@@ -1,18 +1,14 @@
 package com.xeno.client.mixin;
 
-import com.mojang.blaze3d.textures.GpuSampler;
 import com.xeno.client.renderer.XenoMdiRenderer;
 import com.mojang.blaze3d.IndexType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.RenderPass;
-import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Collection;
 import java.util.List;
 
@@ -34,9 +30,10 @@ public class ChunkSectionsToRenderMixin {
         Collection<String> dynamicUniforms,
         T uniformArgument
     ) {
+        if (draws.isEmpty()) return;
+
         GpuBufferSlice[] chunkSectionInfos = ((ChunkSectionsToRender) (Object) this).chunkSectionInfos();
 
-        // Use our own optimized direct drawing loop (zero-overhead, zero redundant binds)
         XenoMdiRenderer.renderDirect(
             renderPass,
             (List<RenderPass.Draw<GpuBufferSlice[]>>) (Object) draws,
@@ -44,10 +41,5 @@ public class ChunkSectionsToRenderMixin {
             defaultIndexType,
             chunkSectionInfos
         );
-    }
-
-    @Inject(method = "renderGroup", at = @At("TAIL"))
-    private void cleanup_renderGroup(ChunkSectionLayerGroup group, GpuSampler sampler, CallbackInfo ci) {
-        XenoMdiRenderer.CURRENT_SECTION_INFOS.remove();
     }
 }

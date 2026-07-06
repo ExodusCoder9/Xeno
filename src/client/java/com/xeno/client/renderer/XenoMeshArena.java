@@ -5,6 +5,8 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.GpuDevice;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +17,7 @@ import java.util.Map;
  * Includes a deferred garbage collection pipeline to prevent Vulkan write-after-free corruption.
  */
 public class XenoMeshArena implements AutoCloseable {
+    private static final Logger LOGGER = LoggerFactory.getLogger("XenoMeshArena");
 
     public static class ArenaSegment {
         public final GpuBuffer buffer;
@@ -86,6 +89,8 @@ public class XenoMeshArena implements AutoCloseable {
         return this.isIntegrated;
     }
 
+    private int frameCounter = 0;
+
     /**
      * Shifts the deferred free queue. Executed once per frame by the Render Thread.
      */
@@ -96,6 +101,27 @@ public class XenoMeshArena implements AutoCloseable {
         }
         readyToFree.clear();
         this.deferredFrees.add(readyToFree);
+
+        if (++this.frameCounter % 120 == 0) {
+            checkFragmentation(this.vertexSegments, "vertex");
+            checkFragmentation(this.indexSegments, "index");
+        }
+    }
+
+    private void checkFragmentation(List<ArenaSegment> segments, String name) {
+        if (segments.size() <= 1) return;
+        long totalFree = 0;
+        int totalAllocs = 0;
+        for (ArenaSegment seg : segments) {
+            totalAllocs += seg.activeAllocations;
+            totalFree += seg.allocator.totalFreeSpace();
+        }
+        if (totalFree > 0 && totalAllocs > 0 && segments.size() > 2) {
+            LOGGER.warn(
+                "{} arena has {} segments, {} active allocations, {} total free space — fragmentation possible",
+                name, segments.size(), totalAllocs, totalFree
+            );
+        }
     }
 
     private void queueFree(Runnable freeAction) {

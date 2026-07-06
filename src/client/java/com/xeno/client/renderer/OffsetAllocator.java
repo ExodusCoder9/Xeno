@@ -80,4 +80,28 @@ public class OffsetAllocator {
             }
         }
     }
+
+    public synchronized long totalFreeSpace() {
+        long total = 0;
+        for (Slot s : freeSlots) {
+            total += s.size;
+        }
+        long bumpFree = totalSize - currentEnd;
+        if (bumpFree > 0) total += bumpFree;
+        return total;
+    }
+
+    public synchronized long largestFreeSlot() {
+        long maxSize = totalSize - currentEnd;
+        for (Slot s : freeSlots) {
+            if (s.size > maxSize) maxSize = s.size;
+        }
+        return maxSize;
+    }
+
+    public synchronized float fragmentation() {
+        long freeSpace = totalFreeSpace();
+        if (freeSpace <= 0) return 0.0f;
+        return 1.0f - (float) largestFreeSlot() / (float) freeSpace;
+    }
 }

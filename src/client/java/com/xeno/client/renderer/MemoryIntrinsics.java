@@ -13,6 +13,7 @@ public final class MemoryIntrinsics {
     private static final ValueLayout.OfInt INT_UNALIGNED = ValueLayout.JAVA_INT.withByteAlignment(1);
     private static final ValueLayout.OfShort SHORT_UNALIGNED = ValueLayout.JAVA_SHORT.withByteAlignment(1);
     private static final ValueLayout.OfByte BYTE_UNALIGNED = ValueLayout.JAVA_BYTE;
+    private static final ValueLayout.OfFloat FLOAT_UNALIGNED = ValueLayout.JAVA_FLOAT.withByteAlignment(1);
 
     private MemoryIntrinsics() {}
 
@@ -26,6 +27,10 @@ public final class MemoryIntrinsics {
 
     public static void putByte(long address, byte value) {
         HEAP.set(BYTE_UNALIGNED, address, value);
+    }
+
+    public static void putFloat(long address, float value) {
+        HEAP.set(FLOAT_UNALIGNED, address, value);
     }
 
     public static byte getByte(long address) {

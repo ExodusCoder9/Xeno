@@ -246,8 +246,10 @@ public abstract class LevelRendererMixin {
                         if (slice != null && draw != null && (!draw.hasCustomIndexBuffer() || slice.indexBuffer() != null)) {
                             int uboIndex = sectionUboMap.get(section);
 
+                            int combinedHash = 173;
                             VertexFormat vertexFormat = layer.pipeline().getVertexFormatBinding(0);
                             GpuBuffer vertexBuffer = slice.vertexBuffer();
+                            combinedHash = 31 * combinedHash + vertexBuffer.hashCode();
 
                             int firstIndex = 0;
                             GpuBuffer indexBuffer;
@@ -262,13 +264,15 @@ public abstract class LevelRendererMixin {
                             } else {
                                 indexBuffer = slice.indexBuffer();
                                 indexType = draw.indexType();
+                                combinedHash = 31 * combinedHash + indexBuffer.hashCode();
+                                combinedHash = 31 * combinedHash + indexType.hashCode();
                                 firstIndex = (int) (slice.indexBufferOffset() / indexType.bytes);
                             }
 
                             int baseVertex = (int) (slice.vertexBufferOffset() / Objects.requireNonNull(vertexFormat).getVertexSize());
 
                             List<RenderPass.Draw<GpuBufferSlice[]>> draws = drawGroups.get(layer)
-                                .computeIfAbsent(173, k -> new ArrayList<>());
+                                .computeIfAbsent(combinedHash, k -> new ArrayList<>());
 
                             draws.add(new RenderPass.Draw<>(
                                 uboIndex, vertexBuffer, indexBuffer, indexType, firstIndex, draw.indexCount(), baseVertex
@@ -285,7 +289,6 @@ public abstract class LevelRendererMixin {
             sectionInfos.toArray(new DynamicUniforms.ChunkSectionInfo[0])
         );
 
-        XenoMdiRenderer.CURRENT_SECTION_INFOS.set(sectionInfos);
         return new ChunkSectionsToRender(blockAtlas, drawGroups, largestIndexCount, chunkSectionInfos);
     }
 }

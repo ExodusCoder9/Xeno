@@ -4,6 +4,7 @@ import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import java.util.BitSet;
 import java.util.List;
+import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -33,9 +34,21 @@ public class FrameGraphExecuteMixin {
         for (Object passObj : this.passes) {
             FrameGraphPassAccessor pass = (FrameGraphPassAccessor) passObj;
 
-            inspector.beforeExecutePass(pass.xeno_getName());
+            String passName = pass.xeno_getName();
+            if ("weather".equals(passName)) {
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.level == null || mc.level.getRainLevel(1.0f) <= 0.0f) {
+                    BitSet toRelease = pass.xeno_getResourcesToRelease();
+                    for (int id = toRelease.nextSetBit(0); id >= 0; id = toRelease.nextSetBit(id + 1)) {
+                        ((FrameGraphResourceAccessor) this.internalResources.get(id)).xeno_release(resourceAllocator);
+                    }
+                    continue;
+                }
+            }
+
+            inspector.beforeExecutePass(passName);
             pass.xeno_getTask().run();
-            inspector.afterExecutePass(pass.xeno_getName());
+            inspector.afterExecutePass(passName);
 
             BitSet toRelease = pass.xeno_getResourcesToRelease();
             for (int id = toRelease.nextSetBit(0); id >= 0; id = toRelease.nextSetBit(id + 1)) {
