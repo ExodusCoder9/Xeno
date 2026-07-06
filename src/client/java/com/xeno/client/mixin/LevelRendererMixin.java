@@ -1,7 +1,6 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.culling.XenoOcclusionGraph;
-import com.xeno.client.renderer.XenoMdiRenderer;
 import com.mojang.blaze3d.IndexType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
