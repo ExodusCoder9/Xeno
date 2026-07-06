@@ -522,11 +522,15 @@ public class CullingThread extends Thread {
         if (Mth.abs(cameraY - neighborY) > viewDistance) {
             return null;
         }
+
+        int x = neighborX - cameraX + viewDistance;
+        int z = neighborZ - cameraZ + viewDistance;
         int y = neighborY - minY;
-        int x = neighborX % sizeXZ;
-        if (x < 0) x += sizeXZ;
-        int z = neighborZ % sizeXZ;
-        if (z < 0) z += sizeXZ;
+
+        if (x < 0 || x >= sizeXZ || z < 0 || z >= sizeXZ || y < 0 || y >= sizeY) {
+            return null;
+        }
+
         int index = (z * sizeY + y) * sizeXZ + x;
         return sectionArray[index];
     }
