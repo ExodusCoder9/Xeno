@@ -196,6 +196,7 @@ public class CullingThread extends Thread {
 
         List<SectionRenderDispatcher.RenderSection> nearbyList = new ArrayList<>();
         int visibleCount = 0;
+        System.out.println("Xeno: occlusionVisible size = " + this.occlusionVisible.size());
 
         for (int i = 0; i < this.occlusionVisible.size(); i++) {
             SectionRenderDispatcher.RenderSection section = this.occlusionVisible.get(i);
@@ -531,6 +532,7 @@ public class CullingThread extends Thread {
             return null;
         }
         int index = (z * sizeY + y) * sizeXZ + x;
+        System.out.println("Xeno: found section at index " + index);
         return sectionArray[index];
     }
 }
