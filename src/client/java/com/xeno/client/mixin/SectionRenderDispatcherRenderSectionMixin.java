@@ -31,6 +31,9 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
     @Shadow
     protected abstract void indexBufferUploadCallback(final CompiledSectionMesh sectionMesh, final ChunkSectionLayer layer, final boolean sortedIndexBuffer);
 
+    @Shadow
+    protected abstract void checkSectionMesh(final CompiledSectionMesh compiledSectionMesh);
+
     @Inject(method = "addSectionBuffersToUberBuffer", at = @At("HEAD"), cancellable = true)
     private void onAddSectionBuffersToUberBuffer(
             ChunkSectionLayer layer,
@@ -47,105 +50,103 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
 
         XenoDispatcherAccess access = (XenoDispatcherAccess) this$0;
         XenoMeshArena arena = access.xeno$getArenas().get(layer);
+        if (arena == null) {
+            cir.setReturnValue(false);
+            return;
+        }
 
-        if (arena != null) {
-            boolean success = true;
-
-            // Integrated path, copy directly to mapped memory, then queue callbacks.
-            if (arena.isIntegrated()) {
-                if (vertexBuffer != null) {
-                    long vSize = vertexBuffer.remaining();
-                    XenoMeshArena.Allocation alloc = arena.allocateVertex(key, vSize);
-                    if (alloc == null) {
-                        success = false;
-                    } else {
-                        long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
-                        MemoryIntrinsics.copy(vertexBuffer, destAddress, vSize);
-                        access.xeno$getRenderThreadCallbacks().add(() -> {
-                            if (key.getSectionDraw(layer) != null) {
-                                vertexBufferUploadCallback(key, layer);
-                            }
-                        });
-                    }
-                }
-
-                if (indexBuffer != null) {
-                    long iSize = indexBuffer.remaining();
-                    XenoMeshArena.Allocation alloc = arena.allocateIndex(key, iSize);
-                    if (alloc == null) {
-                        success = false;
-                    } else {
-                        long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
-                        MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
-                        boolean sortedIndexBuffer = vertexBuffer == null;
-                        access.xeno$getRenderThreadCallbacks().add(() -> {
-                            if (key.getSectionDraw(layer) != null) {
-                                indexBufferUploadCallback(key, layer, sortedIndexBuffer);
-                            }
-                        });
-                    }
-                } else {
-                    // No index buffer to set uploaded immediately.
-                    key.setIndexBufferUploaded(layer);
-                }
-
-                if (!success) {
-                    // Allocation failure so signal the caller to retry after an upload.
+        // Integrated path , copy directly to mapped memory, then queue callbacks.
+        if (arena.isIntegrated()) {
+            if (vertexBuffer != null) {
+                long vSize = vertexBuffer.remaining();
+                XenoMeshArena.Allocation alloc = arena.allocateVertex(key, vSize);
+                if (alloc == null) {
                     cir.setReturnValue(false);
                     return;
                 }
-                cir.setReturnValue(true);
-                return;
+                long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
+                MemoryIntrinsics.copy(vertexBuffer, destAddress, vSize);
+                access.xeno$getRenderThreadCallbacks().add(() -> {
+                    if (key.getSectionDraw(layer) != null) {
+                        vertexBufferUploadCallback(key, layer);
+                    }
+                });
             }
 
-            // Non‑integrated path, copy to heap, queue upload with callback.
-            ByteBuffer vCopy = null;
-            ByteBuffer iCopy = null;
-
-            if (vertexBuffer != null) {
-                int size = vertexBuffer.remaining();
-                vCopy = MemoryUtil.memAlloc(size);
-                MemoryUtil.memCopy(MemoryUtil.memAddress(vertexBuffer), MemoryUtil.memAddress(vCopy), size);
-            }
             if (indexBuffer != null) {
-                int size = indexBuffer.remaining();
-                iCopy = MemoryUtil.memAlloc(size);
-                MemoryUtil.memCopy(MemoryUtil.memAddress(indexBuffer), MemoryUtil.memAddress(iCopy), size);
-            }
-
-            final ByteBuffer finalVCopy = vCopy;
-            final ByteBuffer finalICopy = iCopy;
-            boolean sortedIndexBuffer = vertexBuffer == null;
-
-            // If no index buffer, mark it uploaded immediately.
-            if (indexBuffer == null) {
+                long iSize = indexBuffer.remaining();
+                XenoMeshArena.Allocation alloc = arena.allocateIndex(key, iSize);
+                if (alloc == null) {
+                    cir.setReturnValue(false);
+                    return;
+                }
+                long destAddress = alloc.segment().baseAddress + alloc.slot().offset;
+                MemoryIntrinsics.copy(indexBuffer, destAddress, iSize);
+                boolean sortedIndexBuffer = vertexBuffer == null;
+                access.xeno$getRenderThreadCallbacks().add(() -> {
+                    if (key.getSectionDraw(layer) != null) {
+                        indexBufferUploadCallback(key, layer, sortedIndexBuffer);
+                    }
+                });
+            } else {
+                // No index buffer so mark uploaded immediately.
                 key.setIndexBufferUploaded(layer);
             }
 
-            Runnable callback = () -> {
-                if (key.getSectionDraw(layer) == null) {
-                    if (finalVCopy != null) MemoryUtil.memFree(finalVCopy);
-                    if (finalICopy != null) MemoryUtil.memFree(finalICopy);
-                    return;
-                }
+            // After queuing callbacks, we must also ensure that if both were uploaded
+            // immediately (no index buffer), we still call checkSectionMesh.
+            // But the vertex callback will call checkSectionMesh after it sets vertex uploaded.
+            // If there is no vertex buffer either, we call checkSectionMesh now.
+            if (vertexBuffer == null && indexBuffer == null) {
+                checkSectionMesh(key);
+            }
 
-                if (finalVCopy != null) {
-                    vertexBufferUploadCallback(key, layer);
-                    MemoryUtil.memFree(finalVCopy);
-                }
-                if (finalICopy != null) {
-                    indexBufferUploadCallback(key, layer, sortedIndexBuffer);
-                    MemoryUtil.memFree(finalICopy);
-                }
-            };
-
-            access.xeno$getPendingUploads().add(new PendingUpload(key, layer, vCopy, iCopy, callback));
             cir.setReturnValue(true);
             return;
         }
 
-        // Fallback.
-        cir.setReturnValue(false);
+        // Non‑integrated path, copy to heap, queue upload with callback.
+        ByteBuffer vCopy = null;
+        ByteBuffer iCopy = null;
+
+        if (vertexBuffer != null) {
+            int size = vertexBuffer.remaining();
+            vCopy = MemoryUtil.memAlloc(size);
+            MemoryUtil.memCopy(MemoryUtil.memAddress(vertexBuffer), MemoryUtil.memAddress(vCopy), size);
+        }
+        if (indexBuffer != null) {
+            int size = indexBuffer.remaining();
+            iCopy = MemoryUtil.memAlloc(size);
+            MemoryUtil.memCopy(MemoryUtil.memAddress(indexBuffer), MemoryUtil.memAddress(iCopy), size);
+        }
+
+        final ByteBuffer finalVCopy = vCopy;
+        final ByteBuffer finalICopy = iCopy;
+        boolean sortedIndexBuffer = vertexBuffer == null;
+
+        if (indexBuffer == null) {
+            key.setIndexBufferUploaded(layer);
+        }
+
+        Runnable callback = () -> {
+            if (key.getSectionDraw(layer) == null) {
+                if (finalVCopy != null) MemoryUtil.memFree(finalVCopy);
+                if (finalICopy != null) MemoryUtil.memFree(finalICopy);
+                return;
+            }
+
+            if (finalVCopy != null) {
+                vertexBufferUploadCallback(key, layer);
+                MemoryUtil.memFree(finalVCopy);
+            }
+            if (finalICopy != null) {
+                indexBufferUploadCallback(key, layer, sortedIndexBuffer);
+                MemoryUtil.memFree(finalICopy);
+            }
+        };
+
+        access.xeno$getPendingUploads().add(new PendingUpload(key, layer, vCopy, iCopy, callback));
+        cir.setReturnValue(true);
     }
 
     @Inject(method = "releaseSectionMesh", at = @At("HEAD"), cancellable = true)
