@@ -57,7 +57,9 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
 
         // Integrated path , copy directly to mapped memory, then queue callbacks.
         if (arena.isIntegrated()) {
+            // Rewind buffers to make sure we copy from the start
             if (vertexBuffer != null) {
+                vertexBuffer.rewind();
                 long vSize = vertexBuffer.remaining();
                 XenoMeshArena.Allocation alloc = arena.allocateVertex(key, vSize);
                 if (alloc == null) {
@@ -74,6 +76,7 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
             }
 
             if (indexBuffer != null) {
+                indexBuffer.rewind();
                 long iSize = indexBuffer.remaining();
                 XenoMeshArena.Allocation alloc = arena.allocateIndex(key, iSize);
                 if (alloc == null) {
@@ -93,10 +96,7 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
                 key.setIndexBufferUploaded(layer);
             }
 
-            // After queuing callbacks, we must also ensure that if both were uploaded
-            // immediately (no index buffer), we still call checkSectionMesh.
-            // But the vertex callback will call checkSectionMesh after it sets vertex uploaded.
-            // If there is no vertex buffer either, we call checkSectionMesh now.
+            // If neither buffer exists, mark as done now.
             if (vertexBuffer == null && indexBuffer == null) {
                 checkSectionMesh(key);
             }
@@ -105,7 +105,11 @@ public abstract class SectionRenderDispatcherRenderSectionMixin {
             return;
         }
 
-        // Non‑integrated path, copy to heap, queue upload with callback.
+        // Non‑integrated path so copy to heap, queue upload with callback.
+        // Rewind before copying to heap
+        if (vertexBuffer != null) vertexBuffer.rewind();
+        if (indexBuffer != null) indexBuffer.rewind();
+
         ByteBuffer vCopy = null;
         ByteBuffer iCopy = null;
 
