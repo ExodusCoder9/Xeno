@@ -20,9 +20,6 @@
 		"ChunkSectionsToRenderMixin",
 		"VulkanBackendMixin",
 		"LevelRendererCompilerMixin",
-		"FrameGraphExecuteMixin",
-		"FrameGraphPassAccessor",
-		"FrameGraphResourceAccessor",
 		"PreparedFrameMixin",
 		"LevelRendererEntityMixin"
 	],
