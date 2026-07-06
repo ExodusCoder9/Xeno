@@ -22,7 +22,9 @@
 		"LevelRendererCompilerMixin",
 		"FrameGraphExecuteMixin",
 		"FrameGraphPassAccessor",
-		"FrameGraphResourceAccessor"
+		"FrameGraphResourceAccessor",
+		"PreparedFrameMixin",
+		"LevelRendererEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

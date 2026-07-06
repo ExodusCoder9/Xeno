@@ -1,6 +1,7 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.culling.CullingThread;
+import com.xeno.client.renderer.XenoEntityStats;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -34,22 +35,31 @@ public class DebugScreenOverlayMixin {
         if (leftLines != null) {
             boolean rendererEnabled = this.minecraft.debugEntries.isCurrentlyEnabled(Identifier.withDefaultNamespace("xeno_renderer"));
             boolean cullingEnabled = this.minecraft.debugEntries.isCurrentlyEnabled(Identifier.withDefaultNamespace("xeno_culling_stats"));
+            boolean entityStatsEnabled = this.minecraft.debugEntries.isCurrentlyEnabled(Identifier.withDefaultNamespace("xeno_entity_stats"));
 
             int insertIndex = 0;
             boolean addedAny = false;
 
             if (rendererEnabled) {
-                leftLines.add(insertIndex++, "§dXenoRenderer-2.2.1+mc26.2");
+                leftLines.add(insertIndex++, "\u00a7dXenoRenderer-2.2.1+mc26.2");
                 addedAny = true;
             }
             if (cullingEnabled) {
-                leftLines.add(insertIndex++, "§fAsynchronous Culling");
-                leftLines.add(insertIndex++, String.format(Locale.ROOT, "§7- Cull thread latency: §f%.2fms", CullingThread.displayedLatencyMs));
-                leftLines.add(insertIndex++, String.format(Locale.ROOT, "§7- Cull thread usage: §f%.1f%%", CullingThread.profiledUsagePercent));
+                leftLines.add(insertIndex++, "\u00a7fAsynchronous Culling");
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Cull thread latency: \u00a7f%.2fms", CullingThread.displayedLatencyMs));
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Cull thread usage: \u00a7f%.1f%%", CullingThread.profiledUsagePercent));
+                addedAny = true;
+            }
+            if (entityStatsEnabled) {
+                XenoEntityStats.FrameStats stats = XenoEntityStats.get();
+                leftLines.add(insertIndex++, "\u00a7fEntity Rendering");
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- State: \u00a7f%s", stats.featuresEnabled ? "Enabled" : "Disabled"));
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Entities Submitted: \u00a7f%d", stats.entitiesSubmitted));
+                leftLines.add(insertIndex++, String.format(Locale.ROOT, "\u00a77- Feature Phases: \u00a7f%d", stats.featurePhasesExecuted));
                 addedAny = true;
             }
             if (addedAny) {
-                leftLines.add(insertIndex, ""); // Empty spacing line
+                leftLines.add(insertIndex, "");
             }
         }
     }

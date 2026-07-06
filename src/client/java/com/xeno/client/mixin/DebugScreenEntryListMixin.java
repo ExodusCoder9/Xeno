@@ -25,6 +25,7 @@ public abstract class DebugScreenEntryListMixin {
     private void xeno_initDefaultStatuses(CallbackInfo ci) {
         Identifier renderer = Identifier.withDefaultNamespace("xeno_renderer");
         Identifier culling = Identifier.withDefaultNamespace("xeno_culling_stats");
+        Identifier entity = Identifier.withDefaultNamespace("xeno_entity_stats");
         
         boolean changed = false;
         if (!this.allStatuses.containsKey(renderer)) {
@@ -33,6 +34,10 @@ public abstract class DebugScreenEntryListMixin {
         }
         if (!this.allStatuses.containsKey(culling)) {
             this.allStatuses.put(culling, DebugScreenEntryStatus.ALWAYS_ON);
+            changed = true;
+        }
+        if (!this.allStatuses.containsKey(entity)) {
+            this.allStatuses.put(entity, DebugScreenEntryStatus.ALWAYS_ON);
             changed = true;
         }
         

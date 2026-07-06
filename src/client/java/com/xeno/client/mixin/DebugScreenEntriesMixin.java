@@ -15,5 +15,6 @@ public class DebugScreenEntriesMixin {
     private static void xeno_registerEntries(CallbackInfo ci) {
         DebugScreenEntries.register(Identifier.withDefaultNamespace("xeno_renderer"), new DebugEntryNoop(true));
         DebugScreenEntries.register(Identifier.withDefaultNamespace("xeno_culling_stats"), new DebugEntryNoop(true));
+        DebugScreenEntries.register(Identifier.withDefaultNamespace("xeno_entity_stats"), new DebugEntryNoop(true));
     }
 }
