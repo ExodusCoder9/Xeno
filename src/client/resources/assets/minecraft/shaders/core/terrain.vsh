@@ -1,6 +1,7 @@
 #version 330
 
 #if defined(VULKAN) || defined(GL_SPIRV)
+    #extension GL_EXT_shader_draw_parameters : enable
     #define DRAW_ID gl_DrawID
 #else
     #extension GL_ARB_shader_draw_parameters : enable
