@@ -128,4 +128,16 @@ public class XenoClient implements ClientModInitializer {
         xenoShouldCull.remove();
         xenoCullDir.remove();
     }
+
+    public static float xenoDotProduct(int directionOrdinal, float dx, float dy, float dz) {
+        return switch (directionOrdinal) {
+            case 0 -> dy;
+            case 1 -> -dy;
+            case 2 -> dz;
+            case 3 -> -dz;
+            case 4 -> dx;
+            case 5 -> -dx;
+            default -> 0.0f;
+        };
+    }
 }
