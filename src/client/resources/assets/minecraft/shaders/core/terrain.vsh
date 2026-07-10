@@ -1,12 +1,5 @@
 #version 330
-
-#if defined(VULKAN) || defined(GL_SPIRV)
-    #extension GL_EXT_shader_draw_parameters : enable
-    #define DRAW_ID gl_DrawID
-#else
-    #extension GL_ARB_shader_draw_parameters : enable
-    #define DRAW_ID gl_DrawIDARB
-#endif
+#define VERTEX_SHADER
 
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:globals.glsl>
@@ -14,10 +7,10 @@
 #moj_import <minecraft:projection.glsl>
 #moj_import <minecraft:sample_lightmap.glsl>
 
-in vec3 Position;
-in vec4 Color;
-in vec2 UV0;
-in ivec2 UV2;
+in ivec3 Position; // RGB16_SINT (x, y, z local positions in mm)
+in vec4 Color;     // RGBA8_UNORM
+in ivec2 UV0;      // RG16_SINT
+in ivec2 UV2;      // RG8_SINT (x contains blockLight & normalId, y contains skyLight)
 
 uniform sampler2D Sampler2;
 
@@ -26,22 +19,25 @@ out float cylindricalVertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
 
-// Outputs to pass to fragment shader (interpolation qualifiers must come before storage qualifiers)
-out float chunkVisibility;
-flat out ivec2 textureSize;
-
 void main() {
-    int drawID = DRAW_ID;
-    ChunkSectionData section = sections[drawID];
+    // 1. Decode local position from millimeters to meters
+    vec3 localPos = vec3(Position) / 1000.0;
 
-    vec3 pos = Position + (section.ChunkPosition - CameraBlockPos) + CameraOffset;
-    gl_Position = ProjMat * section.ModelViewMat * vec4(pos, 1.0);
+    // 2. Reconstruct world position using ChunkPosition (same as vanilla)
+    vec3 pos = localPos + (ChunkPosition - CameraBlockPos) + CameraOffset;
+    gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
 
     sphericalVertexDistance = fog_spherical_distance(pos);
     cylindricalVertexDistance = fog_cylindrical_distance(pos);
-    vertexColor = Color * sample_lightmap(Sampler2, UV2);
-    texCoord0 = UV0;
 
-    chunkVisibility = section.ChunkVisibility;
-    textureSize = section.TextureSize;
+    // 3. Unpack packed lightmap coordinates (blockLight: x & 0x0F, skyLight: y & 0x0F)
+    int blockLight = UV2.x & 0x0F;
+    int skyLight = UV2.y & 0x0F;
+    ivec2 lightmapCoords = ivec2(blockLight * 16 + 8, skyLight * 16 + 8);
+
+    // Reconstruct lightmap color
+    vertexColor = Color * sample_lightmap(Sampler2, lightmapCoords);
+
+    // 4. Reconstruct texture coordinates
+    texCoord0 = vec2(UV0) / 32767.0;
 }

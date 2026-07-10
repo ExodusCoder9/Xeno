@@ -5,8 +5,6 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"BufferBuilderMixin",
-		"ChunkSectionsToRenderMixin",
-		"GlDeviceInvoker",
 		"LevelExtractorMixin",
 		"RenderPipelinesMixin",
 		"SectionCompilerMixin",
