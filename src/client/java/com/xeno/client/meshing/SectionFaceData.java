@@ -60,25 +60,22 @@ public final class SectionFaceData {
         if (sectionIndex >= capacity) return 0;
         int total = 0;
         int base = sectionIndex * DIRECTION_COUNT;
-        for (int i = 0; i < DIRECTION_COUNT; i++) {
-            float dot = dotProduct(i, dirX, dirY, dirZ);
-            if (dot < -0.2f) {
-                total += this.faceCounts[base + i];
-            }
-        }
-        return total;
-    }
 
-    private static float dotProduct(int directionOrdinal, float dx, float dy, float dz) {
-        return switch (directionOrdinal) {
-            case 0 -> dy;
-            case 1 -> -dy;
-            case 2 -> dz;
-            case 3 -> -dz;
-            case 4 -> dx;
-            case 5 -> -dx;
-            default -> 0;
-        };
+        // Optimized: Unrolled direction dot product loop to eliminate loop overhead, switch statement, and function calls
+        // 0: DOWN (dot = dirY)
+        if (dirY < -0.2f) total += this.faceCounts[base];
+        // 1: UP (dot = -dirY)
+        if (-dirY < -0.2f) total += this.faceCounts[base + 1];
+        // 2: NORTH (dot = dirZ)
+        if (dirZ < -0.2f) total += this.faceCounts[base + 2];
+        // 3: SOUTH (dot = -dirZ)
+        if (-dirZ < -0.2f) total += this.faceCounts[base + 3];
+        // 4: WEST (dot = dirX)
+        if (dirX < -0.2f) total += this.faceCounts[base + 4];
+        // 5: EAST (dot = -dirX)
+        if (-dirX < -0.2f) total += this.faceCounts[base + 5];
+
+        return total;
     }
 
     @SuppressWarnings("unused")
