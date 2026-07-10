@@ -23,10 +23,11 @@ public class XenoClient implements ClientModInitializer {
         LOGGER.info("[Xeno] Async occlusion culling system loaded");
     }
 
-    public static void setCullingThread(CullingThread thread) {
+    public static void setCullingThread(@Nullable CullingThread thread) {
         cullingThread = thread;
     }
 
+    @SuppressWarnings("unused")
     public static @Nullable CullingThread getCullingThread() {
         return cullingThread;
     }
@@ -35,10 +36,12 @@ public class XenoClient implements ClientModInitializer {
         return sectionFaceData;
     }
 
+    @SuppressWarnings("unused")
     public static FrustumFaceCulling getFrustumFaceCulling() {
         return frustumFaceCulling;
     }
 
+    @SuppressWarnings("unused")
     public static @Nullable CullingOutput getLatestCullingOutput() {
         CullingThread thread = cullingThread;
         return thread != null ? thread.getLatestOutput() : null;
@@ -52,6 +55,7 @@ public class XenoClient implements ClientModInitializer {
         return viewArea;
     }
 
+    @SuppressWarnings("unused")
     public static Long xenoGetCurrentSectionNode() {
         return xenoCurrentSectionNode.get();
     }

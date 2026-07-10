@@ -9,6 +9,7 @@ public final class FrustumFaceCulling {
     private float previousPitch;
     private boolean initialized;
 
+    @SuppressWarnings("unused")
     public boolean shouldReMeshWithFaceCulling(
             SectionFaceData faceData,
             int sectionIndex,
@@ -48,6 +49,7 @@ public final class FrustumFaceCulling {
         return false;
     }
 
+    @SuppressWarnings("unused")
     public void reset() {
         initialized = false;
     }

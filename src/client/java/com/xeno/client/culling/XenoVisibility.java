@@ -17,6 +17,7 @@ public final class XenoVisibility {
         opaqueSections = opaque;
     }
 
+    @SuppressWarnings("unused")
     public static void invalidate() {
         sectionVisibility = null;
         opaqueSections = null;
@@ -27,12 +28,14 @@ public final class XenoVisibility {
         return map == null || map.getOrDefault(sectionNode, SKIP) == SKIP;
     }
 
+    @SuppressWarnings("unused")
     public static boolean shouldCompile(long sectionNode) {
         Long2ByteOpenHashMap map = sectionVisibility;
         if (map == null) return true;
         return map.getOrDefault(sectionNode, SKIP) == COMPILE;
     }
 
+    @SuppressWarnings("unused")
     public static boolean isFullyOpaque(long sectionNode) {
         Long2BooleanOpenHashMap map = opaqueSections;
         return map != null && map.getOrDefault(sectionNode, false);

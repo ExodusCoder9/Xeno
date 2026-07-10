@@ -1,7 +1,6 @@
 package com.xeno.client.culling;
 
 import it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap;
-import it.unimi.dsi.fastutil.longs.Long2ByteMap;
 import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.util.ArrayList;
@@ -151,9 +150,9 @@ public class CullingThread extends Thread {
         this.sectionVisibilityMap.clear();
         this.opaqueSectionsMap.clear();
 
-        for (int i = 0; i < sectionArray.length; i++) {
-            if (sectionArray[i] != null) {
-                this.emptyArray[sectionArray[i].index] = this.emptySections.contains(sectionArray[i].getSectionNode());
+        for (SectionRenderDispatcher.RenderSection section : sectionArray) {
+            if (section != null) {
+                this.emptyArray[section.index] = this.emptySections.contains(section.getSectionNode());
             }
         }
 
@@ -164,8 +163,7 @@ public class CullingThread extends Thread {
         this.initializeQueueForFullUpdate(request, viewArea, sectionArray);
         this.runUpdates(request, request.smartCull, request.viewDistance, sectionArray);
 
-        for (int i = 0; i < sectionArray.length; i++) {
-            SectionRenderDispatcher.RenderSection section = sectionArray[i];
+        for (SectionRenderDispatcher.RenderSection section : sectionArray) {
             if (section == null) continue;
 
             long sectionNode = section.getSectionNode();

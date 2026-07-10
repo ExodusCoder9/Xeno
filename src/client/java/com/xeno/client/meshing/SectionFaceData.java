@@ -35,6 +35,7 @@ public final class SectionFaceData {
         this.vertexCounts[sectionIndex] = totalVertices;
     }
 
+    @SuppressWarnings("unused")
     public void recordEmpty(int sectionIndex) {
         ensureCapacity(sectionIndex + 1);
         int base = sectionIndex * DIRECTION_COUNT;
@@ -44,6 +45,7 @@ public final class SectionFaceData {
         this.vertexCounts[sectionIndex] = 0;
     }
 
+    @SuppressWarnings("unused")
     public int getFaceCount(int sectionIndex, int direction) {
         if (sectionIndex >= capacity) return 0;
         return this.faceCounts[sectionIndex * DIRECTION_COUNT + direction];
@@ -79,6 +81,7 @@ public final class SectionFaceData {
         };
     }
 
+    @SuppressWarnings("unused")
     public int capacity() {
         return this.capacity;
     }

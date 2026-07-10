@@ -1,11 +1,11 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.XenoClient;
-import com.xeno.client.meshing.SectionFaceData;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import org.jspecify.annotations.NullMarked;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -61,45 +61,42 @@ public class SectionCompilerMixin {
      * @author ExodusCoder9
      * @reason Overwrites standard compilation to count face directions and record them for custom occlusion culling.
      */
-    @Overwrite
-    public SectionCompiler.Results compile(
-            final SectionPos sectionPos,
-            final RenderSectionRegion region,
-            final VertexSorting vertexSorting,
-            final SectionBufferBuilderPack builders
-    ) {
-        XenoClient.xenoSetCurrentSectionNode(sectionPos.asLong());
-
-        try {
-            SectionCompiler.Results results = new SectionCompiler.Results();
-            BlockPos minPos = sectionPos.origin();
-            BlockPos maxPos = minPos.offset(15, 15, 15);
-            VisGraph visGraph = new VisGraph();
-            BlockModelLighter.enableCaching();
-            ModelBlockRenderer blockRenderer = new ModelBlockRenderer(this.ambientOcclusion, true, this.blockColors);
-            FluidRenderer fluidRenderer = new FluidRenderer(this.fluidModelSet);
-            Map<ChunkSectionLayer, BufferBuilder> startedLayers = new EnumMap<>(ChunkSectionLayer.class);
-
-            int[] perDirFaceCounts = new int[6];
-            int[] totalVertices = new int[1]; // Using array to update within lambda
-
-            BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> {
-                if (quad.direction() != null) {
-                    perDirFaceCounts[quad.direction().ordinal()]++;
-                }
-                totalVertices[0] += 4;
-                BufferBuilder builder = this.getOrBeginLayer(startedLayers, builders, quad.materialInfo().layer());
-                builder.putBlockBakedQuad(x, y, z, quad, instance);
-            };
-
-            BlockQuadOutput opaqueQuadOutput = (x, y, z, quad, instance) -> {
-                if (quad.direction() != null) {
-                    perDirFaceCounts[quad.direction().ordinal()]++;
-                }
-                totalVertices[0] += 4;
-                BufferBuilder builder = this.getOrBeginLayer(startedLayers, builders, ChunkSectionLayer.SOLID);
-                builder.putBlockBakedQuad(x, y, z, quad, instance);
-            };
+     @NullMarked
+     @Overwrite
+     public SectionCompiler.Results compile(
+             final SectionPos sectionPos,
+             final RenderSectionRegion region,
+             final VertexSorting vertexSorting,
+             final SectionBufferBuilderPack builders
+     ) {
+         XenoClient.xenoSetCurrentSectionNode(sectionPos.asLong());
+ 
+         try {
+             SectionCompiler.Results results = new SectionCompiler.Results();
+             BlockPos minPos = sectionPos.origin();
+             BlockPos maxPos = minPos.offset(15, 15, 15);
+             VisGraph visGraph = new VisGraph();
+             BlockModelLighter.enableCaching();
+             ModelBlockRenderer blockRenderer = new ModelBlockRenderer(this.ambientOcclusion, true, this.blockColors);
+             FluidRenderer fluidRenderer = new FluidRenderer(this.fluidModelSet);
+             Map<ChunkSectionLayer, BufferBuilder> startedLayers = new EnumMap<>(ChunkSectionLayer.class);
+ 
+             int[] perDirFaceCounts = new int[6];
+             int[] totalVertices = new int[1]; // Using array to update within lambda
+ 
+             BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> {
+                 perDirFaceCounts[quad.direction().ordinal()]++;
+                 totalVertices[0] += 4;
+                 BufferBuilder builder = this.getOrBeginLayer(startedLayers, builders, quad.materialInfo().layer());
+                 builder.putBlockBakedQuad(x, y, z, quad, instance);
+             };
+ 
+             BlockQuadOutput opaqueQuadOutput = (x, y, z, quad, instance) -> {
+                 perDirFaceCounts[quad.direction().ordinal()]++;
+                 totalVertices[0] += 4;
+                 BufferBuilder builder = this.getOrBeginLayer(startedLayers, builders, ChunkSectionLayer.SOLID);
+                 builder.putBlockBakedQuad(x, y, z, quad, instance);
+             };
 
             FluidRenderer.Output fluidOutput = layerx -> {
                 BufferBuilder builder = this.getOrBeginLayer(startedLayers, builders, layerx);
