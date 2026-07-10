@@ -1,9 +1,10 @@
 package com.xeno.client.mixin;
 
-import com.xeno.client.XenoClient;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.QuadInstance;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.xeno.client.XenoClient;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
+import net.minecraft.core.Direction;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -12,15 +13,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(VertexConsumer.class)
 public interface VertexConsumerMixin {
     @Inject(method = "putBlockBakedQuad", at = @At("HEAD"), cancellable = true)
-    default void xenoOnPutBlockBakedQuad(
-            float x, float y, float z,
-            BakedQuad quad,
-            QuadInstance instance,
-            CallbackInfo ci
-    ) {
+    default void xenoOnPutBlockBakedQuad(float x, float y, float z, BakedQuad quad, QuadInstance instance, CallbackInfo ci) {
         Long currentSection = XenoClient.xenoGetCurrentSectionNode();
         if (currentSection != null) {
-            net.minecraft.core.Direction dir = quad.direction();
+            Direction dir = quad.direction();
             int dirOrdinal = dir.ordinal();
             XenoClient.xenoPerDirCounts.get()[dirOrdinal]++;
 
