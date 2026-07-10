@@ -3,10 +3,6 @@ package com.xeno.client.culling;
 import net.minecraft.core.Direction;
 
 public final class GraphState {
-    private static final Direction[] DIRECTIONS = Direction.values();
-    private static final int MIN_ADVANCED_CULLING_SECTION_DISTANCE = 4;
-    private static final double CEILED_SECTION_DIAGONAL = Math.ceil(Math.sqrt(3.0) * 16.0);
-
     public final XenoNode[] nodes;
     public final int[] bfsQueue;
     public final long[] bfsQueueSectionNodes;
@@ -34,10 +30,6 @@ public final class GraphState {
 
     public boolean queueEmpty() {
         return bfsHead == bfsTail;
-    }
-
-    public int queueSize() {
-        return (bfsTail - bfsHead + bfsQueue.length) % bfsQueue.length;
     }
 
     public void enqueue(int sectionIndex, long sectionNode, int step) {
@@ -88,15 +80,5 @@ public final class GraphState {
 
     public static long getNeighborSectionNode(long sectionNode, Direction dir) {
         return net.minecraft.core.SectionPos.offset(sectionNode, dir);
-    }
-
-    public static boolean isDistantFromCamera(long sectionNode, CullingSnapshot snap) {
-        int camSX = net.minecraft.core.SectionPos.x(snap.cameraSectionNode);
-        int camSY = net.minecraft.core.SectionPos.y(snap.cameraSectionNode);
-        int camSZ = net.minecraft.core.SectionPos.z(snap.cameraSectionNode);
-
-        return Math.abs(net.minecraft.core.SectionPos.x(sectionNode) - camSX) > MIN_ADVANCED_CULLING_SECTION_DISTANCE
-                || Math.abs(net.minecraft.core.SectionPos.y(sectionNode) - camSY) > MIN_ADVANCED_CULLING_SECTION_DISTANCE
-                || Math.abs(net.minecraft.core.SectionPos.z(sectionNode) - camSZ) > MIN_ADVANCED_CULLING_SECTION_DISTANCE;
     }
 }

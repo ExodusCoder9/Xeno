@@ -13,23 +13,19 @@ import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
-import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 public class XenoClient implements ClientModInitializer {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final int MAX_SECTIONS = 65536;
 
     private static @Nullable CullingThread cullingThread;
     private static @Nullable XenoOctree currentOctree;
     private static @Nullable LevelRenderer currentLevelRenderer;
     private static volatile boolean active;
-
     private static long lastCameraSectionNode = Long.MIN_VALUE;
-    private static long lastVersion = -1;
-
-    private static final int MAX_SECTIONS = 65536;
 
     @Override
     public void onInitializeClient() {
@@ -42,8 +38,8 @@ public class XenoClient implements ClientModInitializer {
 
     public static void onRenderFrame(CameraRenderState cameraState) {
         if (!active || cullingThread == null) return;
-
         if (currentLevelRenderer == null) return;
+
         ViewArea viewArea = currentLevelRenderer.viewArea();
         if (viewArea == null) return;
 
@@ -112,7 +108,7 @@ public class XenoClient implements ClientModInitializer {
 
                 sectionNodes[idx] = section.getSectionNode();
                 SectionMesh mesh = section.getSectionMesh();
-                boolean meshValid = mesh != null && mesh != CompiledSectionMesh.UNCOMPILED;
+                boolean meshValid = mesh != CompiledSectionMesh.UNCOMPILED;
 
                 hasMesh[idx] = meshValid;
 
@@ -159,7 +155,6 @@ public class XenoClient implements ClientModInitializer {
         if (renderer == null) {
             currentOctree = null;
             lastCameraSectionNode = Long.MIN_VALUE;
-            lastVersion = -1;
             if (cullingThread != null) {
                 cullingThread.invalidate();
             }
@@ -176,15 +171,5 @@ public class XenoClient implements ClientModInitializer {
 
     public static @Nullable XenoOctree getOctree() {
         return currentOctree;
-    }
-
-    public static void shutdown() {
-        active = false;
-        if (cullingThread != null) {
-            cullingThread.shutdown();
-            cullingThread = null;
-        }
-        currentOctree = null;
-        currentLevelRenderer = null;
     }
 }

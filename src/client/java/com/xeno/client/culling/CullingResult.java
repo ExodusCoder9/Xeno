@@ -1,7 +1,5 @@
 package com.xeno.client.culling;
 
-import java.util.Arrays;
-
 public final class CullingResult {
     public static final byte OCCLUDED = 0;
     public static final byte MAYBE = 1;
@@ -9,7 +7,7 @@ public final class CullingResult {
 
     private byte[] readBuffer;
     private byte[] writeBuffer;
-    private byte[] prevVisibility;
+    private final byte[] prevVisibility;
     private long version;
     private int totalSections;
     private long cameraSectionNode;
@@ -34,23 +32,13 @@ public final class CullingResult {
                 }
             }
         } else {
-            Arrays.fill(writeBuffer, 0, totalSections, MAYBE);
+            java.util.Arrays.fill(writeBuffer, 0, totalSections, MAYBE);
         }
-    }
-
-    public byte getVisibility(int sectionIndex) {
-        if (sectionIndex < 0 || sectionIndex >= totalSections) return OCCLUDED;
-        return readBuffer[sectionIndex];
     }
 
     public byte getWriteVisibility(int sectionIndex) {
         if (sectionIndex < 0 || sectionIndex >= totalSections) return OCCLUDED;
         return writeBuffer[sectionIndex];
-    }
-
-    public boolean shouldRender(int sectionIndex) {
-        if (sectionIndex < 0 || sectionIndex >= totalSections) return false;
-        return readBuffer[sectionIndex] != OCCLUDED;
     }
 
     public void markSurelyVisible(int sectionIndex) {
@@ -70,11 +58,6 @@ public final class CullingResult {
         return prevVisibility[sectionIndex] == SURELY_VISIBLE;
     }
 
-    public boolean wasPreviouslyOccluded(int sectionIndex) {
-        if (sectionIndex < 0 || sectionIndex >= totalSections) return true;
-        return prevVisibility[sectionIndex] == OCCLUDED;
-    }
-
     public void publish(long cameraSectionNode) {
         this.cameraSectionNode = cameraSectionNode;
         System.arraycopy(writeBuffer, 0, prevVisibility, 0, totalSections);
@@ -82,18 +65,6 @@ public final class CullingResult {
         readBuffer = writeBuffer;
         writeBuffer = temp;
         this.version++;
-    }
-
-    public long version() {
-        return version;
-    }
-
-    public int totalSections() {
-        return totalSections;
-    }
-
-    public long cameraSectionNode() {
-        return cameraSectionNode;
     }
 
     public byte[] visibilityArray() {

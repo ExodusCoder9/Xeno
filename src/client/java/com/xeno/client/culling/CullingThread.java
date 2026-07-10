@@ -1,16 +1,14 @@
 package com.xeno.client.culling;
 
-import com.mojang.logging.LogUtils;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
-import org.slf4j.Logger;
 
 public final class CullingThread extends Thread {
-    private static final Logger LOGGER = LogUtils.getLogger();
     private static final Direction[] DIRECTIONS = Direction.values();
 
     private final CullingResult result;
     private final GraphState graphState;
+    private final Object snapshotLock = new Object();
 
     private volatile CullingSnapshot pendingSnapshot;
     private volatile boolean needsFullRebuild = true;
@@ -31,7 +29,10 @@ public final class CullingThread extends Thread {
     }
 
     public void submitSnapshot(CullingSnapshot snapshot) {
-        this.pendingSnapshot = snapshot;
+        synchronized (snapshotLock) {
+            this.pendingSnapshot = snapshot;
+            snapshotLock.notify();
+        }
     }
 
     public void invalidate() {
@@ -40,23 +41,28 @@ public final class CullingThread extends Thread {
 
     public void shutdown() {
         this.running = false;
+        synchronized (snapshotLock) {
+            snapshotLock.notify();
+        }
         this.interrupt();
     }
 
     @Override
     public void run() {
         while (running) {
-            CullingSnapshot snapshot = pendingSnapshot;
-            if (snapshot == null) {
-                Thread.onSpinWait();
-                try {
-                    Thread.sleep(1);
-                } catch (InterruptedException e) {
-                    if (!running) break;
+            CullingSnapshot snapshot;
+            synchronized (snapshotLock) {
+                snapshot = pendingSnapshot;
+                if (snapshot == null) {
+                    try {
+                        snapshotLock.wait(100);
+                    } catch (InterruptedException e) {
+                        if (!running) break;
+                    }
+                    continue;
                 }
-                continue;
+                pendingSnapshot = null;
             }
-            pendingSnapshot = null;
 
             boolean cameraChanged = snapshot.cameraSectionNode != prevCameraSectionNode;
             if (needsFullRebuild || cameraChanged) {
