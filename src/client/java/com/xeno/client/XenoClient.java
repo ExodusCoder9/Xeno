@@ -21,6 +21,7 @@ public class XenoClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         LOGGER.info("[Xeno] Async occlusion culling system loaded");
+        Inspect.run();
     }
 
     public static void setCullingThread(@Nullable CullingThread thread) {
