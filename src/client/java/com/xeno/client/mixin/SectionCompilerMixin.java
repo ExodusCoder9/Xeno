@@ -2,9 +2,7 @@ package com.xeno.client.mixin;
 
 import com.xeno.client.XenoClient;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;
-import net.minecraft.client.renderer.block.BlockQuadOutput;
 import net.minecraft.client.renderer.block.FluidRenderer;
-import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -15,7 +13,6 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -25,28 +22,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(SectionCompiler.class)
 public class SectionCompilerMixin {
 
-    @Unique
-    private static final ThreadLocal<int[]> XENO_PER_DIR_COUNTS = ThreadLocal.withInitial(() -> new int[6]);
-    @Unique
-    private static final ThreadLocal<int[]> XENO_TOTAL_VERTICES = ThreadLocal.withInitial(() -> new int[1]);
-    @Unique
-    private static final ThreadLocal<Boolean> XENO_SHOULD_CULL = ThreadLocal.withInitial(() -> false);
-    @Unique
-    private static final ThreadLocal<float[]> XENO_CULL_DIR = ThreadLocal.withInitial(() -> new float[3]);
-
     @Inject(method = "compile", at = @At("HEAD"))
     private void xenoBeforeCompile(
             SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders,
             CallbackInfoReturnable<SectionCompiler.Results> cir
     ) {
         XenoClient.xenoSetCurrentSectionNode(sectionPos.asLong());
-        int[] counts = XENO_PER_DIR_COUNTS.get();
+        int[] counts = XenoClient.xenoPerDirCounts.get();
         java.util.Arrays.fill(counts, 0);
-        XENO_TOTAL_VERTICES.get()[0] = 0;
+        XenoClient.xenoTotalVertices.get()[0] = 0;
 
         net.minecraft.world.phys.Vec3 camPos = XenoClient.getCameraPos();
         boolean shouldCull = false;
-        float[] cullDir = XENO_CULL_DIR.get();
+        float[] cullDir = XenoClient.xenoCullDir.get();
         if (camPos != null) {
             double dx = sectionPos.center().getX() - camPos.x;
             double dy = sectionPos.center().getY() - camPos.y;
@@ -61,7 +49,7 @@ public class SectionCompilerMixin {
                 cullDir[2] = (float) (Math.cos(Math.toRadians(pitch)) * Math.cos(Math.toRadians(yaw)));
             }
         }
-        XENO_SHOULD_CULL.set(shouldCull);
+        XenoClient.xenoShouldCull.set(shouldCull);
     }
 
     @Inject(method = "compile", at = @At("RETURN"))
@@ -76,47 +64,12 @@ public class SectionCompilerMixin {
             if (section != null) {
                 XenoClient.getSectionFaceData().record(
                     section.index,
-                    XENO_PER_DIR_COUNTS.get(),
-                    XENO_TOTAL_VERTICES.get()[0]
+                    XenoClient.xenoPerDirCounts.get(),
+                    XenoClient.xenoTotalVertices.get()[0]
                 );
             }
         }
         XenoClient.xenoClearCurrentSectionNode();
-    }
-
-    @Redirect(
-        method = "compile",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/client/renderer/block/ModelBlockRenderer;tesselateBlock(Lnet/minecraft/client/renderer/block/BlockQuadOutput;FFFLnet/minecraft/client/renderer/block/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/client/renderer/block/dispatch/BlockStateModel;J)V"
-        )
-    )
-    private void xenoRedirectTesselateBlock(
-            ModelBlockRenderer blockRenderer,
-            BlockQuadOutput originalOutput,
-            float sectionX, float sectionY, float sectionZ,
-            BlockAndTintGetter level, BlockPos pos, BlockState state,
-            net.minecraft.client.renderer.block.dispatch.BlockStateModel model, long seed
-    ) {
-        int[] counts = XENO_PER_DIR_COUNTS.get();
-        int[] vertices = XENO_TOTAL_VERTICES.get();
-        boolean shouldCull = XENO_SHOULD_CULL.get();
-        float[] cullDir = XENO_CULL_DIR.get();
-
-        BlockQuadOutput wrappedOutput = (x, y, z, quad, instance) -> {
-            net.minecraft.core.Direction dir = quad.direction();
-            counts[dir.ordinal()]++;
-            if (shouldCull) {
-                float dot = dotProduct(dir.ordinal(), cullDir[0], cullDir[1], cullDir[2]);
-                if (dot < -0.2f) {
-                    return; // Culled!
-                }
-            }
-            vertices[0] += 4;
-            originalOutput.put(x, y, z, quad, instance);
-        };
-
-        blockRenderer.tesselateBlock(wrappedOutput, sectionX, sectionY, sectionZ, level, pos, state, model, seed);
     }
 
     @Redirect(
@@ -131,7 +84,6 @@ public class SectionCompilerMixin {
             BlockAndTintGetter level, BlockPos pos,
             FluidRenderer.Output originalOutput, BlockState blockState, FluidState fluidState
     ) {
-        int[] vertices = XENO_TOTAL_VERTICES.get();
         FluidRenderer.Output wrappedOutput = layer -> {
             VertexConsumer originalConsumer = originalOutput.getBuilder(layer);
             return new VertexConsumer() {
@@ -143,7 +95,7 @@ public class SectionCompilerMixin {
 
                 @Override
                 public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float nx, float ny, float nz) {
-                    vertices[0]++;
+                    XenoClient.xenoTotalVertices.get()[0]++;
                     originalConsumer.addVertex(x, y, z, color, u, v, overlay, light, nx, ny, nz);
                 }
 
@@ -192,18 +144,5 @@ public class SectionCompilerMixin {
         };
 
         fluidRenderer.tesselate(level, pos, wrappedOutput, blockState, fluidState);
-    }
-
-    @Unique
-    private static float dotProduct(int directionOrdinal, float dx, float dy, float dz) {
-        return switch (directionOrdinal) {
-            case 0 -> dy;
-            case 1 -> -dy;
-            case 2 -> dz;
-            case 3 -> -dz;
-            case 4 -> dx;
-            case 5 -> -dx;
-            default -> 0.0f;
-        };
     }
 }

@@ -20,7 +20,13 @@ public class XenoClient implements ClientModInitializer {
     private static final SectionFaceData sectionFaceData = new SectionFaceData(4096);
     private static final FrustumFaceCulling frustumFaceCulling = new FrustumFaceCulling();
     private static @Nullable ViewArea viewArea;
-    private static final ThreadLocal<Long> xenoCurrentSectionNode = new ThreadLocal<>();
+
+    // Thread-local compiler state for the current section being built
+    public static final ThreadLocal<Long> xenoCurrentSectionNode = new ThreadLocal<>();
+    public static final ThreadLocal<int[]> xenoPerDirCounts = ThreadLocal.withInitial(() -> new int[6]);
+    public static final ThreadLocal<int[]> xenoTotalVertices = ThreadLocal.withInitial(() -> new int[1]);
+    public static final ThreadLocal<Boolean> xenoShouldCull = ThreadLocal.withInitial(() -> false);
+    public static final ThreadLocal<float[]> xenoCullDir = ThreadLocal.withInitial(() -> new float[3]);
 
     // Camera State Tracking
     private static float cameraYaw;
@@ -107,8 +113,7 @@ public class XenoClient implements ClientModInitializer {
         return viewArea;
     }
 
-    @SuppressWarnings("unused")
-    public static Long xenoGetCurrentSectionNode() {
+    public static @Nullable Long xenoGetCurrentSectionNode() {
         return xenoCurrentSectionNode.get();
     }
 
@@ -118,5 +123,9 @@ public class XenoClient implements ClientModInitializer {
 
     public static void xenoClearCurrentSectionNode() {
         xenoCurrentSectionNode.remove();
+        xenoPerDirCounts.remove();
+        xenoTotalVertices.remove();
+        xenoShouldCull.remove();
+        xenoCullDir.remove();
     }
 }

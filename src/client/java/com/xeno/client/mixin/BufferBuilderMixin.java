@@ -61,4 +61,41 @@ public abstract class BufferBuilderMixin implements VertexConsumer {
             ci.cancel();
         }
     }
+
+    @Inject(method = "putBlockBakedQuad", at = @At("HEAD"), cancellable = true)
+    private void xenoOnPutBlockBakedQuad(
+            float x, float y, float z,
+            net.minecraft.client.resources.model.geometry.BakedQuad quad,
+            com.mojang.blaze3d.vertex.QuadInstance instance,
+            CallbackInfo ci
+    ) {
+        Long currentSection = XenoClient.xenoGetCurrentSectionNode();
+        if (currentSection != null) {
+            net.minecraft.core.Direction dir = quad.direction();
+            int dirOrdinal = dir.ordinal();
+            XenoClient.xenoPerDirCounts.get()[dirOrdinal]++;
+
+            if (XenoClient.xenoShouldCull.get()) {
+                float[] cullDir = XenoClient.xenoCullDir.get();
+                float dot = xenoDotProduct(dirOrdinal, cullDir[0], cullDir[1], cullDir[2]);
+                if (dot < -0.2f) {
+                    ci.cancel();
+                    return;
+                }
+            }
+            XenoClient.xenoTotalVertices.get()[0] += 4;
+        }
+    }
+
+    private static float xenoDotProduct(int directionOrdinal, float dx, float dy, float dz) {
+        return switch (directionOrdinal) {
+            case 0 -> dy;
+            case 1 -> -dy;
+            case 2 -> dz;
+            case 3 -> -dz;
+            case 4 -> dx;
+            case 5 -> -dx;
+            default -> 0.0f;
+        };
+    }
 }
