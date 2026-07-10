@@ -61,10 +61,6 @@ public class SectionOcclusionGraphMixin {
         com.xeno.client.XenoClient.setCullingThread(this.xenoCullingThread);
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Delegates view area resets to the asynchronous culling thread.
-     */
     @Overwrite
     public void waitAndReset(final @Nullable ViewArea viewArea) {
         this.xenoViewArea = viewArea;
@@ -75,19 +71,11 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Returns an empty set since chunk expectations are managed asynchronously.
-     */
     @Overwrite
     public LongCollection expectedChunks() {
         return LongSets.EMPTY_SET;
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Triggers invalidation on the dedicated culling thread instead of the main thread.
-     */
     @Overwrite
     public void invalidate() {
         if (this.xenoCullingThread != null) {
@@ -95,18 +83,10 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Stubbed out as frustum invalidation is handled internally by the culling thread.
-     */
     @Overwrite
     public void invalidateIfNeeded(final CameraRenderState camera, final int fov) {
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Frustum culling runs on the render thread to prevent chunk pop-in; the background thread only provides occlusion-visible sections.
-     */
     @Overwrite
     public void addSectionsInFrustum(
             final Frustum frustum,
@@ -144,64 +124,22 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Checks the asynchronous culling thread for new frustum update results.
-     */
     @Overwrite
     public boolean consumeFrustumUpdate() {
         if (this.xenoCullingThread == null) return false;
         return this.xenoCullingThread.consumeFrustumUpdate();
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Queues propagation tasks locally to be batch-submitted to the culling thread.
-     */
     @Overwrite
     public void schedulePropagationFrom(final SectionRenderDispatcher.RenderSection section) {
         this.pendingPropagations.add(section);
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Submits a double-buffered snapshot of the render state to the background culling thread.
-     */
     @Overwrite
     public void update(final CameraRenderState camera, final int fov, final ChunkLoadingRenderState chunkLoadingRenderState) {
         if (this.xenoCullingThread == null || this.xenoViewArea == null) return;
 
-        // Save camera state in XenoClient
         com.xeno.client.XenoClient.setCameraState(camera.yRot, camera.xRot, camera.pos);
-
-        // Check if sections need remeshing due to rotation changes
-        net.minecraft.client.renderer.extract.LevelExtractor extractor = com.xeno.client.XenoClient.getLevelExtractor();
-        if (extractor != null) {
-            RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((ViewAreaAccessor) this.xenoViewArea).getSections();
-            for (SectionRenderDispatcher.RenderSection section : storage) {
-                if (section != null) {
-                    BlockPos origin = section.getRenderOrigin();
-                    double dx = origin.getX() + 8 - camera.pos.x;
-                    double dy = origin.getY() + 8 - camera.pos.y;
-                    double dz = origin.getZ() + 8 - camera.pos.z;
-                    double distSq = dx * dx + dy * dy + dz * dz;
-                    if (distSq > 60.0 * 60.0) {
-                        if (com.xeno.client.XenoClient.getFrustumFaceCulling().shouldReMeshWithFaceCulling(
-                                com.xeno.client.XenoClient.getSectionFaceData(),
-                                section.index,
-                                camera.yRot,
-                                camera.xRot
-                        )) {
-                            extractor.setSectionDirtyWithNeighbors(
-                                    SectionPos.x(section.getSectionNode()),
-                                    SectionPos.y(section.getSectionNode()),
-                                    SectionPos.z(section.getSectionNode())
-                            );
-                        }
-                    }
-                }
-            }
-        }
 
         this.updateLoadedChunks(chunkLoadingRenderState.addedLoadedChunks, chunkLoadingRenderState.removedLoadedChunks);
         this.updateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
@@ -222,7 +160,7 @@ public class SectionOcclusionGraphMixin {
             request.cameraPitch = camera.xRot;
             request.viewArea = this.xenoViewArea;
 
-            RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((ViewAreaAccessor) this.xenoViewArea).getSections();
+            RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((com.xeno.client.mixin.ViewAreaAccessor) this.xenoViewArea).getSections();
 
             int minY = this.xenoViewArea.minSectionY();
             int maxY = this.xenoViewArea.maxSectionY();
@@ -262,10 +200,6 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Intercepts empty section updates to schedule propagations and update the local tracker.
-     */
     @Overwrite
     public void updateEmptySections(final LongOpenHashSet added, final LongOpenHashSet removed) {
         this.emptySections.addAll(added);
@@ -273,7 +207,7 @@ public class SectionOcclusionGraphMixin {
         while (iter.hasNext()) {
             long sectionNode = iter.nextLong();
             if (this.emptySections.remove(sectionNode)) {
-                SectionRenderDispatcher.RenderSection section = ((ViewAreaAccessor) this.xenoViewArea).invokeGetRenderSection(sectionNode);
+                SectionRenderDispatcher.RenderSection section = ((com.xeno.client.mixin.ViewAreaAccessor) this.xenoViewArea).invokeGetRenderSection(sectionNode);
                 if (section != null) {
                     this.schedulePropagationFrom(section);
                     section.setWasPreviouslyEmpty(true);
@@ -282,30 +216,18 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Updates local tracking of loaded chunks for the asynchronous culling thread.
-     */
     @Overwrite
     public void updateLoadedChunks(final LongOpenHashSet added, final LongOpenHashSet removed) {
         this.loadedChunks.addAll(added);
         this.loadedChunks.removeAll(removed);
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Fetches the dummy octree from the culling thread for debug rendering compatibility.
-     */
     @Overwrite
     public @Nullable Octree getOctree() {
         if (this.xenoCullingThread == null) return null;
         return this.xenoCullingThread.getOctree();
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Stubbed to return null as node tracking is internal to the background culling thread.
-     */
     @Overwrite
     @VisibleForDebug
     public SectionOcclusionGraph.Node getNode(final SectionRenderDispatcher.RenderSection section) {

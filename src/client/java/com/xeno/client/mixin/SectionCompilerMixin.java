@@ -3,7 +3,6 @@ package com.xeno.client.mixin;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexSorting;
-import com.xeno.client.XenoClient;
 import java.util.EnumMap;
 import java.util.Map;
 import net.minecraft.CrashReport;
@@ -35,7 +34,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(SectionCompiler.class)
+@Mixin(value = SectionCompiler.class, priority = 500)
 public abstract class SectionCompilerMixin {
     @Shadow @Final private boolean ambientOcclusion;
     @Shadow @Final private boolean cutoutLeaves;
@@ -59,30 +58,6 @@ public abstract class SectionCompilerMixin {
 
     @Inject(method = "compile", at = @At("HEAD"), cancellable = true)
     private void xenoFastCompile(SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders, CallbackInfoReturnable<SectionCompiler.Results> cir) {
-        long sectionNode = sectionPos.asLong();
-        XenoClient.xenoSetCurrentSectionNode(sectionNode);
-        int[] counts = XenoClient.xenoPerDirCounts.get();
-        java.util.Arrays.fill(counts, 0);
-        XenoClient.xenoTotalVertices.get()[0] = 0;
-
-        net.minecraft.world.phys.Vec3 camPos = XenoClient.getCameraPos();
-        boolean shouldCull = false;
-        float[] cullDir = XenoClient.xenoCullDir.get();
-        if (camPos != null) {
-            double dx = sectionPos.center().getX() - camPos.x;
-            double dy = sectionPos.center().getY() - camPos.y;
-            double dz = sectionPos.center().getZ() - camPos.z;
-            if (dx * dx + dy * dy + dz * dz > 3600.0) {
-                shouldCull = true;
-                float yaw = XenoClient.getCameraYaw();
-                float pitch = XenoClient.getCameraPitch();
-                cullDir[0] = (float) (Math.cos(Math.toRadians(pitch)) * Math.sin(Math.toRadians(yaw)));
-                cullDir[1] = (float) Math.sin(Math.toRadians(pitch));
-                cullDir[2] = (float) (Math.cos(Math.toRadians(pitch)) * Math.cos(Math.toRadians(yaw)));
-            }
-        }
-        XenoClient.xenoShouldCull.set(shouldCull);
-
         SectionCompiler.Results results = new SectionCompiler.Results();
         VisGraph visGraph = new VisGraph();
         BlockModelLighter.enableCaching();
@@ -125,39 +100,39 @@ public abstract class SectionCompilerMixin {
                     pos.set(minX + x, minY + y, minZ + z);
                     BlockState blockState = region.getBlockState(pos);
 
-                    if (!blockState.isAir()) {
-                        try {
-                            if (blockState.isSolidRender()) {
-                                visGraph.setOpaque(pos);
-                            }
+                    if (blockState.isAir()) continue;
 
-                            if (blockState.hasBlockEntity()) {
-                                BlockEntity blockEntity = region.getBlockEntity(pos);
-                                if (blockEntity != null) {
-                                    this.handleBlockEntity(results, blockEntity);
-                                }
-                            }
-
-                            FluidState fluidState = blockState.getFluidState();
-                            if (!fluidState.isEmpty()) {
-                                fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
-                            }
-
-                            if (blockState.getRenderShape() == RenderShape.MODEL) {
-                                blockRenderer.tesselateBlock(
-                                        ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
-                                        (float) x, (float) y, (float) z,
-                                        region, pos, blockState,
-                                        this.blockModelSet.get(blockState),
-                                        blockState.getSeed(pos)
-                                );
-                            }
-                        } catch (Throwable t) {
-                            CrashReport report = CrashReport.forThrowable(t, "Tesselating block in world");
-                            CrashReportCategory category = report.addCategory("Block being tesselated");
-                            CrashReportCategory.populateBlockDetails(category, region, pos, blockState);
-                            throw new ReportedException(report);
+                    try {
+                        if (blockState.isSolidRender()) {
+                            visGraph.setOpaque(pos);
                         }
+
+                        if (blockState.hasBlockEntity()) {
+                            BlockEntity blockEntity = region.getBlockEntity(pos);
+                            if (blockEntity != null) {
+                                this.handleBlockEntity(results, blockEntity);
+                            }
+                        }
+
+                        FluidState fluidState = blockState.getFluidState();
+                        if (!fluidState.isEmpty()) {
+                            fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
+                        }
+
+                        if (blockState.getRenderShape() == RenderShape.MODEL) {
+                            blockRenderer.tesselateBlock(
+                                    ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
+                                    (float) x, (float) y, (float) z,
+                                    region, pos, blockState,
+                                    this.blockModelSet.get(blockState),
+                                    blockState.getSeed(pos)
+                            );
+                        }
+                    } catch (Throwable t) {
+                        CrashReport report = CrashReport.forThrowable(t, "Tesselating block in world");
+                        CrashReportCategory category = report.addCategory("Block being tesselated");
+                        CrashReportCategory.populateBlockDetails(category, region, pos, blockState);
+                        throw new ReportedException(report);
                     }
                 }
             }
@@ -177,19 +152,7 @@ public abstract class SectionCompilerMixin {
         BlockModelLighter.clearCache();
         results.visibilitySet = visGraph.resolve();
 
-        net.minecraft.client.renderer.ViewArea area = XenoClient.getViewArea();
-        if (area != null) {
-            net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection section = ((com.xeno.client.mixin.ViewAreaAccessor) area).invokeGetRenderSection(sectionNode);
-            if (section != null) {
-                XenoClient.getSectionFaceData().record(
-                        section.index,
-                        XenoClient.xenoPerDirCounts.get(),
-                        XenoClient.xenoTotalVertices.get()[0]
-                );
-            }
-        }
-        XenoClient.xenoClearCurrentSectionNode();
-
+        // Return early, bypassing standard Vanilla and Fabric API code.
         cir.setReturnValue(results);
     }
 }
