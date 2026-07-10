@@ -15,6 +15,7 @@ import org.lwjgl.system.MemoryStack;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.Objects;
 import net.minecraft.client.Minecraft;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -25,6 +26,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Final;
 
 @Mixin(ChunkSectionsToRender.class)
+@SuppressWarnings("resource")
 public abstract class ChunkSectionsToRenderMixin {
     @Shadow @Final private com.mojang.blaze3d.textures.GpuTextureView textureView;
     @Shadow @Final private java.util.EnumMap<ChunkSectionLayer, it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<java.util.List<RenderPass.Draw<GpuBufferSlice[]>>>> drawGroupsPerLayer;
@@ -32,7 +34,7 @@ public abstract class ChunkSectionsToRenderMixin {
     @Shadow @Final private GpuBufferSlice[] chunkSectionInfos;
 
     /**
-     * @author Antigravity
+     * @author ExodusCoder9
      * @reason Implementation of True Multi-Draw rendering (glMultiDrawElementsBaseVertex) for chunk sections.
      */
     @Overwrite
@@ -53,7 +55,7 @@ public abstract class ChunkSectionsToRenderMixin {
                     .createCommandEncoder()
                     .createRenderPass(
                        () -> "Section layers for " + group.label(),
-                       renderTarget.getColorTextureView(),
+                       Objects.requireNonNull(renderTarget.getColorTextureView(), "Color texture view is null"),
                        Optional.empty(),
                        renderTarget.getDepthTextureView(),
                        OptionalDouble.empty()
@@ -65,15 +67,14 @@ public abstract class ChunkSectionsToRenderMixin {
                 for (ChunkSectionLayer layer : layers) {
                     renderPass.setPipeline(wireframe ? RenderPipelines.WIREFRAME : layer.pipeline());
                     it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> drawGroup = this.drawGroupsPerLayer.get(layer);
-                    var iter = drawGroup.values().iterator();
 
-                    while (iter.hasNext()) {
-                        List<RenderPass.Draw<GpuBufferSlice[]>> draws = iter.next();
+                    for (List<RenderPass.Draw<GpuBufferSlice[]>> draws : drawGroup.values()) {
                         if (!draws.isEmpty()) {
+                            List<RenderPass.Draw<GpuBufferSlice[]>> activeDraws = draws;
                             if (layer == ChunkSectionLayer.TRANSLUCENT) {
-                                draws = draws.reversed();
+                                activeDraws = draws.reversed();
                             }
-                            renderPass.drawMultipleIndexed(draws, defaultIndexBuffer, defaultIndexType, List.of("ChunkSection"), this.chunkSectionInfos);
+                            renderPass.drawMultipleIndexed(activeDraws, defaultIndexBuffer, defaultIndexType, List.of("ChunkSection"), this.chunkSectionInfos);
                         }
                     }
                 }
@@ -92,7 +93,7 @@ public abstract class ChunkSectionsToRenderMixin {
                 .createCommandEncoder()
                 .createRenderPass(
                    () -> "Section layers for " + group.label(),
-                   renderTarget.getColorTextureView(),
+                   Objects.requireNonNull(renderTarget.getColorTextureView(), "Color texture view is null"),
                    Optional.empty(),
                    renderTarget.getDepthTextureView(),
                    OptionalDouble.empty()
@@ -106,16 +107,15 @@ public abstract class ChunkSectionsToRenderMixin {
                 renderPass.setPipeline(pipeline);
 
                 it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> drawGroup = this.drawGroupsPerLayer.get(layer);
-                var iter = drawGroup.values().iterator();
 
-                while (iter.hasNext()) {
-                    List<RenderPass.Draw<GpuBufferSlice[]>> draws = iter.next();
+                for (List<RenderPass.Draw<GpuBufferSlice[]>> draws : drawGroup.values()) {
                     if (!draws.isEmpty()) {
+                        List<RenderPass.Draw<GpuBufferSlice[]>> activeDraws = draws;
                         if (layer == ChunkSectionLayer.TRANSLUCENT) {
-                            draws = draws.reversed();
+                            activeDraws = draws.reversed();
                         }
 
-                        int drawCount = draws.size();
+                        int drawCount = activeDraws.size();
 
                         // Perform True Multi-Draw Call
                         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -123,40 +123,43 @@ public abstract class ChunkSectionsToRenderMixin {
                             java.nio.IntBuffer indexCounts = stack.mallocInt(drawCount);
                             java.nio.IntBuffer vertexOffsets = stack.mallocInt(drawCount);
 
-                            RenderPass.Draw<GpuBufferSlice[]> firstDraw = draws.get(0);
+                            RenderPass.Draw<GpuBufferSlice[]> firstDraw = activeDraws.getFirst();
 
                             // Bind Vertex & Index Buffers
                             renderPass.setVertexBuffer(firstDraw.slot(), firstDraw.vertexBuffer().slice());
 
                             GpuBuffer indexBuffer = firstDraw.indexBuffer() != null ? firstDraw.indexBuffer() : defaultIndexBuffer;
-                            IndexType indexType = firstDraw.indexBuffer() != null ? firstDraw.indexType() : defaultIndexType;
+                            IndexType indexType = firstDraw.indexBuffer() != null ? Objects.requireNonNull(firstDraw.indexType()) : Objects.requireNonNull(defaultIndexType);
                             if (indexBuffer != null) {
                                 renderPass.setIndexBuffer(indexBuffer, indexType);
                             }
 
                             // Copy UBO slices on the GPU to make them contiguous
                             for (int i = 0; i < drawCount; i++) {
-                                RenderPass.Draw<GpuBufferSlice[]> draw = draws.get(i);
+                                RenderPass.Draw<GpuBufferSlice[]> draw = activeDraws.get(i);
                                 firstIndexOffsets.put(i, (long) draw.firstIndex() * indexType.bytes);
                                 indexCounts.put(i, draw.indexCount());
                                 vertexOffsets.put(i, draw.baseVertex());
 
                                 final int index = i;
-                                draw.uniformUploaderConsumer().accept(this.chunkSectionInfos, (name, slice) -> {
-                                    int handle = ((com.mojang.blaze3d.opengl.GlBuffer) slice.buffer()).handle();
-                                    long srcOffset = slice.offset();
-                                    long dstOffset = (long) index * 112L;
+                                var consumer = draw.uniformUploaderConsumer();
+                                if (consumer != null) {
+                                    consumer.accept(this.chunkSectionInfos, (ignored, slice) -> {
+                                        int handle = ((com.mojang.blaze3d.opengl.GlBuffer) slice.buffer()).handle();
+                                        long srcOffset = slice.offset();
+                                        long dstOffset = (long) index * 112L;
 
-                                    org.lwjgl.opengl.GL31C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_COPY_READ_BUFFER, handle);
-                                    org.lwjgl.opengl.GL31C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_COPY_WRITE_BUFFER, XenoClient.xenoTempBufferHandle);
-                                    org.lwjgl.opengl.GL31C.glCopyBufferSubData(
-                                        org.lwjgl.opengl.GL31C.GL_COPY_READ_BUFFER,
-                                        org.lwjgl.opengl.GL31C.GL_COPY_WRITE_BUFFER,
-                                        srcOffset,
-                                        dstOffset,
-                                        112L
-                                    );
-                                });
+                                        org.lwjgl.opengl.GL31C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_COPY_READ_BUFFER, handle);
+                                        org.lwjgl.opengl.GL31C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_COPY_WRITE_BUFFER, XenoClient.xenoTempBufferHandle);
+                                        org.lwjgl.opengl.GL31C.glCopyBufferSubData(
+                                            org.lwjgl.opengl.GL31C.GL_COPY_READ_BUFFER,
+                                            org.lwjgl.opengl.GL31C.GL_COPY_WRITE_BUFFER,
+                                            srcOffset,
+                                            dstOffset,
+                                            112L
+                                        );
+                                    });
+                                }
                             }
 
                             // Resolve the UBO binding point dynamically using Invoker
@@ -165,8 +168,8 @@ public abstract class ChunkSectionsToRenderMixin {
                             if (glPipeline != null) {
                                 com.mojang.blaze3d.opengl.GlProgram program = glPipeline.program();
                                 com.mojang.blaze3d.opengl.Uniform uniform = program.getUniform("ChunkSection");
-                                if (uniform instanceof com.mojang.blaze3d.opengl.Uniform.Ubo ubo) {
-                                    blockBinding = ubo.blockBinding();
+                                if (uniform instanceof com.mojang.blaze3d.opengl.Uniform.Ubo(int binding)) {
+                                    blockBinding = binding;
                                 }
                             }
 
