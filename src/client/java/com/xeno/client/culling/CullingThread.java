@@ -12,7 +12,6 @@ public final class CullingThread extends Thread {
 
     private volatile CullingSnapshot pendingSnapshot;
     private volatile boolean needsFullRebuild = true;
-    private final boolean running = true;
 
     private long prevCameraSectionNode = Long.MIN_VALUE;
 
@@ -41,7 +40,7 @@ public final class CullingThread extends Thread {
 
     @Override
     public void run() {
-        while (running) {
+        while (true) {
             CullingSnapshot snapshot;
             synchronized (snapshotLock) {
                 snapshot = pendingSnapshot;
@@ -50,7 +49,7 @@ public final class CullingThread extends Thread {
                         snapshotLock.wait(100);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        break;
+                        return;
                     }
                     continue;
                 }
@@ -68,7 +67,7 @@ public final class CullingThread extends Thread {
     }
 
     private void runCullingPass(CullingSnapshot snap) {
-        int totalSections = snap.sectionCount;
+        int totalSections = snap.sectionCount();
         result.init(totalSections);
         graphState.reset();
 
@@ -80,13 +79,13 @@ public final class CullingThread extends Thread {
     }
 
     private void initializeBFS(CullingSnapshot snap) {
-        long camNode = snap.cameraSectionNode;
+        long camNode = snap.cameraSectionNode();
         int camSX = SectionPos.x(camNode);
         int camSY = SectionPos.y(camNode);
         int camSZ = SectionPos.z(camNode);
 
         int camIndex = getNodeIndex(camSX, camSY, camSZ, snap);
-        if (camIndex >= 0 && camIndex < snap.sectionCount && snap.hasMesh[camIndex]) {
+        if (camIndex >= 0 && camIndex < snap.sectionCount() && snap.hasMesh()[camIndex]) {
             graphState.enqueue(camIndex, camNode, 0);
             result.markSurelyVisible(camIndex);
         } else {
@@ -97,7 +96,7 @@ public final class CullingThread extends Thread {
                         int ny = camSY + dy;
                         int nz = camSZ + dz;
                         int idx = getNodeIndex(nx, ny, nz, snap);
-                        if (idx >= 0 && idx < snap.sectionCount && snap.hasMesh[idx]) {
+                        if (idx >= 0 && idx < snap.sectionCount() && snap.hasMesh()[idx]) {
                             long node = SectionPos.asLong(nx, ny, nz);
                             graphState.enqueue(idx, node, 0);
                             result.markSurelyVisible(idx);
@@ -107,9 +106,9 @@ public final class CullingThread extends Thread {
             }
         }
 
-        for (int i = 0; i < snap.sectionCount; i++) {
-            if (result.getWriteVisibility(i) == CullingResult.MAYBE && result.wasPreviouslyVisible(i) && snap.hasMesh[i]) {
-                long node = snap.sectionNodes[i];
+        for (int i = 0; i < snap.sectionCount(); i++) {
+            if (result.getWriteVisibility(i) == CullingResult.MAYBE && result.wasPreviouslyVisible(i) && snap.hasMesh()[i]) {
+                long node = snap.sectionNodes()[i];
                 if (node != 0) {
                     graphState.enqueue(i, node, 0);
                     result.markSurelyVisible(i);
@@ -131,10 +130,10 @@ public final class CullingThread extends Thread {
                 long neighborNode = GraphState.getNeighborSectionNode(node.sectionNode, dir);
                 int neighborIdx = GraphState.getNeighborIndex(node.sectionNode, dir, snap);
 
-                if (neighborIdx < 0 || neighborIdx >= snap.sectionCount) continue;
-                if (!snap.hasMesh[neighborIdx]) continue;
+                if (neighborIdx < 0 || neighborIdx >= snap.sectionCount()) continue;
+                if (!snap.hasMesh()[neighborIdx]) continue;
 
-                if (snap.smartCull && node.hasAnySourceDir()) {
+                if (snap.smartCull() && node.hasAnySourceDir()) {
                     boolean visible = false;
                     for (int i = 0; i < DIRECTIONS.length; i++) {
                         if (node.hasSourceDir(i) && snap.facesCanSeeEachother(neighborIdx, DIRECTIONS[i].getOpposite().ordinal(), dir.ordinal())) {
@@ -159,7 +158,7 @@ public final class CullingThread extends Thread {
     }
 
     private void finalizeOccluded(CullingSnapshot snap) {
-        for (int i = 0; i < snap.sectionCount; i++) {
+        for (int i = 0; i < snap.sectionCount(); i++) {
             if (result.getWriteVisibility(i) == CullingResult.MAYBE) {
                 result.markOccluded(i);
             }
@@ -167,17 +166,17 @@ public final class CullingThread extends Thread {
     }
 
     private int getNodeIndex(int sectionX, int sectionY, int sectionZ, CullingSnapshot snap) {
-        if (sectionY < snap.minSectionY || sectionY > snap.maxSectionY) return -1;
+        if (sectionY < snap.minSectionY() || sectionY > snap.maxSectionY()) return -1;
 
-        int halfRadius = snap.sectionGridSizeXZ / 2;
-        int relX = sectionX - SectionPos.x(snap.cameraSectionNode);
-        int relZ = sectionZ - SectionPos.z(snap.cameraSectionNode);
+        int halfRadius = snap.sectionGridSizeXZ() / 2;
+        int relX = sectionX - SectionPos.x(snap.cameraSectionNode());
+        int relZ = sectionZ - SectionPos.z(snap.cameraSectionNode());
         if (Math.abs(relX) > halfRadius || Math.abs(relZ) > halfRadius) return -1;
 
-        int gridX = Math.floorMod(sectionX, snap.sectionGridSizeXZ);
-        int gridY = sectionY - snap.minSectionY;
-        int gridZ = Math.floorMod(sectionZ, snap.sectionGridSizeXZ);
+        int gridX = Math.floorMod(sectionX, snap.sectionGridSizeXZ());
+        int gridY = sectionY - snap.minSectionY();
+        int gridZ = Math.floorMod(sectionZ, snap.sectionGridSizeXZ());
 
-        return (gridZ * snap.sectionGridSizeY + gridY) * snap.sectionGridSizeXZ + gridX;
+        return (gridZ * snap.sectionGridSizeY() + gridY) * snap.sectionGridSizeXZ() + gridX;
     }
 }

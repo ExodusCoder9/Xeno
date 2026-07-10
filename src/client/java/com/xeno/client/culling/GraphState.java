@@ -63,19 +63,19 @@ public final class GraphState {
         int ny = sy + dir.getStepY();
         int nz = sz + dir.getStepZ();
 
-        if (ny < snap.minSectionY || ny > snap.maxSectionY) return -1;
+        if (ny < snap.minSectionY() || ny > snap.maxSectionY()) return -1;
 
-        int halfRadius = snap.sectionGridSizeXZ / 2;
-        int relX = nx - (net.minecraft.core.SectionPos.x(snap.cameraSectionNode));
-        int relZ = nz - (net.minecraft.core.SectionPos.z(snap.cameraSectionNode));
+        int halfRadius = snap.sectionGridSizeXZ() / 2;
+        int relX = nx - (net.minecraft.core.SectionPos.x(snap.cameraSectionNode()));
+        int relZ = nz - (net.minecraft.core.SectionPos.z(snap.cameraSectionNode()));
 
         if (Math.abs(relX) > halfRadius || Math.abs(relZ) > halfRadius) return -1;
 
-        int gridX = Math.floorMod(nx, snap.sectionGridSizeXZ);
-        int gridY = ny - snap.minSectionY;
-        int gridZ = Math.floorMod(nz, snap.sectionGridSizeXZ);
+        int gridX = Math.floorMod(nx, snap.sectionGridSizeXZ());
+        int gridY = ny - snap.minSectionY();
+        int gridZ = Math.floorMod(nz, snap.sectionGridSizeXZ());
 
-        return (gridZ * snap.sectionGridSizeY + gridY) * snap.sectionGridSizeXZ + gridX;
+        return (gridZ * snap.sectionGridSizeY() + gridY) * snap.sectionGridSizeXZ() + gridX;
     }
 
     public static long getNeighborSectionNode(long sectionNode, Direction dir) {
