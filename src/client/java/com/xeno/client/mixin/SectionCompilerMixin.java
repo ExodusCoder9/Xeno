@@ -15,20 +15,26 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+@org.jspecify.annotations.NullMarked
 @Mixin(SectionCompiler.class)
 public class SectionCompilerMixin {
 
+    @Unique
     private static final ThreadLocal<int[]> XENO_PER_DIR_COUNTS = ThreadLocal.withInitial(() -> new int[6]);
+    @Unique
     private static final ThreadLocal<int[]> XENO_TOTAL_VERTICES = ThreadLocal.withInitial(() -> new int[1]);
+    @Unique
     private static final ThreadLocal<Boolean> XENO_SHOULD_CULL = ThreadLocal.withInitial(() -> false);
+    @Unique
     private static final ThreadLocal<float[]> XENO_CULL_DIR = ThreadLocal.withInitial(() -> new float[3]);
 
-    @Inject(method = "compile(Lnet/minecraft/core/SectionPos;Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;Lcom/mojang/blaze3d/vertex/VertexSorting;Lnet/minecraft/client/renderer/SectionBufferBuilderPack;)Lnet/minecraft/client/renderer/chunk/SectionCompiler$Results;", at = @At("HEAD"))
+    @Inject(method = "compile", at = @At("HEAD"))
     private void xenoBeforeCompile(
             SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders,
             CallbackInfoReturnable<SectionCompiler.Results> cir
@@ -58,7 +64,7 @@ public class SectionCompilerMixin {
         XENO_SHOULD_CULL.set(shouldCull);
     }
 
-    @Inject(method = "compile(Lnet/minecraft/core/SectionPos;Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;Lcom/mojang.blaze3d.vertex/VertexSorting;Lnet/minecraft/client/renderer/SectionBufferBuilderPack;)Lnet/minecraft/client/renderer/chunk/SectionCompiler$Results;", at = @At("RETURN"))
+    @Inject(method = "compile", at = @At("RETURN"))
     private void xenoAfterCompile(
             SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders,
             CallbackInfoReturnable<SectionCompiler.Results> cir
@@ -79,16 +85,16 @@ public class SectionCompilerMixin {
     }
 
     @Redirect(
-        method = "compile(Lnet/minecraft/core/SectionPos;Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;Lcom/mojang.blaze3d.vertex/VertexSorting;Lnet/minecraft/client/renderer/SectionBufferBuilderPack;)Lnet/minecraft/client/renderer/chunk/SectionCompiler$Results;",
+        method = "compile",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/renderer/block/ModelBlockRenderer;tesselateBlock(Lnet/minecraft/client/renderer/block/BlockQuadOutput;IIILnet/minecraft/client/renderer/block/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/client/renderer/block/dispatch/BlockStateModel;J)V"
+            target = "Lnet/minecraft/client/renderer/block/ModelBlockRenderer;tesselateBlock(Lnet/minecraft/client/renderer/block/BlockQuadOutput;FFFLnet/minecraft/client/renderer/block/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/client/renderer/block/dispatch/BlockStateModel;J)V"
         )
     )
     private void xenoRedirectTesselateBlock(
             ModelBlockRenderer blockRenderer,
             BlockQuadOutput originalOutput,
-            int sectionX, int sectionY, int sectionZ,
+            float sectionX, float sectionY, float sectionZ,
             BlockAndTintGetter level, BlockPos pos, BlockState state,
             net.minecraft.client.renderer.block.dispatch.BlockStateModel model, long seed
     ) {
@@ -99,13 +105,11 @@ public class SectionCompilerMixin {
 
         BlockQuadOutput wrappedOutput = (x, y, z, quad, instance) -> {
             net.minecraft.core.Direction dir = quad.direction();
-            if (dir != null) {
-                counts[dir.ordinal()]++;
-                if (shouldCull) {
-                    float dot = dotProduct(dir.ordinal(), cullDir[0], cullDir[1], cullDir[2]);
-                    if (dot < -0.2f) {
-                        return; // Culled!
-                    }
+            counts[dir.ordinal()]++;
+            if (shouldCull) {
+                float dot = dotProduct(dir.ordinal(), cullDir[0], cullDir[1], cullDir[2]);
+                if (dot < -0.2f) {
+                    return; // Culled!
                 }
             }
             vertices[0] += 4;
@@ -116,7 +120,7 @@ public class SectionCompilerMixin {
     }
 
     @Redirect(
-        method = "compile(Lnet/minecraft/core/SectionPos;Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;Lcom/mojang.blaze3d.vertex/VertexSorting;Lnet/minecraft/client/renderer/SectionBufferBuilderPack;)Lnet/minecraft/client/renderer/chunk/SectionCompiler$Results;",
+        method = "compile",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/renderer/block/FluidRenderer;tesselate(Lnet/minecraft/client/renderer/block/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/client/renderer/block/FluidRenderer$Output;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/material/FluidState;)V"
@@ -190,6 +194,7 @@ public class SectionCompilerMixin {
         fluidRenderer.tesselate(level, pos, wrappedOutput, blockState, fluidState);
     }
 
+    @Unique
     private static float dotProduct(int directionOrdinal, float dx, float dy, float dz) {
         return switch (directionOrdinal) {
             case 0 -> dy;

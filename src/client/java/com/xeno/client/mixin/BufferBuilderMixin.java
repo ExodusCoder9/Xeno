@@ -15,7 +15,6 @@ import org.lwjgl.system.MemoryUtil;
 @Mixin(BufferBuilder.class)
 public abstract class BufferBuilderMixin implements VertexConsumer {
     @Shadow @Final private VertexFormat format;
-    @Shadow @Final private int vertexSize;
 
     @Shadow
     private long beginVertex() {
