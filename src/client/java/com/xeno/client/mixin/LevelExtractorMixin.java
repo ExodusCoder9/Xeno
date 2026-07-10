@@ -29,7 +29,7 @@ public class LevelExtractorMixin {
 
         if (XenoClient.getOctree() != null) {
             XenoClient.getOctree().visitVisible(
-                    (section, fullyVisible, depth, isClose) -> {
+                    (section, _, _, isClose) -> {
                         this.levelRenderer.visibleSections().add(section);
                         if (isClose) {
                             this.levelRenderer.nearbyVisibleSections().add(section);
