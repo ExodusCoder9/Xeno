@@ -2,3 +2,4 @@ accessWidener v1 official
 
 accessible class net/minecraft/client/RotatingSectionStorage$Node
 accessible class net/minecraft/client/renderer/chunk/SectionRenderDispatcher
+accessible class net/minecraft/client/renderer/chunk/SectionRenderDispatcher$RenderSection
