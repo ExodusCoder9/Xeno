@@ -262,7 +262,6 @@ public class CullingThread extends Thread {
         int sizeY = request.sizeY;
         int sizeXZ = request.sizeXZ;
         int bfsDepthLimit = viewDistance * 2;
-        var frustum = request.frustum;
 
         while (this.queueHead < this.queueTail) {
             int nodeIndex = this.bfsQueue[this.queueHead++];
@@ -300,7 +299,6 @@ public class CullingThread extends Thread {
 
                 if (renderSectionAt == null) continue;
                 if (smartCull && node.hasDirection(direction.getOpposite())) continue;
-                if (frustum != null && !frustum.isVisible(renderSectionAt.getBoundingBox())) continue;
 
                 if (smartCull && node.hasSourceDirections()) {
                     SectionMesh sectionMesh = currentSection.getSectionMesh();
