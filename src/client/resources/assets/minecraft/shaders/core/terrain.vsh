@@ -1,5 +1,11 @@
 #version 330
-#extension GL_ARB_shader_draw_parameters : enable
+
+#if defined(VULKAN) || defined(GL_SPIRV)
+    #define DRAW_ID gl_DrawID
+#else
+    #extension GL_ARB_shader_draw_parameters : enable
+    #define DRAW_ID gl_DrawIDARB
+#endif
 
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:globals.glsl>
@@ -24,7 +30,7 @@ out float chunkVisibility;
 flat out ivec2 textureSize;
 
 void main() {
-    int drawID = gl_DrawIDARB;
+    int drawID = DRAW_ID;
     ChunkSectionData section = sections[drawID];
 
     vec3 pos = Position + (section.ChunkPosition - CameraBlockPos) + CameraOffset;

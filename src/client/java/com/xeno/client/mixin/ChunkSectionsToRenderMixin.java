@@ -33,6 +33,8 @@ public abstract class ChunkSectionsToRenderMixin {
     @Shadow @Final private int maxIndicesRequired;
     @Shadow @Final private GpuBufferSlice[] chunkSectionInfos;
 
+    private static int xenoTempBufferSize = 0;
+
     /**
      * @author ExodusCoder9
      * @reason Implementation of True Multi-Draw rendering (glMultiDrawElementsBaseVertex) for chunk sections.
@@ -82,11 +84,25 @@ public abstract class ChunkSectionsToRenderMixin {
             return;
         }
 
-        // Lazily initialize our thread-safe dynamic UBO on the GPU (OpenGL path)
+        // Lazily initialize/resize our thread-safe dynamic UBO on the GPU (OpenGL path)
+        int maxDrawCount = 0;
+        for (ChunkSectionLayer layer : layers) {
+            it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> drawGroup = this.drawGroupsPerLayer.get(layer);
+            for (List<RenderPass.Draw<GpuBufferSlice[]>> draws : drawGroup.values()) {
+                maxDrawCount = Math.max(maxDrawCount, draws.size());
+            }
+        }
+        int requiredSize = maxDrawCount * 112;
         if (XenoClient.xenoTempBufferHandle == 0) {
             XenoClient.xenoTempBufferHandle = org.lwjgl.opengl.GL15C.glGenBuffers();
             org.lwjgl.opengl.GL15C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_UNIFORM_BUFFER, XenoClient.xenoTempBufferHandle);
-            org.lwjgl.opengl.GL15C.glBufferData(org.lwjgl.opengl.GL31C.GL_UNIFORM_BUFFER, 65536L, org.lwjgl.opengl.GL15C.GL_DYNAMIC_DRAW);
+            int initialSize = Math.max(1048576, requiredSize);
+            org.lwjgl.opengl.GL15C.glBufferData(org.lwjgl.opengl.GL31C.GL_UNIFORM_BUFFER, initialSize, org.lwjgl.opengl.GL15C.GL_DYNAMIC_DRAW);
+            xenoTempBufferSize = initialSize;
+        } else if (requiredSize > xenoTempBufferSize) {
+            org.lwjgl.opengl.GL15C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_UNIFORM_BUFFER, XenoClient.xenoTempBufferHandle);
+            org.lwjgl.opengl.GL15C.glBufferData(org.lwjgl.opengl.GL31C.GL_UNIFORM_BUFFER, requiredSize, org.lwjgl.opengl.GL15C.GL_DYNAMIC_DRAW);
+            xenoTempBufferSize = requiredSize;
         }
 
         try (RenderPass renderPass = RenderSystem.getDevice()
@@ -117,73 +133,80 @@ public abstract class ChunkSectionsToRenderMixin {
 
                         int drawCount = activeDraws.size();
 
-                        // Perform True Multi-Draw Call
+                        // Bind Vertex & Index Buffers
+                        RenderPass.Draw<GpuBufferSlice[]> firstDraw = activeDraws.getFirst();
+                        renderPass.setVertexBuffer(firstDraw.slot(), firstDraw.vertexBuffer().slice());
+
+                        GpuBuffer indexBuffer = firstDraw.indexBuffer() != null ? firstDraw.indexBuffer() : defaultIndexBuffer;
+                        IndexType indexType = firstDraw.indexBuffer() != null ? Objects.requireNonNull(firstDraw.indexType()) : Objects.requireNonNull(defaultIndexType);
+                        if (indexBuffer != null) {
+                            renderPass.setIndexBuffer(indexBuffer, indexType);
+                        }
+
+                        // Resolve the UBO binding point dynamically using Invoker
+                        int blockBinding = 0;
+                        com.mojang.blaze3d.opengl.GlRenderPipeline glPipeline = ((com.xeno.client.mixin.GlDeviceInvoker) RenderSystem.getDevice()).invokeGetOrCompilePipeline(pipeline);
+                        if (glPipeline != null) {
+                            com.mojang.blaze3d.opengl.GlProgram program = glPipeline.program();
+                            com.mojang.blaze3d.opengl.Uniform uniform = program.getUniform("ChunkSection");
+                            if (uniform instanceof com.mojang.blaze3d.opengl.Uniform.Ubo(int binding)) {
+                                blockBinding = binding;
+                            }
+                        }
+
+                        // Batch draws in sizes of 512 to comply with UBO memory layouts and prevent out-of-bounds array access in the shader.
+                        // We also bind the range with a minimum of 57344 bytes to avoid OpenGL driver failures/undefined behavior on small sizes.
+                        int BATCH_SIZE = 512;
                         try (MemoryStack stack = MemoryStack.stackPush()) {
-                            org.lwjgl.PointerBuffer firstIndexOffsets = stack.mallocPointer(drawCount);
-                            java.nio.IntBuffer indexCounts = stack.mallocInt(drawCount);
-                            java.nio.IntBuffer vertexOffsets = stack.mallocInt(drawCount);
+                            for (int offset = 0; offset < drawCount; offset += BATCH_SIZE) {
+                                final int batchStartOffset = offset;
+                                int batchCount = Math.min(BATCH_SIZE, drawCount - offset);
 
-                            RenderPass.Draw<GpuBufferSlice[]> firstDraw = activeDraws.getFirst();
+                                try (MemoryStack batchStack = MemoryStack.stackPush()) {
+                                    org.lwjgl.PointerBuffer batchIndexOffsets = batchStack.mallocPointer(batchCount);
+                                    java.nio.IntBuffer batchIndexCounts = batchStack.mallocInt(batchCount);
+                                    java.nio.IntBuffer batchVertexOffsets = batchStack.mallocInt(batchCount);
 
-                            // Bind Vertex & Index Buffers
-                            renderPass.setVertexBuffer(firstDraw.slot(), firstDraw.vertexBuffer().slice());
+                                    for (int i = 0; i < batchCount; i++) {
+                                        RenderPass.Draw<GpuBufferSlice[]> draw = activeDraws.get(batchStartOffset + i);
+                                        batchIndexOffsets.put(i, (long) draw.firstIndex() * indexType.bytes);
+                                        batchIndexCounts.put(i, draw.indexCount());
+                                        batchVertexOffsets.put(i, draw.baseVertex());
 
-                            GpuBuffer indexBuffer = firstDraw.indexBuffer() != null ? firstDraw.indexBuffer() : defaultIndexBuffer;
-                            IndexType indexType = firstDraw.indexBuffer() != null ? Objects.requireNonNull(firstDraw.indexType()) : Objects.requireNonNull(defaultIndexType);
-                            if (indexBuffer != null) {
-                                renderPass.setIndexBuffer(indexBuffer, indexType);
-                            }
+                                        final int index = i;
+                                        var consumer = draw.uniformUploaderConsumer();
+                                        if (consumer != null) {
+                                            consumer.accept(this.chunkSectionInfos, (ignored, slice) -> {
+                                                int handle = ((com.mojang.blaze3d.opengl.GlBuffer) slice.buffer()).handle();
+                                                long srcOffset = slice.offset();
+                                                long dstOffset = (long) batchStartOffset * 112L + (long) index * 112L;
 
-                            // Copy UBO slices on the GPU to make them contiguous
-                            for (int i = 0; i < drawCount; i++) {
-                                RenderPass.Draw<GpuBufferSlice[]> draw = activeDraws.get(i);
-                                firstIndexOffsets.put(i, (long) draw.firstIndex() * indexType.bytes);
-                                indexCounts.put(i, draw.indexCount());
-                                vertexOffsets.put(i, draw.baseVertex());
+                                                org.lwjgl.opengl.GL31C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_COPY_READ_BUFFER, handle);
+                                                org.lwjgl.opengl.GL31C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_COPY_WRITE_BUFFER, XenoClient.xenoTempBufferHandle);
+                                                org.lwjgl.opengl.GL31C.glCopyBufferSubData(
+                                                    org.lwjgl.opengl.GL31C.GL_COPY_READ_BUFFER,
+                                                    org.lwjgl.opengl.GL31C.GL_COPY_WRITE_BUFFER,
+                                                    srcOffset,
+                                                    dstOffset,
+                                                    112L
+                                                );
+                                            });
+                                        }
+                                    }
 
-                                final int index = i;
-                                var consumer = draw.uniformUploaderConsumer();
-                                if (consumer != null) {
-                                    consumer.accept(this.chunkSectionInfos, (ignored, slice) -> {
-                                        int handle = ((com.mojang.blaze3d.opengl.GlBuffer) slice.buffer()).handle();
-                                        long srcOffset = slice.offset();
-                                        long dstOffset = (long) index * 112L;
+                                    // Bind the batch's populated range (57344 bytes = 512 * 112 bytes)
+                                    org.lwjgl.opengl.GL30C.glBindBufferRange(
+                                        org.lwjgl.opengl.GL31C.GL_UNIFORM_BUFFER,
+                                        blockBinding,
+                                        XenoClient.xenoTempBufferHandle,
+                                        (long) batchStartOffset * 112L,
+                                        57344L
+                                    );
 
-                                        org.lwjgl.opengl.GL31C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_COPY_READ_BUFFER, handle);
-                                        org.lwjgl.opengl.GL31C.glBindBuffer(org.lwjgl.opengl.GL31C.GL_COPY_WRITE_BUFFER, XenoClient.xenoTempBufferHandle);
-                                        org.lwjgl.opengl.GL31C.glCopyBufferSubData(
-                                            org.lwjgl.opengl.GL31C.GL_COPY_READ_BUFFER,
-                                            org.lwjgl.opengl.GL31C.GL_COPY_WRITE_BUFFER,
-                                            srcOffset,
-                                            dstOffset,
-                                            112L
-                                        );
-                                    });
+                                    // Execute Multi-Draw Call for this batch
+                                    renderPass.multiDrawIndexed(batchIndexOffsets, batchIndexCounts, batchVertexOffsets, batchCount);
                                 }
                             }
-
-                            // Resolve the UBO binding point dynamically using Invoker
-                            int blockBinding = 0;
-                            com.mojang.blaze3d.opengl.GlRenderPipeline glPipeline = ((com.xeno.client.mixin.GlDeviceInvoker) RenderSystem.getDevice()).invokeGetOrCompilePipeline(pipeline);
-                            if (glPipeline != null) {
-                                com.mojang.blaze3d.opengl.GlProgram program = glPipeline.program();
-                                com.mojang.blaze3d.opengl.Uniform uniform = program.getUniform("ChunkSection");
-                                if (uniform instanceof com.mojang.blaze3d.opengl.Uniform.Ubo(int binding)) {
-                                    blockBinding = binding;
-                                }
-                            }
-
-                            // Bind our populated contiguous UBO buffer
-                            org.lwjgl.opengl.GL30C.glBindBufferRange(
-                                org.lwjgl.opengl.GL31C.GL_UNIFORM_BUFFER,
-                                blockBinding,
-                                XenoClient.xenoTempBufferHandle,
-                                0L,
-                                (long) drawCount * 112L
-                            );
-
-                            // Execute Multi-Draw Call
-                            renderPass.multiDrawIndexed(firstIndexOffsets, indexCounts, vertexOffsets, drawCount);
                         }
                     }
                 }
