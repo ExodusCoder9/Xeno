@@ -1,11 +1,3 @@
-#version 330
-
-#if defined(VULKAN) || defined(SPIRV)
-    // Vulkan compat
-#else
-    #extension GL_ARB_shader_draw_parameters : enable
-#endif
-
 struct ChunkSectionData {
     mat4 ModelViewMat;
     float ChunkVisibility;

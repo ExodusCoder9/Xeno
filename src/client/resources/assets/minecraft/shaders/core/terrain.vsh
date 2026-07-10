@@ -1,11 +1,5 @@
 #version 330
-
-#if defined(VULKAN) || defined(SPIRV)
-    #define DRAW_ID gl_DrawID
-#else
-    #extension GL_ARB_shader_draw_parameters : enable
-    #define DRAW_ID gl_DrawIDARB
-#endif
+#extension GL_ARB_shader_draw_parameters : enable
 
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:globals.glsl>
@@ -26,7 +20,7 @@ out vec4 vertexColor;
 out vec2 texCoord0;
 
 void main() {
-    int drawID = DRAW_ID;
+    int drawID = gl_DrawIDARB;
     ChunkSectionData section = sections[drawID];
 
     vec3 pos = Position + (section.ChunkPosition - CameraBlockPos) + CameraOffset;
