@@ -60,6 +60,10 @@ public class SectionOcclusionGraphMixin {
         this.xenoCullingThread.start();
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Delegates view area resets to the asynchronous culling thread.
+     */
     @Overwrite
     public void waitAndReset(final @Nullable ViewArea viewArea) {
         this.xenoViewArea = viewArea;
@@ -69,11 +73,19 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Returns an empty set since chunk expectations are managed asynchronously.
+     */
     @Overwrite
     public LongCollection expectedChunks() {
         return LongSets.EMPTY_SET;
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Triggers invalidation on the dedicated culling thread instead of the main thread.
+     */
     @Overwrite
     public void invalidate() {
         if (this.xenoCullingThread != null) {
@@ -81,13 +93,17 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Stubbed out as frustum invalidation is handled internally by the culling thread.
+     */
     @Overwrite
     public void invalidateIfNeeded(final CameraRenderState camera, final int fov) {
     }
 
     /**
-     * Frustum culling happens HERE on the render thread to prevent chunk pop-in.
-     * The background thread only provides occlusion-visible sections.
+     * @author ExodusCoder9
+     * @reason Frustum culling runs on the render thread to prevent chunk pop-in; the background thread only provides occlusion-visible sections.
      */
     @Overwrite
     public void addSectionsInFrustum(
@@ -102,12 +118,8 @@ public class SectionOcclusionGraphMixin {
         List<SectionRenderDispatcher.RenderSection> occlusionVisible = output.occlusionVisible();
         Vec3 camPos = output.cameraPos();
         BlockPos cameraCenter = SectionPos.of(camPos).center();
-        double camX = camPos.x;
-        double camY = camPos.y;
-        double camZ = camPos.z;
 
-        for (int i = 0; i < occlusionVisible.size(); i++) {
-            SectionRenderDispatcher.RenderSection section = occlusionVisible.get(i);
+        for (SectionRenderDispatcher.RenderSection section : occlusionVisible) {
             AABB bb = section.getBoundingBox();
 
             if (frustum.isVisible(bb)) {
@@ -125,17 +137,29 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Checks the asynchronous culling thread for new frustum update results.
+     */
     @Overwrite
     public boolean consumeFrustumUpdate() {
         if (this.xenoCullingThread == null) return false;
         return this.xenoCullingThread.consumeFrustumUpdate();
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Queues propagation tasks locally to be batch-submitted to the culling thread.
+     */
     @Overwrite
     public void schedulePropagationFrom(final SectionRenderDispatcher.RenderSection section) {
         this.pendingPropagations.add(section);
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Submits a double-buffered snapshot of the render state to the background culling thread.
+     */
     @Overwrite
     public void update(final CameraRenderState camera, final int fov, final ChunkLoadingRenderState chunkLoadingRenderState) {
         if (this.xenoCullingThread == null || this.xenoViewArea == null) return;
@@ -197,6 +221,10 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Intercepts empty section updates to schedule propagations and update the local tracker.
+     */
     @Overwrite
     public void updateEmptySections(final LongOpenHashSet added, final LongOpenHashSet removed) {
         this.emptySections.addAll(added);
@@ -213,18 +241,30 @@ public class SectionOcclusionGraphMixin {
         }
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Updates local tracking of loaded chunks for the asynchronous culling thread.
+     */
     @Overwrite
     public void updateLoadedChunks(final LongOpenHashSet added, final LongOpenHashSet removed) {
         this.loadedChunks.addAll(added);
         this.loadedChunks.removeAll(removed);
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Fetches the dummy octree from the culling thread for debug rendering compatibility.
+     */
     @Overwrite
     public @Nullable Octree getOctree() {
         if (this.xenoCullingThread == null) return null;
         return this.xenoCullingThread.getOctree();
     }
 
+    /**
+     * @author ExodusCoder9
+     * @reason Stubbed to return null as node tracking is internal to the background culling thread.
+     */
     @Overwrite
     @VisibleForDebug
     public SectionOcclusionGraph.Node getNode(final SectionRenderDispatcher.RenderSection section) {
