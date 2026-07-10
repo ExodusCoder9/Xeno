@@ -6,6 +6,7 @@ import com.xeno.client.meshing.FrustumFaceCulling;
 import com.xeno.client.meshing.SectionFaceData;
 import com.mojang.logging.LogUtils;
 import net.fabricmc.api.ClientModInitializer;
+import net.minecraft.client.renderer.ViewArea;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -14,6 +15,8 @@ public class XenoClient implements ClientModInitializer {
     private static @Nullable CullingThread cullingThread;
     private static final SectionFaceData sectionFaceData = new SectionFaceData(4096);
     private static final FrustumFaceCulling frustumFaceCulling = new FrustumFaceCulling();
+    private static @Nullable ViewArea viewArea;
+    private static final ThreadLocal<Long> xenoCurrentSectionNode = new ThreadLocal<>();
 
     @Override
     public void onInitializeClient() {
@@ -39,5 +42,25 @@ public class XenoClient implements ClientModInitializer {
     public static @Nullable CullingOutput getLatestCullingOutput() {
         CullingThread thread = cullingThread;
         return thread != null ? thread.getLatestOutput() : null;
+    }
+
+    public static void setViewArea(@Nullable ViewArea area) {
+        viewArea = area;
+    }
+
+    public static @Nullable ViewArea getViewArea() {
+        return viewArea;
+    }
+
+    public static Long xenoGetCurrentSectionNode() {
+        return xenoCurrentSectionNode.get();
+    }
+
+    public static void xenoSetCurrentSectionNode(Long sectionNode) {
+        xenoCurrentSectionNode.set(sectionNode);
+    }
+
+    public static void xenoClearCurrentSectionNode() {
+        xenoCurrentSectionNode.remove();
     }
 }

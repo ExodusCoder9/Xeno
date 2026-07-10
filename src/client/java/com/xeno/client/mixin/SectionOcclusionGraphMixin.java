@@ -68,6 +68,7 @@ public class SectionOcclusionGraphMixin {
     @Overwrite
     public void waitAndReset(final @Nullable ViewArea viewArea) {
         this.xenoViewArea = viewArea;
+        com.xeno.client.XenoClient.setViewArea(viewArea);
         this.pendingPropagations.clear();
         if (this.xenoCullingThread != null) {
             this.xenoCullingThread.reset();
