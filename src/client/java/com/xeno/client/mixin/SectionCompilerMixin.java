@@ -29,9 +29,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(SectionCompiler.class)
 public abstract class SectionCompilerMixin {
@@ -55,12 +57,8 @@ public abstract class SectionCompilerMixin {
     @Unique
     private static final ThreadLocal<BlockPos.MutableBlockPos> XENO_MUTABLE_POS = ThreadLocal.withInitial(BlockPos.MutableBlockPos::new);
 
-    /**
-     * @author ExodusCoder9
-     * @reason Compile , duh
-     */
-    @Overwrite
-    public SectionCompiler.Results compile(SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders) {
+    @Inject(method = "compile", at = @At("HEAD"), cancellable = true)
+    private void xenoFastCompile(SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders, CallbackInfoReturnable<SectionCompiler.Results> cir) {
         long sectionNode = sectionPos.asLong();
         XenoClient.xenoSetCurrentSectionNode(sectionNode);
         int[] counts = XenoClient.xenoPerDirCounts.get();
@@ -192,6 +190,6 @@ public abstract class SectionCompilerMixin {
         }
         XenoClient.xenoClearCurrentSectionNode();
 
-        return results;
+        cir.setReturnValue(results);
     }
 }
