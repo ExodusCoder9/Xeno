@@ -37,11 +37,12 @@ public final class FrustumFaceCulling {
         float cosYaw = (float) Math.cos(yawRad);
         float sinYaw = (float) Math.sin(yawRad);
 
-        float dirX = cosPitch * sinYaw;
-        float dirY = sinPitch;
-        float dirZ = cosPitch * cosYaw;
-
-        int facesAway = faceData.calculateFacesAway(sectionIndex, dirX, dirY, dirZ);
+        int facesAway = faceData.calculateFacesAway(
+                sectionIndex,
+                cosPitch * sinYaw,
+                sinPitch,
+                cosPitch * cosYaw
+        );
         int vertexSavings = facesAway * SectionFaceData.VERTICES_PER_QUAD;
         int currentVertices = faceData.getVertexCount(sectionIndex);
         int reMeshCost = ESTIMATED_REMESH_COST + currentVertices;
