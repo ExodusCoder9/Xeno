@@ -39,14 +39,6 @@ public final class CullingThread extends Thread {
         this.needsFullRebuild = true;
     }
 
-    public void shutdown() {
-        this.running = false;
-        synchronized (snapshotLock) {
-            snapshotLock.notify();
-        }
-        this.interrupt();
-    }
-
     @Override
     public void run() {
         while (running) {
@@ -76,14 +68,14 @@ public final class CullingThread extends Thread {
 
     private void runCullingPass(CullingSnapshot snap) {
         int totalSections = snap.sectionCount;
-        result.init(totalSections, snap.cameraSectionNode);
+        result.init(totalSections);
         graphState.reset();
 
         initializeBFS(snap);
         runBFS(snap);
         finalizeOccluded(snap);
 
-        result.publish(snap.cameraSectionNode);
+        result.publish();
     }
 
     private void initializeBFS(CullingSnapshot snap) {

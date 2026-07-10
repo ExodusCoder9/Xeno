@@ -8,22 +8,17 @@ public final class CullingResult {
     private byte[] readBuffer;
     private byte[] writeBuffer;
     private final byte[] prevVisibility;
-    private long version;
     private int totalSections;
-    private long cameraSectionNode;
 
     public CullingResult(int maxSections) {
         this.readBuffer = new byte[maxSections];
         this.writeBuffer = new byte[maxSections];
         this.prevVisibility = new byte[maxSections];
-        this.version = 0;
         this.totalSections = 0;
-        this.cameraSectionNode = 0;
     }
 
-    public void init(int totalSections, long cameraSectionNode) {
+    public void init(int totalSections) {
         this.totalSections = totalSections;
-        this.cameraSectionNode = cameraSectionNode;
         if (prevVisibility[0] != 0 || totalSections <= prevVisibility.length) {
             System.arraycopy(prevVisibility, 0, writeBuffer, 0, totalSections);
             for (int i = 0; i < totalSections; i++) {
@@ -58,13 +53,11 @@ public final class CullingResult {
         return prevVisibility[sectionIndex] == SURELY_VISIBLE;
     }
 
-    public void publish(long cameraSectionNode) {
-        this.cameraSectionNode = cameraSectionNode;
+    public void publish() {
         System.arraycopy(writeBuffer, 0, prevVisibility, 0, totalSections);
         byte[] temp = readBuffer;
         readBuffer = writeBuffer;
         writeBuffer = temp;
-        this.version++;
     }
 
     public byte[] visibilityArray() {
