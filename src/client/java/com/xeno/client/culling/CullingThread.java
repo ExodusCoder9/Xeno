@@ -56,9 +56,9 @@ public final class CullingThread extends Thread {
                 pendingSnapshot = null;
             }
 
-            boolean cameraChanged = snapshot.cameraSectionNode != prevCameraSectionNode;
+            boolean cameraChanged = snapshot.cameraSectionNode() != prevCameraSectionNode;
             if (needsFullRebuild || cameraChanged) {
-                prevCameraSectionNode = snapshot.cameraSectionNode;
+                prevCameraSectionNode = snapshot.cameraSectionNode();
                 needsFullRebuild = false;
             }
 
