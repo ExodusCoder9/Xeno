@@ -4,8 +4,7 @@
 	"refmap": "xeno-client-refmap.json",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"LevelRendererMixin",
-		"LevelExtractorMixin",
+		"SectionOcclusionGraphMixin",
 		"ViewAreaAccessor"
 	],
 	"injectors": {
