@@ -82,10 +82,10 @@ public class SectionCompilerMixin {
     private void xenoRedirectTesselateFluid(
             FluidRenderer fluidRenderer,
             BlockAndTintGetter level, BlockPos pos,
-            FluidRenderer.Output originalOutput, BlockState blockState, FluidState fluidState
+            FluidRenderer.Output output, BlockState blockState, FluidState fluidState
     ) {
         FluidRenderer.Output wrappedOutput = layer -> {
-            VertexConsumer originalConsumer = originalOutput.getBuilder(layer);
+            VertexConsumer originalConsumer = output.getBuilder(layer);
             return new VertexConsumer() {
                 @Override
                 public VertexConsumer addVertex(float x, float y, float z) {
