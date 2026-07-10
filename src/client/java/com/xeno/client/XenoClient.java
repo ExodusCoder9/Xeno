@@ -20,6 +20,7 @@ public class XenoClient implements ClientModInitializer {
     private static final SectionFaceData sectionFaceData = new SectionFaceData(4096);
     private static final FrustumFaceCulling frustumFaceCulling = new FrustumFaceCulling();
     private static @Nullable ViewArea viewArea;
+    public static int xenoTempBufferHandle = 0;
 
     // Thread-local compiler state for the current section being built
     public static final ThreadLocal<Long> xenoCurrentSectionNode = new ThreadLocal<>();
