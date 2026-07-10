@@ -12,7 +12,7 @@ public final class CullingThread extends Thread {
 
     private volatile CullingSnapshot pendingSnapshot;
     private volatile boolean needsFullRebuild = true;
-    private volatile boolean running = true;
+    private final boolean running = true;
 
     private long prevCameraSectionNode = Long.MIN_VALUE;
 
@@ -49,7 +49,8 @@ public final class CullingThread extends Thread {
                     try {
                         snapshotLock.wait(100);
                     } catch (InterruptedException e) {
-                        if (!running) break;
+                        Thread.currentThread().interrupt();
+                        break;
                     }
                     continue;
                 }
