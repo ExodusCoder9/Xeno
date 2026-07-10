@@ -19,9 +19,9 @@ out float cylindricalVertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
 
-// Outputs to pass to fragment shader
+// Outputs to pass to fragment shader (interpolation qualifiers must come before storage qualifiers)
 out float chunkVisibility;
-out flat ivec2 textureSize;
+flat out ivec2 textureSize;
 
 void main() {
     int drawID = gl_DrawIDARB;

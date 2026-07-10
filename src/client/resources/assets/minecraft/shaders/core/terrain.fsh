@@ -7,13 +7,12 @@ uniform sampler2D Sampler0;
 
 in float sphericalVertexDistance;
 in float cylindricalVertexDistance;
-in vec4 myVertexColor; // Wait, wait! Let's check the name in the original: in vec4 vertexColor;
 in vec4 vertexColor;
 in vec2 texCoord0;
 
-// Inputs received from vertex shader
+// Inputs received from vertex shader (interpolation qualifiers must come before storage qualifiers)
 in float chunkVisibility;
-in flat ivec2 textureSize;
+flat in ivec2 textureSize;
 
 out vec4 fragColor;
 
