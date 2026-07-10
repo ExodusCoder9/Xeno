@@ -20,10 +20,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.renderer.RenderPipelines;
 import com.mojang.blaze3d.textures.FilterMode;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.*;
 
 @Mixin(ChunkSectionsToRender.class)
 @SuppressWarnings("resource")
@@ -33,6 +30,7 @@ public abstract class ChunkSectionsToRenderMixin {
     @Shadow @Final private int maxIndicesRequired;
     @Shadow @Final private GpuBufferSlice[] chunkSectionInfos;
 
+    @Unique
     private static int xenoTempBufferSize = 0;
 
     /**
@@ -157,7 +155,7 @@ public abstract class ChunkSectionsToRenderMixin {
                         // Batch draws in sizes of 512 to comply with UBO memory layouts and prevent out-of-bounds array access in the shader.
                         // We also bind the range with a minimum of 57344 bytes to avoid OpenGL driver failures/undefined behavior on small sizes.
                         int BATCH_SIZE = 512;
-                        try (MemoryStack stack = MemoryStack.stackPush()) {
+                        try (MemoryStack _ = MemoryStack.stackPush()) {
                             for (int offset = 0; offset < drawCount; offset += BATCH_SIZE) {
                                 final int batchStartOffset = offset;
                                 int batchCount = Math.min(BATCH_SIZE, drawCount - offset);
