@@ -4,23 +4,6 @@
 	"refmap": "xeno-client-refmap.json",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"ViewAreaAccessor",
-		"FrustumAccessor",
-		"SectionOcclusionGraphMixin",
-		"LevelExtractorMixin",
-		"RenderPipelineBuilderMixin",
-		"SectionTaskDynamicQueueMixin",
-		"SectionRenderDispatcherMixin",
-		"SectionRenderDispatcherRenderSectionMixin",
-		"LevelRendererMixin",
-		"DebugScreenOverlayMixin",
-		"DebugScreenEntryListMixin",
-		"BlockModelLighterCacheMixin",
-		"ChunkSectionsToRenderMixin",
-		"VulkanBackendMixin",
-		"LevelRendererCompilerMixin",
-		"PreparedFrameMixin",
-		"LevelRendererEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
