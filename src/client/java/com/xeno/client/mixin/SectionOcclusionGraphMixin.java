@@ -58,6 +58,7 @@ public class SectionOcclusionGraphMixin {
     private void onInit(CallbackInfo ci) {
         this.xenoCullingThread = new CullingThread();
         this.xenoCullingThread.start();
+        com.xeno.client.XenoClient.setCullingThread(this.xenoCullingThread);
     }
 
     /**
@@ -114,6 +115,11 @@ public class SectionOcclusionGraphMixin {
         if (this.xenoCullingThread == null) return;
         CullingOutput output = this.xenoCullingThread.getLatestOutput();
         if (output == null) return;
+
+        com.xeno.client.culling.XenoVisibility.publish(
+                output.sectionVisibility(),
+                output.opaqueSections()
+        );
 
         List<SectionRenderDispatcher.RenderSection> occlusionVisible = output.occlusionVisible();
         Vec3 camPos = output.cameraPos();
@@ -179,6 +185,8 @@ public class SectionOcclusionGraphMixin {
             request.smartCull = camera.smartCull;
             request.frustum = camera.cullFrustum;
             request.fov = fov;
+            request.cameraYaw = camera.yRot;
+            request.cameraPitch = camera.xRot;
             request.viewArea = this.xenoViewArea;
 
             RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((ViewAreaAccessor) this.xenoViewArea).getSections();

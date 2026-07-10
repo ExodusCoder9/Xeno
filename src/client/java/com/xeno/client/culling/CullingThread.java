@@ -1,5 +1,8 @@
 package com.xeno.client.culling;
 
+import it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ByteMap;
+import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +33,8 @@ public class CullingThread extends Thread {
 
     private final LongOpenHashSet emptySections = new LongOpenHashSet();
     private final List<SectionRenderDispatcher.RenderSection> occlusionVisible = new ArrayList<>(4096);
+    private final Long2ByteOpenHashMap sectionVisibilityMap = new Long2ByteOpenHashMap();
+    private final Long2BooleanOpenHashMap opaqueSectionsMap = new Long2BooleanOpenHashMap();
 
     private CullNode[] nodeArray = new CullNode[0];
     private boolean[] visited = new boolean[0];
@@ -143,6 +148,8 @@ public class CullingThread extends Thread {
 
         this.prepareCache(viewArea.size());
         this.occlusionVisible.clear();
+        this.sectionVisibilityMap.clear();
+        this.opaqueSectionsMap.clear();
 
         for (int i = 0; i < sectionArray.length; i++) {
             if (sectionArray[i] != null) {
@@ -157,10 +164,41 @@ public class CullingThread extends Thread {
         this.initializeQueueForFullUpdate(request, viewArea, sectionArray);
         this.runUpdates(request, request.smartCull, request.viewDistance, sectionArray);
 
+        for (int i = 0; i < sectionArray.length; i++) {
+            SectionRenderDispatcher.RenderSection section = sectionArray[i];
+            if (section == null) continue;
+
+            long sectionNode = section.getSectionNode();
+            if (this.visited[section.index]) {
+                if (this.emptyArray[section.index]) {
+                    this.sectionVisibilityMap.put(sectionNode, XenoVisibility.SKIP_EMPTY);
+                } else {
+                    this.sectionVisibilityMap.put(sectionNode, XenoVisibility.COMPILE);
+                }
+                SectionMesh mesh = section.getSectionMesh();
+                if (mesh instanceof CompiledSectionMesh compiled && compiled.hasRenderableLayers()) {
+                    if (!compiled.facesCanSeeEachother(Direction.DOWN, Direction.UP)
+                            && !compiled.facesCanSeeEachother(Direction.NORTH, Direction.SOUTH)
+                            && !compiled.facesCanSeeEachother(Direction.WEST, Direction.EAST)) {
+                        this.opaqueSectionsMap.put(sectionNode, true);
+                    }
+                }
+            } else {
+                this.sectionVisibilityMap.put(sectionNode, XenoVisibility.SKIP);
+            }
+        }
+
         Vec3 camPos = request.cameraPos;
         List<SectionRenderDispatcher.RenderSection> visibleList = List.copyOf(this.occlusionVisible);
 
-        this.latestOutput = new CullingOutput(visibleList, camPos);
+        this.latestOutput = new CullingOutput(
+                visibleList,
+                camPos,
+                this.sectionVisibilityMap.clone(),
+                this.opaqueSectionsMap.clone(),
+                request.cameraYaw,
+                request.cameraPitch
+        );
         this.needsFrustumUpdate = true;
     }
 

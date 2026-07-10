@@ -15,6 +15,8 @@ public class CullingRequest {
     public boolean smartCull;
     public Frustum frustum;
     public int fov;
+    public float cameraYaw;
+    public float cameraPitch;
     public ViewArea viewArea;
     public SectionRenderDispatcher.RenderSection[] sectionArray = new SectionRenderDispatcher.RenderSection[0];
     public int minY;
