@@ -26,6 +26,7 @@ public class XenoClient implements ClientModInitializer {
     private static @Nullable LevelRenderer currentLevelRenderer;
     private static volatile boolean active;
     private static long lastCameraSectionNode = Long.MIN_VALUE;
+    private static boolean hasLoggedFirstSnapshot;
 
     @Override
     public void onInitializeClient() {
@@ -58,6 +59,12 @@ public class XenoClient implements ClientModInitializer {
 
         CullingSnapshot snapshot = buildSnapshot(viewArea, cameraState, cameraSectionNode);
         if (snapshot != null) {
+            if (!hasLoggedFirstSnapshot) {
+                LOGGER.info("[Xeno] First snapshot submitted: {} sections, camera at ({}, {}, {})",
+                        snapshot.sectionCount(),
+                        SectionPos.x(cameraSectionNode), SectionPos.y(cameraSectionNode), SectionPos.z(cameraSectionNode));
+                hasLoggedFirstSnapshot = true;
+            }
             cullingThread.submitSnapshot(snapshot);
         }
     }
@@ -71,11 +78,14 @@ public class XenoClient implements ClientModInitializer {
             RotatingSectionStorage<SectionRenderDispatcher.RenderSection> sections =
                     ((ViewAreaAccessor) viewArea).xeno$getSections();
 
+            int added = 0;
             for (SectionRenderDispatcher.RenderSection section : sections) {
                 if (section != null) {
                     currentOctree.add(section);
+                    added++;
                 }
             }
+            LOGGER.info("[Xeno] Octree rebuilt: {} sections, renderDistance={}, minSectionY={}", added, renderDistance, minSectionY);
         } catch (Exception e) {
             LOGGER.error("[Xeno] Failed to rebuild octree", e);
             currentOctree = null;
@@ -92,6 +102,7 @@ public class XenoClient implements ClientModInitializer {
                     ((ViewAreaAccessor) viewArea).xeno$getSections();
 
             int sectionCount = 0;
+            int meshedCount = 0;
             int gridSizeXZ = sections.radius() * 2 + 1;
             int gridSizeY = sections.height();
             int minSectionY = viewArea.minSectionY();
@@ -111,6 +122,7 @@ public class XenoClient implements ClientModInitializer {
                 boolean meshValid = mesh != CompiledSectionMesh.UNCOMPILED;
 
                 hasMesh[idx] = meshValid;
+                if (meshValid) meshedCount++;
 
                 if (meshValid) {
                     for (int from = 0; from < 6; from++) {
@@ -125,6 +137,10 @@ public class XenoClient implements ClientModInitializer {
                 }
 
                 sectionCount = Math.max(sectionCount, idx + 1);
+            }
+
+            if (!hasLoggedFirstSnapshot) {
+                LOGGER.info("[Xeno] Snapshot build: {} total sections, {} with meshes, grid={}x{}", sectionCount, meshedCount, gridSizeXZ, gridSizeY);
             }
 
             return new CullingSnapshot(

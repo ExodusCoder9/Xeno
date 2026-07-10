@@ -1,9 +1,12 @@
 package com.xeno.client.culling;
 
+import com.mojang.logging.LogUtils;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
+import org.slf4j.Logger;
 
 public final class CullingThread extends Thread {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final Direction[] DIRECTIONS = Direction.values();
 
     private final CullingResult result;
@@ -74,6 +77,13 @@ public final class CullingThread extends Thread {
         initializeBFS(snap);
         runBFS(snap);
         finalizeOccluded(snap);
+
+        int visibleCount = 0;
+        byte[] vis = result.visibilityArray();
+        for (int i = 0; i < totalSections; i++) {
+            if (vis[i] == CullingResult.SURELY_VISIBLE) visibleCount++;
+        }
+        LOGGER.debug("[Xeno] Culling pass: {} total, {} surely visible", totalSections, visibleCount);
 
         result.publish();
     }
