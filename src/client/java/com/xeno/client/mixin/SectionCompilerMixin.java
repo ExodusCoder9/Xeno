@@ -1,230 +1,204 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.XenoClient;
-import com.mojang.blaze3d.vertex.VertexSorting;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import org.jspecify.annotations.NullMarked;
-import java.util.EnumMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import net.minecraft.CrashReport;
-import net.minecraft.CrashReportCategory;
-import net.minecraft.ReportedException;
-import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;
-import net.minecraft.client.renderer.ViewArea;
-import net.minecraft.client.renderer.block.BlockModelLighter;
 import net.minecraft.client.renderer.block.BlockQuadOutput;
-import net.minecraft.client.renderer.block.BlockStateModelSet;
 import net.minecraft.client.renderer.block.FluidRenderer;
-import net.minecraft.client.renderer.block.FluidStateModelSet;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
-import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
-import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
-import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
-import net.minecraft.client.renderer.chunk.VisGraph;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
-import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
-import org.spongepowered.asm.mixin.Final;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexSorting;
+import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(SectionCompiler.class)
 public class SectionCompilerMixin {
-    @Shadow @Final private boolean ambientOcclusion;
-    @Shadow @Final private boolean cutoutLeaves;
-    @Shadow @Final private BlockStateModelSet blockModelSet;
-    @Shadow @Final private FluidStateModelSet fluidModelSet;
-    @Shadow @Final private BlockColors blockColors;
 
-    @Shadow
-    private BufferBuilder getOrBeginLayer(
-            Map<ChunkSectionLayer, BufferBuilder> startedLayers, SectionBufferBuilderPack buffers, ChunkSectionLayer layer
+    private static final ThreadLocal<int[]> XENO_PER_DIR_COUNTS = ThreadLocal.withInitial(() -> new int[6]);
+    private static final ThreadLocal<int[]> XENO_TOTAL_VERTICES = ThreadLocal.withInitial(() -> new int[1]);
+    private static final ThreadLocal<Boolean> XENO_SHOULD_CULL = ThreadLocal.withInitial(() -> false);
+    private static final ThreadLocal<float[]> XENO_CULL_DIR = ThreadLocal.withInitial(() -> new float[3]);
+
+    @Inject(method = "compile(Lnet/minecraft/core/SectionPos;Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;Lcom/mojang/blaze3d/vertex/VertexSorting;Lnet/minecraft/client/renderer/SectionBufferBuilderPack;)Lnet/minecraft/client/renderer/chunk/SectionCompiler$Results;", at = @At("HEAD"))
+    private void xenoBeforeCompile(
+            SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders,
+            CallbackInfoReturnable<SectionCompiler.Results> cir
     ) {
-        throw new AssertionError();
-    }
+        XenoClient.xenoSetCurrentSectionNode(sectionPos.asLong());
+        int[] counts = XENO_PER_DIR_COUNTS.get();
+        java.util.Arrays.fill(counts, 0);
+        XENO_TOTAL_VERTICES.get()[0] = 0;
 
-    @Shadow
-    private <E extends BlockEntity> void handleBlockEntity(SectionCompiler.Results results, E blockEntity) {
-        throw new AssertionError();
-    }
-
-    /**
-     * @author ExodusCoder9
-     * @reason Overwrites standard compilation to count face directions and record them for custom occlusion culling.
-     */
-     @NullMarked
-     @Overwrite
-     public SectionCompiler.Results compile(
-             final SectionPos sectionPos,
-             final RenderSectionRegion region,
-             final VertexSorting vertexSorting,
-             final SectionBufferBuilderPack builders
-     ) {
-         XenoClient.xenoSetCurrentSectionNode(sectionPos.asLong());
- 
-         try {
-             SectionCompiler.Results results = new SectionCompiler.Results();
-             BlockPos minPos = sectionPos.origin();
-             BlockPos maxPos = minPos.offset(15, 15, 15);
-             VisGraph visGraph = new VisGraph();
-             BlockModelLighter.enableCaching();
-             ModelBlockRenderer blockRenderer = new ModelBlockRenderer(this.ambientOcclusion, true, this.blockColors);
-             FluidRenderer fluidRenderer = new FluidRenderer(this.fluidModelSet);
-             Map<ChunkSectionLayer, BufferBuilder> startedLayers = new EnumMap<>(ChunkSectionLayer.class);
- 
-             int[] perDirFaceCounts = new int[6];
-             int[] totalVertices = new int[1]; // Using array to update within lambda
- 
-             BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> {
-                 perDirFaceCounts[quad.direction().ordinal()]++;
-                 totalVertices[0] += 4;
-                 BufferBuilder builder = this.getOrBeginLayer(startedLayers, builders, quad.materialInfo().layer());
-                 builder.putBlockBakedQuad(x, y, z, quad, instance);
-             };
- 
-             BlockQuadOutput opaqueQuadOutput = (x, y, z, quad, instance) -> {
-                 perDirFaceCounts[quad.direction().ordinal()]++;
-                 totalVertices[0] += 4;
-                 BufferBuilder builder = this.getOrBeginLayer(startedLayers, builders, ChunkSectionLayer.SOLID);
-                 builder.putBlockBakedQuad(x, y, z, quad, instance);
-             };
-
-            FluidRenderer.Output fluidOutput = layerx -> {
-                BufferBuilder builder = this.getOrBeginLayer(startedLayers, builders, layerx);
-                return new VertexConsumer() {
-                    @Override
-                    public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float nx, float ny, float nz) {
-                        totalVertices[0]++;
-                        builder.addVertex(x, y, z, color, u, v, overlay, light, nx, ny, nz);
-                    }
-
-                    @Override
-                    public VertexConsumer setLineWidth(float width) {
-                        builder.setLineWidth(width);
-                        return this;
-                    }
-
-                    @Override
-                    public VertexConsumer setNormal(float x, float y, float z) {
-                        builder.setNormal(x, y, z);
-                        return this;
-                    }
-
-                    @Override
-                    public VertexConsumer setUv2(int u, int v) {
-                        builder.setUv2(u, v);
-                        return this;
-                    }
-
-                    @Override
-                    public VertexConsumer setUv1(int u, int v) {
-                        builder.setUv1(u, v);
-                        return this;
-                    }
-
-                    @Override
-                    public VertexConsumer setUv(float u, float v) {
-                        builder.setUv(u, v);
-                        return this;
-                    }
-
-                    @Override
-                    public VertexConsumer setColor(int color) {
-                        builder.setColor(color);
-                        return this;
-                    }
-
-                    @Override
-                    public VertexConsumer setColor(int r, int g, int b, int a) {
-                        builder.setColor(r, g, b, a);
-                        return this;
-                    }
-
-                    @Override
-                    public VertexConsumer addVertex(float x, float y, float z) {
-                        builder.addVertex(x, y, z);
-                        return this;
-                    }
-                };
-            };
-
-            for (BlockPos pos : BlockPos.betweenClosed(minPos, maxPos)) {
-                BlockState blockState = region.getBlockState(pos);
-                if (!blockState.isAir()) {
-                    try {
-                        if (blockState.isSolidRender()) {
-                            visGraph.setOpaque(pos);
-                        }
-
-                        if (blockState.hasBlockEntity()) {
-                            BlockEntity blockEntity = region.getBlockEntity(pos);
-                            if (blockEntity != null) {
-                                this.handleBlockEntity(results, blockEntity);
-                            }
-                        }
-
-                        FluidState fluidState = blockState.getFluidState();
-                        if (!fluidState.isEmpty()) {
-                            fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
-                        }
-
-                        if (blockState.getRenderShape() == RenderShape.MODEL) {
-                            blockRenderer.tesselateBlock(
-                                    ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
-                                    SectionPos.sectionRelative(pos.getX()),
-                                    SectionPos.sectionRelative(pos.getY()),
-                                    SectionPos.sectionRelative(pos.getZ()),
-                                    region,
-                                    pos,
-                                    blockState,
-                                    this.blockModelSet.get(blockState),
-                                    blockState.getSeed(pos)
-                            );
-                        }
-                    } catch (Throwable t) {
-                        CrashReport report = CrashReport.forThrowable(t, "Tesselating block in world");
-                        CrashReportCategory category = report.addCategory("Block being tesselated");
-                        CrashReportCategory.populateBlockDetails(category, region, pos, blockState);
-                        throw new ReportedException(report);
-                    }
-                }
+        net.minecraft.world.phys.Vec3 camPos = XenoClient.getCameraPos();
+        boolean shouldCull = false;
+        float[] cullDir = XENO_CULL_DIR.get();
+        if (camPos != null) {
+            double dx = sectionPos.center().getX() - camPos.x;
+            double dy = sectionPos.center().getY() - camPos.y;
+            double dz = sectionPos.center().getZ() - camPos.z;
+            double distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq > 60.0 * 60.0) {
+                shouldCull = true;
+                float yaw = XenoClient.getCameraYaw();
+                float pitch = XenoClient.getCameraPitch();
+                cullDir[0] = (float) (Math.cos(Math.toRadians(pitch)) * Math.sin(Math.toRadians(yaw)));
+                cullDir[1] = (float) Math.sin(Math.toRadians(pitch));
+                cullDir[2] = (float) (Math.cos(Math.toRadians(pitch)) * Math.cos(Math.toRadians(yaw)));
             }
-
-            for (Entry<ChunkSectionLayer, BufferBuilder> entry : startedLayers.entrySet()) {
-                ChunkSectionLayer layer = entry.getKey();
-                MeshData mesh = entry.getValue().build();
-                if (mesh != null) {
-                    if (layer == ChunkSectionLayer.TRANSLUCENT) {
-                        results.transparencyState = mesh.sortQuads(builders.buffer(layer), vertexSorting);
-                    }
-                    results.renderedLayers.put(layer, mesh);
-                }
-            }
-
-            BlockModelLighter.clearCache();
-            results.visibilitySet = visGraph.resolve();
-
-            // Record face data in our custom tracker!
-            ViewArea viewArea = XenoClient.getViewArea();
-            if (viewArea != null) {
-                SectionRenderDispatcher.RenderSection renderSection = ((ViewAreaAccessor) viewArea).invokeGetRenderSection(sectionPos.asLong());
-                if (renderSection != null) {
-                    XenoClient.getSectionFaceData().record(renderSection.index, perDirFaceCounts, totalVertices[0]);
-                }
-            }
-
-            return results;
-        } finally {
-            XenoClient.xenoClearCurrentSectionNode();
         }
+        XENO_SHOULD_CULL.set(shouldCull);
+    }
+
+    @Inject(method = "compile(Lnet/minecraft/core/SectionPos;Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;Lcom/mojang.blaze3d.vertex/VertexSorting;Lnet/minecraft/client/renderer/SectionBufferBuilderPack;)Lnet/minecraft/client/renderer/chunk/SectionCompiler$Results;", at = @At("RETURN"))
+    private void xenoAfterCompile(
+            SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack builders,
+            CallbackInfoReturnable<SectionCompiler.Results> cir
+    ) {
+        long node = sectionPos.asLong();
+        net.minecraft.client.renderer.ViewArea area = XenoClient.getViewArea();
+        if (area != null) {
+            net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection section = ((com.xeno.client.mixin.ViewAreaAccessor) area).invokeGetRenderSection(node);
+            if (section != null) {
+                XenoClient.getSectionFaceData().record(
+                    section.index,
+                    XENO_PER_DIR_COUNTS.get(),
+                    XENO_TOTAL_VERTICES.get()[0]
+                );
+            }
+        }
+        XenoClient.xenoClearCurrentSectionNode();
+    }
+
+    @Redirect(
+        method = "compile(Lnet/minecraft/core/SectionPos;Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;Lcom/mojang.blaze3d.vertex/VertexSorting;Lnet/minecraft/client/renderer/SectionBufferBuilderPack;)Lnet/minecraft/client/renderer/chunk/SectionCompiler$Results;",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/renderer/block/ModelBlockRenderer;tesselateBlock(Lnet/minecraft/client/renderer/block/BlockQuadOutput;IIILnet/minecraft/client/renderer/block/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/client/renderer/block/dispatch/BlockStateModel;J)V"
+        )
+    )
+    private void xenoRedirectTesselateBlock(
+            ModelBlockRenderer blockRenderer,
+            BlockQuadOutput originalOutput,
+            int sectionX, int sectionY, int sectionZ,
+            BlockAndTintGetter level, BlockPos pos, BlockState state,
+            net.minecraft.client.renderer.block.dispatch.BlockStateModel model, long seed
+    ) {
+        int[] counts = XENO_PER_DIR_COUNTS.get();
+        int[] vertices = XENO_TOTAL_VERTICES.get();
+        boolean shouldCull = XENO_SHOULD_CULL.get();
+        float[] cullDir = XENO_CULL_DIR.get();
+
+        BlockQuadOutput wrappedOutput = (x, y, z, quad, instance) -> {
+            net.minecraft.core.Direction dir = quad.direction();
+            if (dir != null) {
+                counts[dir.ordinal()]++;
+                if (shouldCull) {
+                    float dot = dotProduct(dir.ordinal(), cullDir[0], cullDir[1], cullDir[2]);
+                    if (dot < -0.2f) {
+                        return; // Culled!
+                    }
+                }
+            }
+            vertices[0] += 4;
+            originalOutput.put(x, y, z, quad, instance);
+        };
+
+        blockRenderer.tesselateBlock(wrappedOutput, sectionX, sectionY, sectionZ, level, pos, state, model, seed);
+    }
+
+    @Redirect(
+        method = "compile(Lnet/minecraft/core/SectionPos;Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;Lcom/mojang.blaze3d.vertex/VertexSorting;Lnet/minecraft/client/renderer/SectionBufferBuilderPack;)Lnet/minecraft/client/renderer/chunk/SectionCompiler$Results;",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/renderer/block/FluidRenderer;tesselate(Lnet/minecraft/client/renderer/block/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/client/renderer/block/FluidRenderer$Output;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/material/FluidState;)V"
+        )
+    )
+    private void xenoRedirectTesselateFluid(
+            FluidRenderer fluidRenderer,
+            BlockAndTintGetter level, BlockPos pos,
+            FluidRenderer.Output originalOutput, BlockState blockState, FluidState fluidState
+    ) {
+        int[] vertices = XENO_TOTAL_VERTICES.get();
+        FluidRenderer.Output wrappedOutput = layer -> {
+            VertexConsumer originalConsumer = originalOutput.getBuilder(layer);
+            return new VertexConsumer() {
+                @Override
+                public VertexConsumer addVertex(float x, float y, float z) {
+                    originalConsumer.addVertex(x, y, z);
+                    return this;
+                }
+
+                @Override
+                public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float nx, float ny, float nz) {
+                    vertices[0]++;
+                    originalConsumer.addVertex(x, y, z, color, u, v, overlay, light, nx, ny, nz);
+                }
+
+                @Override
+                public VertexConsumer setLineWidth(float width) {
+                    originalConsumer.setLineWidth(width);
+                    return this;
+                }
+
+                @Override
+                public VertexConsumer setNormal(float x, float y, float z) {
+                    originalConsumer.setNormal(x, y, z);
+                    return this;
+                }
+
+                @Override
+                public VertexConsumer setColor(int r, int g, int b, int a) {
+                    originalConsumer.setColor(r, g, b, a);
+                    return this;
+                }
+
+                @Override
+                public VertexConsumer setColor(int color) {
+                    originalConsumer.setColor(color);
+                    return this;
+                }
+
+                @Override
+                public VertexConsumer setUv(float u, float v) {
+                    originalConsumer.setUv(u, v);
+                    return this;
+                }
+
+                @Override
+                public VertexConsumer setUv1(int u, int v) {
+                    originalConsumer.setUv1(u, v);
+                    return this;
+                }
+
+                @Override
+                public VertexConsumer setUv2(int u, int v) {
+                    originalConsumer.setUv2(u, v);
+                    return this;
+                }
+            };
+        };
+
+        fluidRenderer.tesselate(level, pos, wrappedOutput, blockState, fluidState);
+    }
+
+    private static float dotProduct(int directionOrdinal, float dx, float dy, float dz) {
+        return switch (directionOrdinal) {
+            case 0 -> dy;
+            case 1 -> -dy;
+            case 2 -> dz;
+            case 3 -> -dz;
+            case 4 -> dx;
+            case 5 -> -dx;
+            default -> 0.0f;
+        };
     }
 }

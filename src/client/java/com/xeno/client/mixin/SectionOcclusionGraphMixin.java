@@ -171,6 +171,38 @@ public class SectionOcclusionGraphMixin {
     public void update(final CameraRenderState camera, final int fov, final ChunkLoadingRenderState chunkLoadingRenderState) {
         if (this.xenoCullingThread == null || this.xenoViewArea == null) return;
 
+        // Save camera state in XenoClient
+        com.xeno.client.XenoClient.setCameraState(camera.yRot, camera.xRot, camera.pos);
+
+        // Check if sections need remeshing due to rotation changes
+        net.minecraft.client.renderer.extract.LevelExtractor extractor = com.xeno.client.XenoClient.getLevelExtractor();
+        if (extractor != null) {
+            RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage = ((ViewAreaAccessor) this.xenoViewArea).getSections();
+            for (SectionRenderDispatcher.RenderSection section : storage) {
+                if (section != null) {
+                    BlockPos origin = section.getRenderOrigin();
+                    double dx = origin.getX() + 8 - camera.pos.x;
+                    double dy = origin.getY() + 8 - camera.pos.y;
+                    double dz = origin.getZ() + 8 - camera.pos.z;
+                    double distSq = dx * dx + dy * dy + dz * dz;
+                    if (distSq > 60.0 * 60.0) {
+                        if (com.xeno.client.XenoClient.getFrustumFaceCulling().shouldReMeshWithFaceCulling(
+                                com.xeno.client.XenoClient.getSectionFaceData(),
+                                section.index,
+                                camera.yRot,
+                                camera.xRot
+                        )) {
+                            extractor.setSectionDirtyWithNeighbors(
+                                    SectionPos.x(section.getSectionNode()),
+                                    SectionPos.y(section.getSectionNode()),
+                                    SectionPos.z(section.getSectionNode())
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
         this.updateLoadedChunks(chunkLoadingRenderState.addedLoadedChunks, chunkLoadingRenderState.removedLoadedChunks);
         this.updateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
 

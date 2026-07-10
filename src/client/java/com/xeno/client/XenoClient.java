@@ -7,6 +7,10 @@ import com.xeno.client.meshing.SectionFaceData;
 import com.mojang.logging.LogUtils;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.renderer.ViewArea;
+import net.minecraft.client.renderer.extract.LevelExtractor;
+import net.minecraft.world.phys.Vec3;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.GpuFormat;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -21,17 +25,17 @@ public class XenoClient implements ClientModInitializer {
     // Camera State Tracking
     private static float cameraYaw;
     private static float cameraPitch;
-    private static @Nullable net.minecraft.world.phys.Vec3 cameraPos;
+    private static @Nullable Vec3 cameraPos;
 
     // LevelExtractor Tracking
-    private static @Nullable net.minecraft.client.renderer.extract.LevelExtractor levelExtractor;
+    private static @Nullable LevelExtractor levelExtractor;
 
     // Custom 16-byte Vertex Format
-    public static final com.mojang.blaze3d.vertex.VertexFormat COMPRESSED_BLOCK_FORMAT = com.mojang.blaze3d.vertex.VertexFormat.builder(0)
-            .addAttribute("Position", com.mojang.blaze3d.GpuFormat.RGB16_FLOAT)
-            .addAttribute("Color", com.mojang.blaze3d.GpuFormat.RGBA8_UNORM)
-            .addAttribute("UV0", com.mojang.blaze3d.GpuFormat.RG16_FLOAT)
-            .addAttribute("UV2", com.mojang.blaze3d.GpuFormat.RG8_UINT)
+    public static final VertexFormat COMPRESSED_BLOCK_FORMAT = VertexFormat.builder(0)
+            .addAttribute("Position", GpuFormat.RGB16_FLOAT)
+            .addAttribute("Color", GpuFormat.RGBA8_UNORM)
+            .addAttribute("UV0", GpuFormat.RG16_FLOAT)
+            .addAttribute("UV2", GpuFormat.RG8_UINT)
             .build();
 
     @Override
@@ -39,29 +43,35 @@ public class XenoClient implements ClientModInitializer {
         LOGGER.info("[Xeno] Async occlusion culling system loaded");
     }
 
-    public static void setCameraState(float yaw, float pitch, net.minecraft.world.phys.Vec3 pos) {
+    @SuppressWarnings("unused")
+    public static void setCameraState(float yaw, float pitch, Vec3 pos) {
         cameraYaw = yaw;
         cameraPitch = pitch;
         cameraPos = pos;
     }
 
+    @SuppressWarnings("unused")
     public static float getCameraYaw() {
         return cameraYaw;
     }
 
+    @SuppressWarnings("unused")
     public static float getCameraPitch() {
         return cameraPitch;
     }
 
-    public static @Nullable net.minecraft.world.phys.Vec3 getCameraPos() {
+    @SuppressWarnings("unused")
+    public static @Nullable Vec3 getCameraPos() {
         return cameraPos;
     }
 
-    public static void setLevelExtractor(@Nullable net.minecraft.client.renderer.extract.LevelExtractor extractor) {
+    @SuppressWarnings("unused")
+    public static void setLevelExtractor(@Nullable LevelExtractor extractor) {
         levelExtractor = extractor;
     }
 
-    public static @Nullable net.minecraft.client.renderer.extract.LevelExtractor getLevelExtractor() {
+    @SuppressWarnings("unused")
+    public static @Nullable LevelExtractor getLevelExtractor() {
         return levelExtractor;
     }
 
@@ -78,6 +88,7 @@ public class XenoClient implements ClientModInitializer {
         return sectionFaceData;
     }
 
+    @SuppressWarnings("unused")
     public static FrustumFaceCulling getFrustumFaceCulling() {
         return frustumFaceCulling;
     }
