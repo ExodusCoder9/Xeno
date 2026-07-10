@@ -19,6 +19,10 @@ out float cylindricalVertexDistance;
 out vec4 vertexColor;
 out vec2 texCoord0;
 
+// Outputs to pass to fragment shader
+out float chunkVisibility;
+out flat ivec2 textureSize;
+
 void main() {
     int drawID = gl_DrawIDARB;
     ChunkSectionData section = sections[drawID];
@@ -30,4 +34,7 @@ void main() {
     cylindricalVertexDistance = fog_cylindrical_distance(pos);
     vertexColor = Color * sample_lightmap(Sampler2, UV2);
     texCoord0 = UV0;
+
+    chunkVisibility = section.ChunkVisibility;
+    textureSize = section.TextureSize;
 }
