@@ -1,5 +1,7 @@
 package com.xeno.client.culling;
 
+import java.util.Arrays;
+
 public final class CullingResult {
     public static final byte OCCLUDED = 0;
     public static final byte MAYBE = 1;
@@ -9,17 +11,20 @@ public final class CullingResult {
     private byte[] writeBuffer;
     private final byte[] prevVisibility;
     private int totalSections;
+    private boolean hasPublished;
 
     public CullingResult(int maxSections) {
         this.readBuffer = new byte[maxSections];
         this.writeBuffer = new byte[maxSections];
         this.prevVisibility = new byte[maxSections];
         this.totalSections = 0;
+        this.hasPublished = false;
+        Arrays.fill(this.readBuffer, MAYBE);
     }
 
     public void init(int totalSections) {
         this.totalSections = totalSections;
-        if (prevVisibility[0] != 0 || totalSections <= prevVisibility.length) {
+        if (hasPublished) {
             System.arraycopy(prevVisibility, 0, writeBuffer, 0, totalSections);
             for (int i = 0; i < totalSections; i++) {
                 if (writeBuffer[i] == SURELY_VISIBLE) {
@@ -27,7 +32,7 @@ public final class CullingResult {
                 }
             }
         } else {
-            java.util.Arrays.fill(writeBuffer, 0, totalSections, MAYBE);
+            Arrays.fill(writeBuffer, 0, totalSections, MAYBE);
         }
     }
 
@@ -49,7 +54,7 @@ public final class CullingResult {
     }
 
     public boolean wasPreviouslyVisible(int sectionIndex) {
-        if (sectionIndex < 0 || sectionIndex >= totalSections) return false;
+        if (!hasPublished || sectionIndex < 0 || sectionIndex >= totalSections) return false;
         return prevVisibility[sectionIndex] == SURELY_VISIBLE;
     }
 
@@ -58,6 +63,7 @@ public final class CullingResult {
         byte[] temp = readBuffer;
         readBuffer = writeBuffer;
         writeBuffer = temp;
+        hasPublished = true;
     }
 
     public byte[] visibilityArray() {
