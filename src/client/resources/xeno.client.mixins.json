@@ -9,6 +9,7 @@
 		"SectionCompilerMixin",
 		"SectionOcclusionGraphMixin",
 		"SectionRenderDispatcherMixin",
+		"StagingBufferMixin",
 		"VertexConsumerMixin",
 		"ViewAreaAccessor"
 	],
