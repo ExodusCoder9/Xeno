@@ -17,6 +17,10 @@ public final class XenoVisibility {
         opaqueSections = opaque;
     }
 
+    public static boolean hasVisibilityData() {
+        return sectionVisibility != null;
+    }
+
     @SuppressWarnings("unused")
     public static void invalidate() {
         sectionVisibility = null;

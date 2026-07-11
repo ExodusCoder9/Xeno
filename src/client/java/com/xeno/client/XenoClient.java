@@ -3,6 +3,7 @@ package com.xeno.client;
 import com.mojang.logging.LogUtils;
 import com.xeno.client.culling.CullingOutput;
 import com.xeno.client.culling.CullingThread;
+import com.xeno.client.renderer.XenoWorldRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.renderer.ViewArea;
 import net.minecraft.client.renderer.extract.LevelExtractor;
@@ -70,5 +71,17 @@ public class XenoClient implements ClientModInitializer {
 
     public static @Nullable ViewArea getViewArea() {
         return viewArea;
+    }
+
+    public static @Nullable XenoWorldRenderer getXenoWorldRenderer() {
+        return XenoWorldRenderer.getInstance();
+    }
+
+    public static void onWorldRendererCreated() {
+        LOGGER.info("[Xeno] XenoWorldRenderer fully initialized");
+    }
+
+    public static void onWorldRendererDestroyed() {
+        LOGGER.info("[Xeno] XenoWorldRenderer destroyed");
     }
 }
