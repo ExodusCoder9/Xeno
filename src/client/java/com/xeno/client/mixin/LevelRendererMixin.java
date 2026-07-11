@@ -94,9 +94,6 @@ public class LevelRendererMixin {
     @Unique
     private final Matrix4f xenoScratchMatrix = new Matrix4f();
 
-    @Unique
-    private long xenoLastFrameTime;
-
     @Inject(method = "<init>", at = @At("RETURN"))
     private void xenoOnInit(
             EntityRenderDispatcher entityRenderDispatcher,
@@ -240,7 +237,7 @@ public class LevelRendererMixin {
         int textureAtlasWidth = blockAtlas.getWidth(0);
         int textureAtlasHeight = blockAtlas.getHeight(0);
 
-        this.xenoLastFrameTime = Util.getMillis();
+        long now = Util.getMillis();
 
         if (this.sectionRenderDispatcher != null) {
             ObjectArrayList<SectionRenderDispatcher.RenderSection> visible = ((LevelRenderer) (Object) this).visibleSections();
@@ -251,7 +248,6 @@ public class LevelRendererMixin {
                     SectionRenderDispatcher.RenderSection section = visible.get(i);
                     SectionMesh sectionMesh = section.getSectionMesh();
                     BlockPos renderOffset = section.getRenderOrigin();
-                    long now = this.xenoLastFrameTime;
                     int uboIndex = -1;
 
                     for (ChunkSectionLayer layer : ChunkSectionLayer.values()) {
@@ -300,7 +296,7 @@ public class LevelRendererMixin {
                                 firstIndex = (int) (slice.indexBufferOffset() / indexType.bytes);
                             }
 
-                            int baseVertex = (int) (slice.vertexBufferOffset() / vertexFormat.getVertexSize());
+                            int baseVertex = (int) (slice.vertexBufferOffset() / (vertexFormat != null ? vertexFormat.getVertexSize() : 1));
                             int finalUboIndex = uboIndex;
                             Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> drawGroup = this.xenoDrawGroups.get(layer);
                             List<RenderPass.Draw<GpuBufferSlice[]>> draws = drawGroup.get(combinedHash);
