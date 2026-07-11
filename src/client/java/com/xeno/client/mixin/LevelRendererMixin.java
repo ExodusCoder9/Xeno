@@ -21,7 +21,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.phys.Vec3;
-import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -35,7 +34,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class LevelRendererMixin {
     @Shadow @Final private LevelRenderState levelRenderState;
     @Shadow @Final private OptionsRenderState optionsRenderState;
-    @Shadow private @Nullable ViewArea viewArea;
+    @Shadow private ViewArea viewArea;
 
     @Unique
     private XenoWorldRenderer xenoWorldRenderer;
@@ -101,7 +100,9 @@ public class LevelRendererMixin {
             }
 
             SectionRenderDispatcher.RenderSection section = ((com.xeno.client.mixin.ViewAreaAccessor) this.viewArea).invokeGetRenderSection(sectionNode);
-            if (section == null) continue;
+            if (section == null) {
+                continue;
+            }
 
             if (!isNearby && !section.wasPreviouslyEmpty()) {
                 section.setFadeDuration(fadeDuration);
