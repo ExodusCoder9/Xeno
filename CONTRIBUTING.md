@@ -17,12 +17,13 @@ Ensure you review the noncompete conditions outlined in the project root LICENSE
 
 ## Code Style & Performance Standards
 
-Xeno runs on critical rendering paths where object allocation spikes cause stuttering. Keep code direct and performance-driven:
+Xeno runs on  rendering paths where object allocation spikes cause  and latency issues. Keep code direct and performance driven:
 
 * **Zero Allocation on Render Paths:** Avoid allocating objects inside loops or execution blocks that run every frame or per-chunk tick. Utilize primitive arrays, primitive collections (like Fastutil), and pooled `ThreadLocal` structures instead of instantiation.
 * **Keep Code Clean and Uncluttered:** Minimize inline code comments as much as possible. Write clear, self-documenting method names and logic rather than filling files with dense prose blocks.
 * **Package Integrity:** Always include precise package declarations and fully qualified imports. Do not use wildcard imports.
 * **Bypass Wrapper Overheads:** Where possible, bypass heavy object-oriented virtual method calls on hot paths in favor of direct array mapping or primitive lookups.
+* **Use of Deprecated API's:** The use of Deprecated Java APIs are prohibited , especially the use of Sun.Misc.Unsafe. 
 
 ## Opening Pull Requests
 
