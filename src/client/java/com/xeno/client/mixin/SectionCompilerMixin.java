@@ -65,16 +65,15 @@ public abstract class SectionCompilerMixin {
         Map<ChunkSectionLayer, BufferBuilder> startedLayers = XENO_STARTED_LAYERS.get();
         startedLayers.clear();
 
-        ModelBlockRenderer blockRenderer = XENO_BLOCK_RENDERER.get();
-        if (blockRenderer == null) {
-            blockRenderer = new ModelBlockRenderer(this.ambientOcclusion, true, this.blockColors);
-            XENO_BLOCK_RENDERER.set(blockRenderer);
-        }
-
         FluidRenderer fluidRenderer = XENO_FLUID_RENDERER.get();
-        if (fluidRenderer == null) {
+        ModelBlockRenderer blockRenderer = XENO_BLOCK_RENDERER.get();
+
+        if (fluidRenderer == null || fluidRenderer.fluidModels != this.fluidModelSet) {
             fluidRenderer = new FluidRenderer(this.fluidModelSet);
             XENO_FLUID_RENDERER.set(fluidRenderer);
+
+            blockRenderer = new ModelBlockRenderer(this.ambientOcclusion, true, this.blockColors);
+            XENO_BLOCK_RENDERER.set(blockRenderer);
         }
 
         BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> {
