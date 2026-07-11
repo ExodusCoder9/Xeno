@@ -170,8 +170,10 @@ public class SectionOcclusionGraphMixin {
             int sizeXZ = viewDistance * 2 + 1;
             int totalSections = sizeXZ * sizeY * sizeXZ;
 
-            if (request.sectionArray.length < totalSections) {
+            if (request.sectionArray.length != totalSections) {
                 request.sectionArray = new SectionRenderDispatcher.RenderSection[totalSections];
+            } else {
+                java.util.Arrays.fill(request.sectionArray, null);
             }
 
             for (SectionRenderDispatcher.RenderSection section : storage) {
