@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.slf4j.Logger;
+import com.xeno.client.renderer.DynamicUniformStorageExtensions;
 import java.nio.ByteBuffer;
 import java.util.List;
 
