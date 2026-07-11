@@ -149,6 +149,10 @@ public class SectionOcclusionGraphMixin {
         this.updateLoadedChunks(chunkLoadingRenderState.addedLoadedChunks, chunkLoadingRenderState.removedLoadedChunks);
         this.updateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
 
+        if (this.xenoCullingThread.isProcessing()) {
+            return;
+        }
+
         if (!camera.isFrustumCaptured) {
             CullingRequest request = this.xenoRequests[this.xenoWriteIndex];
 

@@ -1,6 +1,5 @@
 package com.xeno.client.mixin;
 
-import com.xeno.client.culling.XenoVisibility;
 import com.xeno.client.renderer.XenoWorldRenderer;
 import net.minecraft.client.PrioritizeChunkUpdates;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -39,12 +38,6 @@ public class LevelRendererMixin {
     @Unique
     private XenoWorldRenderer xenoWorldRenderer;
 
-    /**
-     * Initialize XenoWorldRenderer alongside LevelRenderer.
-     *
-     * @author ExodusCoder9
-     * @reason Capture references and instantiate the Xeno optimization hub
-     */
     @Inject(method = "<init>", at = @At("RETURN"))
     private void xenoOnInit(
             EntityRenderDispatcher entityRenderDispatcher,
@@ -62,20 +55,6 @@ public class LevelRendererMixin {
         XenoWorldRenderer.setInstance(this.xenoWorldRenderer);
     }
 
-    /**
-     * Replace compileSections to skip OCCLUDED sections before any task allocation.
-     * <p>
-     * Vanilla iterates ALL sectionUpdateRenderStates and creates CompileTask + copies
-     * RenderSectionRegion for each, even for occluded sections. Our mixin in
-     * SectionRenderDispatcher cancels compileAsync() at HEAD, but by then the
-     * CompileTask and region copy are already allocated.
-     * <p>
-     * This override skips the entire compileAsync() call for sections that the
-     * Xeno culling thread has marked as SKIP, eliminating the wasted allocation.
-     *
-     * @author ExodusCoder9
-     * @reason Skip occluded sections before task allocation
-     */
     @Overwrite
     private void compileSections(final CameraRenderState camera) {
         ProfilerFiller profiler = Profiler.get();
@@ -83,7 +62,6 @@ public class LevelRendererMixin {
         BlockPos cameraPosition = camera.blockPos;
         long fadeDuration = Mth.floor(this.optionsRenderState.chunkSectionFadeInTime * 1000.0);
 
-        int skipped = 0;
         int processed = 0;
 
         for (SectionUpdateRenderState state : this.levelRenderState.sectionUpdateRenderStates) {
@@ -111,12 +89,6 @@ public class LevelRendererMixin {
             }
             section.setWasPreviouslyEmpty(false);
 
-            // Xeno: skip occluded sections before any task allocation
-            if (XenoVisibility.hasVisibilityData() && XenoVisibility.isOccluded(sectionNode)) {
-                skipped++;
-                continue;
-            }
-
             if (rebuildSync) {
                 profiler.push("compileSectionSynchronously");
                 section.compileSync(state.region());
@@ -128,7 +100,7 @@ public class LevelRendererMixin {
         }
 
         if (this.xenoWorldRenderer != null) {
-            this.xenoWorldRenderer.onCompileSectionsFrame(skipped, processed);
+            this.xenoWorldRenderer.onCompileSectionsFrame(0, processed);
         }
 
         profiler.popPush("scheduleTranslucentResort");
