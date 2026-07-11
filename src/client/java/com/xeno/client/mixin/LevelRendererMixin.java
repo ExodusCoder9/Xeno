@@ -27,6 +27,7 @@ import net.minecraft.client.renderer.state.OptionsRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.state.level.SectionUpdateRenderState;
+import net.minecraft.client.renderer.chunk.TranslucencyPointOfView;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.resources.model.ModelManager;
@@ -57,6 +58,29 @@ public class LevelRendererMixin {
     @Shadow @Final private net.minecraft.client.renderer.GameRenderer gameRenderer;
     @Shadow private ViewArea viewArea;
     @Shadow private @org.jspecify.annotations.Nullable SectionRenderDispatcher sectionRenderDispatcher;
+    @Shadow @Final private ObjectArrayList<SectionRenderDispatcher.RenderSection> visibleSections;
+    @Shadow @Final private ObjectArrayList<SectionRenderDispatcher.RenderSection> nearbyVisibleSections;
+    @Shadow private @org.jspecify.annotations.Nullable BlockPos lastTranslucentSortBlockPos;
+    @Shadow private int translucencyResortIterationIndex;
+
+    @Shadow
+    private void scheduleResort(
+            final SectionRenderDispatcher.RenderSection section,
+            final TranslucencyPointOfView pointOfView,
+            final Vec3 cameraPos,
+            final boolean blockPosChanged,
+            final boolean isNearby
+    ) {}
+
+    @Unique
+    private final TranslucencyPointOfView xenoTranslucencyPointOfView = new TranslucencyPointOfView();
+
+    @Unique
+    private int xenoLastTranslucentSortBlockX = Integer.MIN_VALUE;
+    @Unique
+    private int xenoLastTranslucentSortBlockY = Integer.MIN_VALUE;
+    @Unique
+    private int xenoLastTranslucentSortBlockZ = Integer.MIN_VALUE;
 
     @Unique
     private XenoWorldRenderer xenoWorldRenderer;
@@ -148,17 +172,47 @@ public class LevelRendererMixin {
         }
 
         profiler.popPush("scheduleTranslucentResort");
-        this.xenoScheduleTranslucentResort(camera.pos);
+        this.scheduleTranslucentSectionResort(camera.pos);
         profiler.pop();
     }
 
-    @Shadow
+    /**
+     * @author ExodusCoder9
+     * @reason Avoid per-frame object allocation for TranslucencyPointOfView, BlockPos, and ObjectListIterator.
+     */
+    @Overwrite
     private void scheduleTranslucentSectionResort(final Vec3 cameraPos) {
-    }
+        if (!this.visibleSections.isEmpty()) {
+            int camBlockX = Mth.floor(cameraPos.x);
+            int camBlockY = Mth.floor(cameraPos.y);
+            int camBlockZ = Mth.floor(cameraPos.z);
 
-    @Unique
-    private void xenoScheduleTranslucentResort(Vec3 cameraPos) {
-        this.scheduleTranslucentSectionResort(cameraPos);
+            boolean blockPosChanged = camBlockX != this.xenoLastTranslucentSortBlockX 
+                                   || camBlockY != this.xenoLastTranslucentSortBlockY 
+                                   || camBlockZ != this.xenoLastTranslucentSortBlockZ;
+
+            if (blockPosChanged) {
+                this.xenoLastTranslucentSortBlockX = camBlockX;
+                this.xenoLastTranslucentSortBlockY = camBlockY;
+                this.xenoLastTranslucentSortBlockZ = camBlockZ;
+                this.lastTranslucentSortBlockPos = new BlockPos(camBlockX, camBlockY, camBlockZ);
+            }
+
+            int nearbySize = this.nearbyVisibleSections.size();
+            for (int i = 0; i < nearbySize; i++) {
+                SectionRenderDispatcher.RenderSection section = this.nearbyVisibleSections.get(i);
+                this.scheduleResort(section, this.xenoTranslucencyPointOfView, cameraPos, blockPosChanged, true);
+            }
+
+            this.translucencyResortIterationIndex = this.translucencyResortIterationIndex % this.visibleSections.size();
+            int resortsLeft = Math.max(this.visibleSections.size() / 8, 15);
+
+            while (resortsLeft-- > 0) {
+                int index = this.translucencyResortIterationIndex++ % this.visibleSections.size();
+                SectionRenderDispatcher.RenderSection section = this.visibleSections.get(index);
+                this.scheduleResort(section, this.xenoTranslucencyPointOfView, cameraPos, blockPosChanged, false);
+            }
+        }
     }
 
     /**
