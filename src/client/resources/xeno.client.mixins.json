@@ -4,6 +4,8 @@
 	"refmap": "xeno-client-refmap.json",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"DynamicUniformStorageMixin",
+		"DynamicUniformsMixin",
 		"LevelExtractorMixin",
 		"LevelRendererMixin",
 		"SectionCompilerMixin",

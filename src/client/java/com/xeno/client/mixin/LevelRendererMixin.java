@@ -238,6 +238,7 @@ public class LevelRendererMixin {
         int textureAtlasHeight = blockAtlas.getHeight(0);
 
         long now = Util.getMillis();
+        Matrix4f frameModelView = new Matrix4f(modelViewMatrix);
 
         if (this.sectionRenderDispatcher != null) {
             ObjectArrayList<SectionRenderDispatcher.RenderSection> visible = ((LevelRenderer) (Object) this).visibleSections();
@@ -256,10 +257,9 @@ public class LevelRendererMixin {
                         if (slice != null && draw != null && (!draw.hasCustomIndexBuffer() || slice.indexBuffer() != null)) {
                             if (uboIndex == -1) {
                                 uboIndex = this.xenoSectionInfos.size();
-                                this.xenoScratchMatrix.set(modelViewMatrix);
                                 this.xenoSectionInfos.add(
                                         new DynamicUniforms.ChunkSectionInfo(
-                                                new Matrix4f(this.xenoScratchMatrix),
+                                                frameModelView,
                                                 renderOffset.getX(),
                                                 renderOffset.getY(),
                                                 renderOffset.getZ(),
@@ -324,8 +324,8 @@ public class LevelRendererMixin {
             }
         }
 
-        GpuBufferSlice[] chunkSectionInfos = RenderSystem.getDynamicUniforms().writeChunkSections(
-                this.xenoSectionInfos.toArray(new DynamicUniforms.ChunkSectionInfo[0]));
+        GpuBufferSlice[] chunkSectionInfos = ((DynamicUniformsExtensions) RenderSystem.getDynamicUniforms())
+                .xenoWriteChunkSections(this.xenoSectionInfos);
         return new ChunkSectionsToRender(blockAtlas, this.xenoDrawGroups, largestIndexCount, chunkSectionInfos);
     }
 }
