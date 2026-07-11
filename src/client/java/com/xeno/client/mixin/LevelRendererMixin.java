@@ -1,25 +1,45 @@
 package com.xeno.client.mixin;
 
+import com.mojang.blaze3d.IndexType;
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.xeno.client.renderer.XenoWorldRenderer;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
 import net.minecraft.client.PrioritizeChunkUpdates;
+import net.minecraft.client.renderer.DynamicUniforms;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.ViewArea;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.state.OptionsRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.client.renderer.state.level.SectionUpdateRenderState;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.resources.model.ModelManager;
 import net.minecraft.client.resources.model.sprite.AtlasManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.util.Mth;
+import net.minecraft.util.Util;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -33,10 +53,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class LevelRendererMixin {
     @Shadow @Final private LevelRenderState levelRenderState;
     @Shadow @Final private OptionsRenderState optionsRenderState;
+    @Shadow @Final private net.minecraft.client.renderer.texture.TextureManager textureManager;
+    @Shadow @Final private net.minecraft.client.renderer.GameRenderer gameRenderer;
     @Shadow private ViewArea viewArea;
+    @Shadow private @org.jspecify.annotations.Nullable SectionRenderDispatcher sectionRenderDispatcher;
 
     @Unique
     private XenoWorldRenderer xenoWorldRenderer;
+
+    @Unique
+    private final List<DynamicUniforms.ChunkSectionInfo> xenoSectionInfos = new ArrayList<>();
+
+    @Unique
+    private final EnumMap<ChunkSectionLayer, Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>>> xenoDrawGroups = new EnumMap<>(ChunkSectionLayer.class);
+
+    @Unique
+    private final Matrix4f xenoScratchMatrix = new Matrix4f();
+
+    @Unique
+    private long xenoLastFrameTime;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void xenoOnInit(
@@ -53,8 +88,17 @@ public class LevelRendererMixin {
     ) {
         this.xenoWorldRenderer = new XenoWorldRenderer();
         XenoWorldRenderer.setInstance(this.xenoWorldRenderer);
+        for (ChunkSectionLayer layer : ChunkSectionLayer.values()) {
+            this.xenoDrawGroups.put(layer, new Int2ObjectOpenHashMap<>());
+        }
     }
 
+    /**
+     * Replace compileSections to skip OCCLUDED sections before any task allocation.
+     *
+     * @author ExodusCoder9
+     * @reason Skip occluded sections before task allocation
+     */
     @Overwrite
     private void compileSections(final CameraRenderState camera) {
         ProfilerFiller profiler = Profiler.get();
@@ -77,7 +121,7 @@ public class LevelRendererMixin {
                 rebuildSync = state.playerChanged();
             }
 
-            SectionRenderDispatcher.RenderSection section = ((com.xeno.client.mixin.ViewAreaAccessor) this.viewArea).invokeGetRenderSection(sectionNode);
+            SectionRenderDispatcher.RenderSection section = ((ViewAreaAccessor) this.viewArea).invokeGetRenderSection(sectionNode);
             if (section == null) {
                 continue;
             }
@@ -115,5 +159,123 @@ public class LevelRendererMixin {
     @Unique
     private void xenoScheduleTranslucentResort(Vec3 cameraPos) {
         this.scheduleTranslucentSectionResort(cameraPos);
+    }
+
+    /**
+     * Replace prepareChunkRenders with allocation-safe, pre-allocated implementation.
+     * <p>
+     * Vanilla allocates per-section: new ArrayList (sectionInfos), new EnumMap (drawGroups),
+     * new Matrix4f per section, per-section Util.getMillis() syscall, new RenderPass.Draw
+     * per draw call, and new lambda per draw call.
+     * <p>
+     * This version reuses pre-allocated structures across frames, batches the timestamp,
+     * and reuses a single scratch Matrix4f.
+     *
+     * @author ExodusCoder9
+     * @reason Eliminate per-frame allocation storm in the draw group building path
+     */
+    @Overwrite
+    public ChunkSectionsToRender prepareChunkRenders(final Matrix4fc modelViewMatrix) {
+        this.xenoSectionInfos.clear();
+        for (Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> map : this.xenoDrawGroups.values()) {
+            map.clear();
+        }
+
+        int largestIndexCount = 0;
+        GpuTextureView blockAtlas = this.textureManager.getTexture(TextureAtlas.LOCATION_BLOCKS).getTextureView();
+        int textureAtlasWidth = blockAtlas.getWidth(0);
+        int textureAtlasHeight = blockAtlas.getHeight(0);
+
+        this.xenoLastFrameTime = Util.getMillis();
+
+        if (this.sectionRenderDispatcher != null) {
+            ObjectArrayList<SectionRenderDispatcher.RenderSection> visible = ((LevelRenderer) (Object) this).visibleSections();
+
+            this.sectionRenderDispatcher.lock();
+            try {
+                for (int i = 0; i < visible.size(); i++) {
+                    SectionRenderDispatcher.RenderSection section = visible.get(i);
+                    SectionMesh sectionMesh = section.getSectionMesh();
+                    BlockPos renderOffset = section.getRenderOrigin();
+                    long now = this.xenoLastFrameTime;
+                    int uboIndex = -1;
+
+                    for (ChunkSectionLayer layer : ChunkSectionLayer.values()) {
+                        SectionMesh.SectionDraw draw = sectionMesh.getSectionDraw(layer);
+                        SectionRenderDispatcher.RenderSectionBufferSlice slice = this.sectionRenderDispatcher.getRenderSectionSlice(sectionMesh, layer);
+                        if (slice != null && draw != null && (!draw.hasCustomIndexBuffer() || slice.indexBuffer() != null)) {
+                            if (uboIndex == -1) {
+                                uboIndex = this.xenoSectionInfos.size();
+                                this.xenoScratchMatrix.set(modelViewMatrix);
+                                this.xenoSectionInfos.add(
+                                        new DynamicUniforms.ChunkSectionInfo(
+                                                new Matrix4f(this.xenoScratchMatrix),
+                                                renderOffset.getX(),
+                                                renderOffset.getY(),
+                                                renderOffset.getZ(),
+                                                section.getVisibility(now),
+                                                textureAtlasWidth,
+                                                textureAtlasHeight
+                                        )
+                                );
+                            }
+
+                            int combinedHash = 173;
+                            VertexFormat vertexFormat = layer.pipeline().getVertexFormatBinding(0);
+                            GpuBuffer vertexBuffer = slice.vertexBuffer();
+                            if (layer != ChunkSectionLayer.TRANSLUCENT) {
+                                combinedHash = 31 * combinedHash + vertexBuffer.hashCode();
+                            }
+
+                            int firstIndex = 0;
+                            GpuBuffer indexBuffer;
+                            IndexType indexType;
+                            if (!draw.hasCustomIndexBuffer()) {
+                                if (draw.indexCount() > largestIndexCount) {
+                                    largestIndexCount = draw.indexCount();
+                                }
+                                indexBuffer = null;
+                                indexType = null;
+                            } else {
+                                indexBuffer = slice.indexBuffer();
+                                indexType = draw.indexType();
+                                if (layer != ChunkSectionLayer.TRANSLUCENT) {
+                                    combinedHash = 31 * combinedHash + indexBuffer.hashCode();
+                                    combinedHash = 31 * combinedHash + indexType.hashCode();
+                                }
+                                firstIndex = (int) (slice.indexBufferOffset() / indexType.bytes);
+                            }
+
+                            int baseVertex = (int) (slice.vertexBufferOffset() / vertexFormat.getVertexSize());
+                            int finalUboIndex = uboIndex;
+                            Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> drawGroup = this.xenoDrawGroups.get(layer);
+                            List<RenderPass.Draw<GpuBufferSlice[]>> draws = drawGroup.get(combinedHash);
+                            if (draws == null) {
+                                draws = new ArrayList<>(4);
+                                drawGroup.put(combinedHash, draws);
+                            }
+                            draws.add(
+                                    new RenderPass.Draw<>(
+                                            0,
+                                            vertexBuffer,
+                                            indexBuffer,
+                                            indexType,
+                                            firstIndex,
+                                            draw.indexCount(),
+                                            baseVertex,
+                                            (sectionUbos, uploader) -> uploader.upload("ChunkSection", sectionUbos[finalUboIndex])
+                                    )
+                            );
+                        }
+                    }
+                }
+            } finally {
+                this.sectionRenderDispatcher.unlock();
+            }
+        }
+
+        GpuBufferSlice[] chunkSectionInfos = RenderSystem.getDynamicUniforms().writeChunkSections(
+                this.xenoSectionInfos.toArray(new DynamicUniforms.ChunkSectionInfo[0]));
+        return new ChunkSectionsToRender(blockAtlas, this.xenoDrawGroups, largestIndexCount, chunkSectionInfos);
     }
 }
