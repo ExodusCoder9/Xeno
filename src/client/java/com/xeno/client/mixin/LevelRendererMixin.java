@@ -4,7 +4,6 @@ import com.xeno.client.culling.XenoVisibility;
 import com.xeno.client.renderer.XenoWorldRenderer;
 import net.minecraft.client.PrioritizeChunkUpdates;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.SectionOcclusionGraph;
 import net.minecraft.client.renderer.ViewArea;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
@@ -34,7 +33,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin {
-    @Shadow @Final private SectionOcclusionGraph sectionOcclusionGraph;
     @Shadow @Final private LevelRenderState levelRenderState;
     @Shadow @Final private OptionsRenderState optionsRenderState;
     @Shadow private @Nullable ViewArea viewArea;
@@ -84,7 +82,7 @@ public class LevelRendererMixin {
         ProfilerFiller profiler = Profiler.get();
         profiler.push("populateSectionsToCompile");
         BlockPos cameraPosition = camera.blockPos;
-        long fadeDuration = (long) Mth.floor(this.optionsRenderState.chunkSectionFadeInTime * 1000.0);
+        long fadeDuration = Mth.floor(this.optionsRenderState.chunkSectionFadeInTime * 1000.0);
 
         int skipped = 0;
         int processed = 0;
@@ -103,6 +101,7 @@ public class LevelRendererMixin {
             }
 
             SectionRenderDispatcher.RenderSection section = ((com.xeno.client.mixin.ViewAreaAccessor) this.viewArea).invokeGetRenderSection(sectionNode);
+            if (section == null) continue;
 
             if (!isNearby && !section.wasPreviouslyEmpty()) {
                 section.setFadeDuration(fadeDuration);
