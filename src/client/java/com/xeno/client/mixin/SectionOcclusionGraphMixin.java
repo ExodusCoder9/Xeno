@@ -54,6 +54,9 @@ public class SectionOcclusionGraphMixin {
     @Unique
     private int xenoWriteIndex = 0;
 
+    @Unique
+    private boolean xenoQueuedUpdateAfterReset;
+
     @Inject(method = "<init>", at = @At("RETURN"))
     private void onInit(CallbackInfo ci) {
         this.xenoCullingThread = new CullingThread();
@@ -69,6 +72,8 @@ public class SectionOcclusionGraphMixin {
         if (this.xenoCullingThread != null) {
             this.xenoCullingThread.reset();
         }
+        com.xeno.client.culling.XenoVisibility.invalidate();
+        this.xenoQueuedUpdateAfterReset = true;
     }
 
     @Overwrite
@@ -145,10 +150,6 @@ public class SectionOcclusionGraphMixin {
         this.updateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
 
         if (!camera.isFrustumCaptured) {
-            if (this.xenoCullingThread.isProcessing()) {
-                return;
-            }
-
             CullingRequest request = this.xenoRequests[this.xenoWriteIndex];
 
             request.cameraBlockPos = camera.blockPos;
@@ -195,8 +196,10 @@ public class SectionOcclusionGraphMixin {
             request.propagations.addAll(this.pendingPropagations);
             this.pendingPropagations.clear();
 
+            request.cancelled = false;
             this.xenoCullingThread.submitRequest(request);
             this.xenoWriteIndex = (this.xenoWriteIndex + 1) % 2;
+            this.xenoQueuedUpdateAfterReset = false;
         }
     }
 

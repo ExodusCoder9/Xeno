@@ -27,4 +27,15 @@ public class CullingRequest {
     public final LongOpenHashSet emptySections = new LongOpenHashSet();
     public final LongOpenHashSet loadedChunks = new LongOpenHashSet();
     public final List<SectionRenderDispatcher.RenderSection> propagations = new ArrayList<>();
+    public volatile boolean cancelled;
+
+    public void reset() {
+        this.cancelled = true;
+        this.cameraBlockPos = null;
+        this.cameraPos = null;
+        this.viewArea = null;
+        this.emptySections.clear();
+        this.loadedChunks.clear();
+        this.propagations.clear();
+    }
 }

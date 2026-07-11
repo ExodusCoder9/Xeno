@@ -29,6 +29,7 @@ public class CullingThread extends Thread {
     private volatile CullingOutput latestOutput;
     private volatile boolean needsFrustumUpdate = false;
     private volatile boolean processing = false;
+    private volatile boolean resetRequested = false;
 
     private final LongOpenHashSet emptySections = new LongOpenHashSet();
     private final List<SectionRenderDispatcher.RenderSection> occlusionVisible = new ArrayList<>(4096);
@@ -84,11 +85,14 @@ public class CullingThread extends Thread {
     }
 
     public void reset() {
+        this.resetRequested = true;
+        this.processing = false;
         this.pendingRequest = null;
         this.latestOutput = null;
         this.emptySections.clear();
         this.occlusionVisible.clear();
         this.dummyOctree = null;
+        this.needsFrustumUpdate = false;
         LockSupport.unpark(this);
     }
 
@@ -106,7 +110,11 @@ public class CullingThread extends Thread {
             this.pendingRequest = null;
 
             try {
-                this.processUpdates(request);
+                if (!request.cancelled) {
+                    this.resetRequested = false;
+                    this.processUpdates(request);
+                }
+                request.cancelled = false;
             } catch (Exception e) {
                 LOGGER.error("[Xeno] Error in culling thread", e);
             }
@@ -161,43 +169,48 @@ public class CullingThread extends Thread {
         }
 
         this.initializeQueueForFullUpdate(request, viewArea, sectionArray);
-        this.runUpdates(request, request.smartCull, request.viewDistance, sectionArray);
 
-        for (SectionRenderDispatcher.RenderSection section : sectionArray) {
-            if (section == null) continue;
-
-            long sectionNode = section.getSectionNode();
-            if (this.visited[section.index]) {
-                if (this.emptyArray[section.index]) {
-                    this.sectionVisibilityMap.put(sectionNode, XenoVisibility.SKIP_EMPTY);
-                } else {
-                    this.sectionVisibilityMap.put(sectionNode, XenoVisibility.COMPILE);
-                }
-                SectionMesh mesh = section.getSectionMesh();
-                if (mesh instanceof CompiledSectionMesh compiled && compiled.hasRenderableLayers()) {
-                    if (!compiled.facesCanSeeEachother(Direction.DOWN, Direction.UP)
-                            && !compiled.facesCanSeeEachother(Direction.NORTH, Direction.SOUTH)
-                            && !compiled.facesCanSeeEachother(Direction.WEST, Direction.EAST)) {
-                        this.opaqueSectionsMap.put(sectionNode, true);
-                    }
-                }
-            } else {
-                this.sectionVisibilityMap.put(sectionNode, XenoVisibility.SKIP);
-            }
+        if (!request.cancelled) {
+            this.runUpdates(request, request.smartCull, request.viewDistance, sectionArray);
         }
 
-        Vec3 camPos = request.cameraPos;
-        List<SectionRenderDispatcher.RenderSection> visibleList = List.copyOf(this.occlusionVisible);
+        if (!request.cancelled) {
+            for (SectionRenderDispatcher.RenderSection section : sectionArray) {
+                if (section == null) continue;
 
-        this.latestOutput = new CullingOutput(
-                visibleList,
-                camPos,
-                this.sectionVisibilityMap.clone(),
-                this.opaqueSectionsMap.clone(),
-                request.cameraYaw,
-                request.cameraPitch
-        );
-        this.needsFrustumUpdate = true;
+                long sectionNode = section.getSectionNode();
+                if (this.visited[section.index]) {
+                    if (this.emptyArray[section.index]) {
+                        this.sectionVisibilityMap.put(sectionNode, XenoVisibility.SKIP_EMPTY);
+                    } else {
+                        this.sectionVisibilityMap.put(sectionNode, XenoVisibility.COMPILE);
+                    }
+                    SectionMesh mesh = section.getSectionMesh();
+                    if (mesh instanceof CompiledSectionMesh compiled && compiled.hasRenderableLayers()) {
+                        if (!compiled.facesCanSeeEachother(Direction.DOWN, Direction.UP)
+                                && !compiled.facesCanSeeEachother(Direction.NORTH, Direction.SOUTH)
+                                && !compiled.facesCanSeeEachother(Direction.WEST, Direction.EAST)) {
+                            this.opaqueSectionsMap.put(sectionNode, true);
+                        }
+                    }
+                } else {
+                    this.sectionVisibilityMap.put(sectionNode, XenoVisibility.SKIP);
+                }
+            }
+
+            Vec3 camPos = request.cameraPos;
+            List<SectionRenderDispatcher.RenderSection> visibleList = List.copyOf(this.occlusionVisible);
+
+            this.latestOutput = new CullingOutput(
+                    visibleList,
+                    camPos,
+                    this.sectionVisibilityMap.clone(),
+                    this.opaqueSectionsMap.clone(),
+                    request.cameraYaw,
+                    request.cameraPitch
+            );
+            this.needsFrustumUpdate = true;
+        }
     }
 
     private void initializeQueueForFullUpdate(final CullingRequest request, ViewArea viewArea, SectionRenderDispatcher.RenderSection[] sectionArray) {
@@ -300,6 +313,8 @@ public class CullingThread extends Thread {
         int bfsDepthLimit = viewDistance * 2;
 
         while (this.queueHead < this.queueTail) {
+            if (request.cancelled) return;
+
             int nodeIndex = this.bfsQueue[this.queueHead++];
             CullNode node = this.nodeArray[nodeIndex];
             SectionRenderDispatcher.RenderSection currentSection = node.section;
