@@ -25,7 +25,7 @@ public abstract class DynamicUniformStorageMixin<T extends DynamicUniformStorage
     protected abstract void resizeBuffers(final int newCapacity);
 
     @Override
-    public GpuBufferSlice[] xenoWriteUniforms(final List<T> uniforms) {
+    public GpuBufferSlice[] xeno$writeUniforms(final List<T> uniforms) {
         int size = uniforms.size();
         if (size == 0) {
             return new GpuBufferSlice[0];
@@ -34,7 +34,7 @@ public abstract class DynamicUniformStorageMixin<T extends DynamicUniformStorage
         if (this.nextBlock + size > this.capacity) {
             int newCapacity = Mth.smallestEncompassingPowerOfTwo(Math.max(this.capacity + 1, size));
             LOGGER.info(
-               "Resizing {}, capacity limit of {} reached during a single frame. New capacity will be {}.", new Object[]{this.label, this.capacity, newCapacity}
+               "Resizing {}, capacity limit of {} reached during a single frame. New capacity will be {}.", this.label, this.capacity, newCapacity
             );
             this.resizeBuffers(newCapacity);
         }
@@ -42,12 +42,12 @@ public abstract class DynamicUniformStorageMixin<T extends DynamicUniformStorage
         int firstOffset = this.nextBlock * this.blockSize;
         GpuBufferSlice[] result = new GpuBufferSlice[size];
 
-        try (GpuBufferSlice.MappedView view = this.ringBuffer.currentBuffer().slice(firstOffset, size * this.blockSize).map(false, true)) {
+        try (GpuBufferSlice.MappedView view = this.ringBuffer.currentBuffer().slice(firstOffset, (long) size * this.blockSize).map(false, true)) {
             ByteBuffer byteBuffer = view.data();
 
             for (int i = 0; i < size; i++) {
                 T uniform = uniforms.get(i);
-                result[i] = this.ringBuffer.currentBuffer().slice(firstOffset + i * this.blockSize, this.blockSize);
+                result[i] = this.ringBuffer.currentBuffer().slice(firstOffset + (long) i * this.blockSize, this.blockSize);
                 byteBuffer.position(i * this.blockSize);
                 uniform.write(byteBuffer);
             }

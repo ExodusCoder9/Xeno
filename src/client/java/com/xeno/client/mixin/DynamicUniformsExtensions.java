@@ -5,5 +5,5 @@ import net.minecraft.client.renderer.DynamicUniforms;
 import java.util.List;
 
 public interface DynamicUniformsExtensions {
-    GpuBufferSlice[] xenoWriteChunkSections(List<DynamicUniforms.ChunkSectionInfo> infos);
+    GpuBufferSlice[] xeno$writeChunkSections(List<DynamicUniforms.ChunkSectionInfo> infos);
 }

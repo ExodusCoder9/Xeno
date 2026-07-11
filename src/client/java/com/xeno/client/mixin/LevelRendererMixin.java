@@ -325,7 +325,7 @@ public class LevelRendererMixin {
         }
 
         GpuBufferSlice[] chunkSectionInfos = ((DynamicUniformsExtensions) RenderSystem.getDynamicUniforms())
-                .xenoWriteChunkSections(this.xenoSectionInfos);
+                .xeno$writeChunkSections(this.xenoSectionInfos);
         return new ChunkSectionsToRender(blockAtlas, this.xenoDrawGroups, largestIndexCount, chunkSectionInfos);
     }
 }

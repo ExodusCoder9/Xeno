@@ -14,7 +14,7 @@ public class DynamicUniformsMixin implements DynamicUniformsExtensions {
 
     @Override
     @SuppressWarnings("unchecked")
-    public GpuBufferSlice[] xenoWriteChunkSections(List<DynamicUniforms.ChunkSectionInfo> infos) {
-        return ((DynamicUniformStorageExtensions<DynamicUniforms.ChunkSectionInfo>) this.chunkSections).xenoWriteUniforms(infos);
+    public GpuBufferSlice[] xeno$writeChunkSections(List<DynamicUniforms.ChunkSectionInfo> infos) {
+        return ((DynamicUniformStorageExtensions<DynamicUniforms.ChunkSectionInfo>) this.chunkSections).xeno$writeUniforms(infos);
     }
 }
