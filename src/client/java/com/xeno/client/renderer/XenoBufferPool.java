@@ -10,9 +10,7 @@ public class XenoBufferPool {
     private final int usage;
     private final long bufferSize;
 
-    private GpuBuffer currentBuffer;
-    private final List<FreeBlock> freeBlocks = new ArrayList<>();
-    private final List<GpuBuffer> allBuffers = new ArrayList<>();
+    private final List<BufferBlock> blocks = new ArrayList<>();
 
     public static class FreeBlock {
         public long offset;
@@ -21,6 +19,16 @@ public class XenoBufferPool {
         public FreeBlock(long offset, long size) {
             this.offset = offset;
             this.size = size;
+        }
+    }
+
+    public static class BufferBlock {
+        public final GpuBuffer buffer;
+        public final List<FreeBlock> freeBlocks = new ArrayList<>();
+
+        public BufferBlock(GpuBuffer buffer, long size) {
+            this.buffer = buffer;
+            this.freeBlocks.add(new FreeBlock(0L, size));
         }
     }
 
@@ -44,55 +52,76 @@ public class XenoBufferPool {
     }
 
     private void createNewBuffer() {
-        this.currentBuffer = RenderSystem.getDevice().createBuffer(() -> this.name + "-" + this.allBuffers.size(), this.usage, this.bufferSize);
-        this.allBuffers.add(this.currentBuffer);
-        this.freeBlocks.add(new FreeBlock(0L, this.bufferSize));
-    }
-
-    public synchronized Allocation allocate(long size) {
-        // Align allocations to 16 bytes for optimal GPU alignment
-        long alignedSize = (size + 15) & ~15;
-
-        for (int i = 0; i < this.freeBlocks.size(); i++) {
-            FreeBlock block = this.freeBlocks.get(i);
-            if (block.size >= alignedSize) {
-                long offset = block.offset;
-                if (block.size == alignedSize) {
-                    this.freeBlocks.remove(i);
-                } else {
-                    block.offset += alignedSize;
-                    block.size -= alignedSize;
-                }
-                return new Allocation(this.currentBuffer, offset, alignedSize);
-            }
-        }
-
-        // Allocate a new buffer block if the current ones are exhausted
-        this.createNewBuffer();
-        FreeBlock block = this.freeBlocks.get(this.freeBlocks.size() - 1);
-        long offset = block.offset;
-        block.offset += alignedSize;
-        block.size -= alignedSize;
-        return new Allocation(this.currentBuffer, offset, alignedSize);
+        GpuBuffer buffer = RenderSystem.getDevice().createBuffer(
+                () -> this.name + "-" + this.blocks.size(),
+                this.usage,
+                this.bufferSize
+        );
+        this.blocks.add(new BufferBlock(buffer, this.bufferSize));
     }
 
     public synchronized boolean containsBuffer(GpuBuffer buffer) {
-        return this.allBuffers.contains(buffer);
+        for (BufferBlock block : this.blocks) {
+            if (block.buffer == buffer) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public synchronized Allocation allocate(long size) {
+        long alignedSize = (size + 15) & ~15;
+
+        // Try to allocate from existing blocks
+        for (BufferBlock block : this.blocks) {
+            List<FreeBlock> freeList = block.freeBlocks;
+            for (int i = 0; i < freeList.size(); i++) {
+                FreeBlock fb = freeList.get(i);
+                if (fb.size >= alignedSize) {
+                    long offset = fb.offset;
+                    if (fb.size == alignedSize) {
+                        freeList.remove(i);
+                    } else {
+                        fb.offset += alignedSize;
+                        fb.size -= alignedSize;
+                    }
+                    return new Allocation(block.buffer, offset, alignedSize);
+                }
+            }
+        }
+
+        // All existing blocks are full, allocate a new block
+        this.createNewBuffer();
+        BufferBlock newBlock = this.blocks.get(this.blocks.size() - 1);
+        FreeBlock fb = newBlock.freeBlocks.get(0);
+        long offset = fb.offset;
+        fb.offset += alignedSize;
+        fb.size -= alignedSize;
+        return new Allocation(newBlock.buffer, offset, alignedSize);
     }
 
     public synchronized void free(Allocation alloc) {
         if (alloc == null) return;
 
-        // Check if the allocation fits into a known buffer (for safety)
-        if (!this.allBuffers.contains(alloc.buffer)) {
+        // Find the block that owns this allocation
+        BufferBlock targetBlock = null;
+        for (BufferBlock block : this.blocks) {
+            if (block.buffer == alloc.buffer) {
+                targetBlock = block;
+                break;
+            }
+        }
+
+        if (targetBlock == null) {
             return;
         }
 
+        List<FreeBlock> freeList = targetBlock.freeBlocks;
         long insertIndex = 0;
         boolean merged = false;
 
-        for (int i = 0; i < this.freeBlocks.size(); i++) {
-            FreeBlock block = this.freeBlocks.get(i);
+        for (int i = 0; i < freeList.size(); i++) {
+            FreeBlock block = freeList.get(i);
             if (block.offset == alloc.offset + alloc.size) {
                 block.offset = alloc.offset;
                 block.size += alloc.size;
@@ -100,11 +129,11 @@ public class XenoBufferPool {
                 break;
             } else if (block.offset + block.size == alloc.offset) {
                 block.size += alloc.size;
-                if (i + 1 < this.freeBlocks.size()) {
-                    FreeBlock nextBlock = this.freeBlocks.get(i + 1);
+                if (i + 1 < freeList.size()) {
+                    FreeBlock nextBlock = freeList.get(i + 1);
                     if (block.offset + block.size == nextBlock.offset) {
                         block.size += nextBlock.size;
-                        this.freeBlocks.remove(i + 1);
+                        freeList.remove(i + 1);
                     }
                 }
                 merged = true;
@@ -117,34 +146,36 @@ public class XenoBufferPool {
         }
 
         if (!merged) {
-            this.freeBlocks.add((int) insertIndex, new FreeBlock(alloc.offset, alloc.size));
+            freeList.add((int) insertIndex, new FreeBlock(alloc.offset, alloc.size));
         }
     }
 
     public synchronized void reset() {
-        this.freeBlocks.clear();
-        if (this.allBuffers.size() > 1) {
-            for (int i = 1; i < this.allBuffers.size(); i++) {
-                GpuBuffer buf = this.allBuffers.get(i);
+        // Keep only the first block, close the rest to reclaim memory
+        if (this.blocks.size() > 1) {
+            for (int i = 1; i < this.blocks.size(); i++) {
+                GpuBuffer buf = this.blocks.get(i).buffer;
                 if (buf != null && !buf.isClosed()) {
                     buf.close();
                 }
             }
-            GpuBuffer first = this.allBuffers.get(0);
-            this.allBuffers.clear();
-            this.allBuffers.add(first);
-            this.currentBuffer = first;
+            BufferBlock first = this.blocks.get(0);
+            this.blocks.clear();
+            this.blocks.add(first);
         }
-        this.freeBlocks.add(new FreeBlock(0L, this.bufferSize));
+
+        // Reset the free list of the first block
+        BufferBlock firstBlock = this.blocks.get(0);
+        firstBlock.freeBlocks.clear();
+        firstBlock.freeBlocks.add(new FreeBlock(0L, this.bufferSize));
     }
 
     public synchronized void close() {
-        for (GpuBuffer buf : this.allBuffers) {
-            if (buf != null && !buf.isClosed()) {
-                buf.close();
+        for (BufferBlock block : this.blocks) {
+            if (block.buffer != null && !block.buffer.isClosed()) {
+                block.buffer.close();
             }
         }
-        this.allBuffers.clear();
-        this.freeBlocks.clear();
+        this.blocks.clear();
     }
 }
