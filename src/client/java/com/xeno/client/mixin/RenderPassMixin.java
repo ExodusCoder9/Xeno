@@ -15,18 +15,18 @@ import java.util.Collection;
 
 @Mixin(RenderPass.class)
 public abstract class RenderPassMixin {
-    @Shadow public abstract void setVertexBuffer(int slot, GpuBufferSlice buffer);
-    @Shadow public abstract void setIndexBuffer(GpuBuffer buffer, IndexType type);
-    @Shadow public abstract void setUniform(String name, GpuBufferSlice slice);
-    @Shadow public abstract void drawIndexed(int count, int instanceCount, int firstIndex, int baseVertex, int baseInstance);
+    @Shadow public abstract void setVertexBuffer(int slot, GpuBufferSlice vertexBuffer);
+    @Shadow public abstract void setIndexBuffer(GpuBuffer indexBuffer, IndexType indexType);
+    @Shadow public abstract void setUniform(String name, GpuBufferSlice value);
+    @Shadow public abstract void drawIndexed(int indexCount, int instanceCount, int firstIndex, int vertexOffset, int firstInstance);
 
     @Inject(method = "drawMultipleIndexed", at = @At("HEAD"), cancellable = true)
     private <T> void xenoDrawMultipleIndexed(
             Collection<RenderPass.Draw<T>> draws,
-            GpuBuffer indexBuffer,
-            IndexType indexType,
-            Collection<String> uniformNames,
-            T uniforms,
+            GpuBuffer defaultIndexBuffer,
+            IndexType defaultIndexType,
+            Collection<String> dynamicUniforms,
+            T uniformArgument,
             CallbackInfo ci
     ) {
         if (draws == null || draws.isEmpty()) {
@@ -57,8 +57,8 @@ public abstract class RenderPassMixin {
                         currentVB = vb;
                     }
 
-                    GpuBuffer ib = draw.indexBuffer() != null ? draw.indexBuffer() : indexBuffer;
-                    IndexType type = draw.indexType() != null ? draw.indexType() : indexType;
+                    GpuBuffer ib = draw.indexBuffer() != null ? draw.indexBuffer() : defaultIndexBuffer;
+                    IndexType type = draw.indexType() != null ? draw.indexType() : defaultIndexType;
 
                     if (ib != currentIB || type != currentIBType) {
                         this.setIndexBuffer(ib, type);
@@ -67,7 +67,7 @@ public abstract class RenderPassMixin {
                     }
 
                     if (draw.uniformUploaderConsumer() != null) {
-                        draw.uniformUploaderConsumer().accept(uniforms, uploader);
+                        draw.uniformUploaderConsumer().accept(uniformArgument, uploader);
                     }
                     this.drawIndexed(draw.indexCount(), 1, draw.firstIndex(), draw.baseVertex(), 0);
                 }
