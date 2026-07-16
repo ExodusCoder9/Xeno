@@ -4,15 +4,6 @@ import com.mojang.logging.LogUtils;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/**
- * Central hub for Xeno's render pipeline optimizations.
- * <p>
- * Holds references to vanilla infrastructure captured from {@link net.minecraft.client.renderer.LevelRenderer}
- * and provides statistics for the optimization systems. All mixin hooks in
- * {@link com.xeno.client.mixin.LevelRendererMixin} delegate here.
- *
- * @author ExodusCoder9
- */
 public final class XenoWorldRenderer {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static @Nullable XenoWorldRenderer instance;
@@ -20,9 +11,11 @@ public final class XenoWorldRenderer {
     private int compileSectionsSkipped;
     private int compileSectionsProcessed;
     private int framesSinceInit;
+    private boolean active;
 
     public XenoWorldRenderer() {
-        LOGGER.info("[Xeno] XenoWorldRenderer initialized");
+        this.active = true;
+        LOGGER.info("[Xeno] World renderer initialized");
     }
 
     public static void setInstance(@Nullable XenoWorldRenderer renderer) {
@@ -33,10 +26,22 @@ public final class XenoWorldRenderer {
         return instance;
     }
 
+    public void reload() {
+        LOGGER.info("[Xeno] World renderer reloading");
+        this.compileSectionsSkipped = 0;
+        this.compileSectionsProcessed = 0;
+        this.framesSinceInit = 0;
+        this.active = true;
+    }
+
     public void onCompileSectionsFrame(int skipped, int processed) {
         this.compileSectionsSkipped = skipped;
         this.compileSectionsProcessed = processed;
         this.framesSinceInit++;
+    }
+
+    public boolean isActive() {
+        return this.active;
     }
 
     public int getCompileSectionsSkipped() {
@@ -52,9 +57,10 @@ public final class XenoWorldRenderer {
     }
 
     public void destroy() {
+        this.active = false;
         this.compileSectionsSkipped = 0;
         this.compileSectionsProcessed = 0;
         this.framesSinceInit = 0;
-        LOGGER.info("[Xeno] XenoWorldRenderer destroyed");
+        LOGGER.info("[Xeno] World renderer destroyed");
     }
 }

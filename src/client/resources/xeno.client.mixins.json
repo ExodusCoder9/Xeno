@@ -8,17 +8,13 @@
 		"DynamicUniformsMixin",
 		"LevelExtractorMixin",
 		"LevelRendererMixin",
+		"RenderBuffersMixin",
 		"SectionCompilerMixin",
 		"SectionOcclusionGraphMixin",
-		"SectionRenderDispatcherMixin",
 		"StagingBufferMixin",
-		"VertexConsumerMixin",
 		"ViewAreaAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
-	},
-	"overwrites": {
-		"requireAnnotations": true
 	}
 }
