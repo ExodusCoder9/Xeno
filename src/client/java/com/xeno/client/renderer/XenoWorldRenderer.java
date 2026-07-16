@@ -63,23 +63,21 @@ public final class XenoWorldRenderer {
         return instance;
     }
 
-    public static boolean isReloading = false;
-
     public static void initPools() {
         if (vertexBufferPool == null) {
-            // Allocate 512MB Vertex Buffer Pool
+            // Allocate 128MB Vertex Buffer Pool (iGPU friendly)
             vertexBufferPool = new XenoBufferPool(
                     "XenoVertexPool",
                     GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE,
-                    512 * 1024 * 1024L
+                    128 * 1024 * 1024L
             );
         }
         if (indexBufferPool == null) {
-            // Allocate 128MB Index Buffer Pool
+            // Allocate 32MB Index Buffer Pool (iGPU friendly)
             indexBufferPool = new XenoBufferPool(
                     "XenoIndexPool",
                     GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_MAP_WRITE,
-                    128 * 1024 * 1024L
+                    32 * 1024 * 1024L
             );
         }
     }
@@ -114,7 +112,7 @@ public final class XenoWorldRenderer {
                     }
                 }
             } else {
-                break; // Since queue is ordered, the rest are also not ready yet
+                break;
             }
         }
     }
@@ -127,13 +125,6 @@ public final class XenoWorldRenderer {
             Map<ChunkSectionLayer, XenoBufferPool.Allocation> vertexAllocations,
             Map<ChunkSectionLayer, XenoBufferPool.Allocation> indexAllocations
     ) {
-        if (isReloading) {
-            vertexAllocations.clear();
-            indexAllocations.clear();
-            return;
-        }
-
-        // Enqueue the old allocations for deferred freeing instead of freeing them immediately
         for (XenoBufferPool.Allocation alloc : vertexAllocations.values()) {
             deferredFrees.add(new DeferredFree(alloc, currentFrame, false));
         }
@@ -147,24 +138,12 @@ public final class XenoWorldRenderer {
 
     public void reload() {
         LOGGER.info("[Xeno] World renderer reloading");
-        isReloading = true;
+        destroyPools();
         initPools();
-        deferredFrees.clear();
-        if (vertexBufferPool != null) {
-            vertexBufferPool.reset();
-        }
-        if (indexBufferPool != null) {
-            indexBufferPool.reset();
-        }
         this.compileSectionsSkipped = 0;
         this.compileSectionsProcessed = 0;
         this.framesSinceInit = 0;
         this.active = true;
-    }
-
-    public void endReload() {
-        isReloading = false;
-        LOGGER.info("[Xeno] World renderer finished reloading");
     }
 
     public void onCompileSectionsFrame(int skipped, int processed) {
