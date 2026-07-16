@@ -56,26 +56,36 @@ public abstract class SectionRenderDispatcherMixin {
         
         // Acquire builder pack from dispatcher's synchronized pool
         SectionBufferBuilderPack builders = dispatcher.acquirePack();
-        builders.clearAll();
+        builders.discardAll(); // Silently reset builders to start fresh without warnings
 
-        Vec3 cameraPos = XenoClient.getCameraPos();
-        float rx = 0;
-        float ry = 0;
-        float rz = 0;
-        if (cameraPos != null) {
-            BlockPos origin = this.getRenderOrigin();
-            rx = (float) (cameraPos.x - origin.getX());
-            ry = (float) (cameraPos.y - origin.getY());
-            rz = (float) (cameraPos.z - origin.getZ());
+        SectionCompiler.Results results = null;
+        try {
+            Vec3 cameraPos = XenoClient.getCameraPos();
+            float rx = 0;
+            float ry = 0;
+            float rz = 0;
+            if (cameraPos != null) {
+                BlockPos origin = this.getRenderOrigin();
+                rx = (float) (cameraPos.x - origin.getX());
+                ry = (float) (cameraPos.y - origin.getY());
+                rz = (float) (cameraPos.z - origin.getZ());
+            }
+            VertexSorting vertexSorting = VertexSorting.byDistance(rx, ry, rz);
+
+            results = compiler.compile(sectionPos, region, vertexSorting, builders);
+        } catch (Throwable t) {
+            // Silently absorb exceptions during reload as the region is invalidated
+        } finally {
+            if (results != null) {
+                dispatcher.getUploadQueue().add(new XenoSectionRenderDispatcher.UploadTask(
+                        (SectionRenderDispatcher.RenderSection) (Object) this,
+                        results,
+                        builders
+                ));
+            } else {
+                // If compilation failed/cancelled, safely return the builders pack back to the pool
+                dispatcher.releasePack(builders);
+            }
         }
-        VertexSorting vertexSorting = VertexSorting.byDistance(rx, ry, rz);
-
-        SectionCompiler.Results results = compiler.compile(sectionPos, region, vertexSorting, builders);
-
-        dispatcher.getUploadQueue().add(new XenoSectionRenderDispatcher.UploadTask(
-                (SectionRenderDispatcher.RenderSection) (Object) this,
-                results,
-                builders
-        ));
     }
 }

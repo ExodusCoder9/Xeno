@@ -64,7 +64,7 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
 
     public void releasePack(SectionBufferBuilderPack pack) {
         if (pack != null) {
-            pack.clearAll();
+            pack.discardAll();
             this.packPool.offer(pack);
         }
     }
