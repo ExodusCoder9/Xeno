@@ -76,6 +76,10 @@ public class XenoBufferPool {
         return new Allocation(this.currentBuffer, offset, alignedSize);
     }
 
+    public synchronized boolean containsBuffer(GpuBuffer buffer) {
+        return this.allBuffers.contains(buffer);
+    }
+
     public synchronized void free(Allocation alloc) {
         if (alloc == null) return;
 

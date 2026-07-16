@@ -14,7 +14,8 @@
 		"StagingBufferMixin",
 		"ViewAreaAccessor",
 		"CompiledSectionMeshMixin",
-		"SectionRenderDispatcherMixin"
+		"SectionRenderDispatcherMixin",
+		"RenderPassMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

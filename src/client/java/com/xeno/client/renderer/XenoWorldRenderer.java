@@ -117,6 +117,10 @@ public final class XenoWorldRenderer {
         }
     }
 
+    public static boolean isPoolBuffer(GpuBuffer buffer) {
+        return vertexBufferPool != null && vertexBufferPool.containsBuffer(buffer);
+    }
+
     public static void freeAllocations(
             Map<ChunkSectionLayer, XenoBufferPool.Allocation> vertexAllocations,
             Map<ChunkSectionLayer, XenoBufferPool.Allocation> indexAllocations
