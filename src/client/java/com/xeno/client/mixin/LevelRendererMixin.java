@@ -34,6 +34,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import net.minecraft.client.renderer.LevelTargetBundle;
+import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
+import com.mojang.blaze3d.framegraph.FramePass;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
+import com.xeno.client.api.XenoRenderAPI;
+import com.xeno.client.api.XenoFramePassBuilder;
+import com.xeno.client.api.XenoRenderPass;
+
 @Mixin(LevelRenderer.class)
 public abstract class LevelRendererMixin implements XenoRendererExtension {
     @Shadow @Final private RenderBuffers renderBuffers;
@@ -41,6 +50,7 @@ public abstract class LevelRendererMixin implements XenoRendererExtension {
     @Shadow @Final private SubmitNodeStorage submitNodeStorage;
     @Shadow @Final private LevelRenderState levelRenderState;
     @Shadow @Final private SectionOcclusionGraph sectionOcclusionGraph;
+    @Shadow @Final private LevelTargetBundle targets;
     @Shadow private @org.jspecify.annotations.Nullable ViewArea viewArea;
     @Shadow private @org.jspecify.annotations.Nullable SectionRenderDispatcher sectionRenderDispatcher;
 
@@ -65,7 +75,7 @@ public abstract class LevelRendererMixin implements XenoRendererExtension {
             ModelManager modelManager,
             TextureManager textureManager,
             AtlasManager atlasManager,
-            ShaderManager shadowManager,
+            ShaderManager shaderManager,
             GameRenderer gameRenderer,
             int width,
             int height,
@@ -122,5 +132,35 @@ public abstract class LevelRendererMixin implements XenoRendererExtension {
 
         this.sectionOcclusionGraph.waitAndReset(this.viewArea);
         this.clearVisibleSections();
+    }
+
+    @Inject(method = "addAlwaysOnTopPass", at = @At("HEAD"))
+    private void xenoInjectCustomFramePasses(
+            FrameGraphBuilder frame,
+            FeatureRenderDispatcher.PreparedFrame featureFrame,
+            GpuBufferSlice fog,
+            CallbackInfo ci
+    ) {
+        // Run all registered XenoFramePassBuilders (Vulkan / generic compatible)
+        for (XenoFramePassBuilder builder : XenoRenderAPI.getFramePassBuilders()) {
+            builder.buildPasses(frame, this.targets, this.levelRenderState);
+        }
+
+        // Run simpler legacy XenoRenderPasses by generating frame graph passes for them automatically
+        for (XenoRenderPass.Position position : XenoRenderPass.Position.values()) {
+            java.util.List<XenoRenderPass> passes = XenoRenderAPI.getRenderPasses(position);
+            if (passes != null && !passes.isEmpty()) {
+                FramePass pass = frame.addPass("xeno_" + position.name().toLowerCase());
+                
+                // Let the pass read and write to the main target to fit in the frame graph
+                this.targets.main = pass.readsAndWrites(this.targets.main);
+                
+                pass.executes(() -> {
+                    for (XenoRenderPass rp : passes) {
+                        rp.render(position, this.levelRenderState);
+                    }
+                });
+            }
+        }
     }
 }

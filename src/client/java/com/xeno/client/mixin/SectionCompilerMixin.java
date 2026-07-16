@@ -118,9 +118,18 @@ public abstract class SectionCompilerMixin {
                             fluidRenderer.tesselate(region, pos, fluidOutput, blockState, fluidState);
                         }
 
-                        if (blockState.getRenderShape() == RenderShape.MODEL) {
+                        boolean cancelDefault = false;
+                        BlockQuadOutput currentOutput = ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput;
+                        for (com.xeno.client.api.XenoMeshingHook hook : com.xeno.client.api.XenoRenderAPI.getMeshingHooks()) {
+                            if (hook.onBlockMesh(pos, blockState, region, currentOutput)) {
+                                cancelDefault = true;
+                                break;
+                            }
+                        }
+
+                        if (!cancelDefault && blockState.getRenderShape() == RenderShape.MODEL) {
                             blockRenderer.tesselateBlock(
-                                    ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
+                                    currentOutput,
                                     (float) x, (float) y, (float) z,
                                     region, pos, blockState,
                                     this.blockModelSet.get(blockState),
