@@ -12,7 +12,9 @@
 		"SectionCompilerMixin",
 		"SectionOcclusionGraphMixin",
 		"StagingBufferMixin",
-		"ViewAreaAccessor"
+		"ViewAreaAccessor",
+		"CompiledSectionMeshMixin",
+		"SectionRenderDispatcherMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
