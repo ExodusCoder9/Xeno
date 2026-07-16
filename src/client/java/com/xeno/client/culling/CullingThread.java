@@ -355,10 +355,14 @@ public class CullingThread extends Thread {
                     SectionMesh sectionMesh = currentSection.getSectionMesh();
                     boolean visible = false;
 
-                    for (int i = 0; i < DIRECTIONS.length; i++) {
-                        if (node.hasSourceDirection(i) && sectionMesh.facesCanSeeEachother(DIRECTIONS[i].getOpposite(), direction)) {
-                            visible = true;
-                            break;
+                    if (sectionMesh == CompiledSectionMesh.UNCOMPILED) {
+                        visible = true;
+                    } else {
+                        for (int i = 0; i < DIRECTIONS.length; i++) {
+                            if (node.hasSourceDirection(i) && sectionMesh.facesCanSeeEachother(DIRECTIONS[i].getOpposite(), direction)) {
+                                visible = true;
+                                break;
+                            }
                         }
                     }
 
