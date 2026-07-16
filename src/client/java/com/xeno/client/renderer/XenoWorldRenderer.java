@@ -2,6 +2,7 @@ package com.xeno.client.renderer;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.logging.LogUtils;
 import com.xeno.client.XenoClient;
@@ -17,6 +18,8 @@ import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public final class XenoWorldRenderer {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -24,6 +27,22 @@ public final class XenoWorldRenderer {
 
     private static XenoBufferPool vertexBufferPool;
     private static XenoBufferPool indexBufferPool;
+
+    private static int currentFrame = 0;
+
+    private static class DeferredFree {
+        public final XenoBufferPool.Allocation alloc;
+        public final int frameNumber;
+        public final boolean isIndex;
+
+        public DeferredFree(XenoBufferPool.Allocation alloc, int frameNumber, boolean isIndex) {
+            this.alloc = alloc;
+            this.frameNumber = frameNumber;
+            this.isIndex = isIndex;
+        }
+    }
+
+    private static final Queue<DeferredFree> deferredFrees = new ConcurrentLinkedQueue<>();
 
     private int compileSectionsSkipped;
     private int compileSectionsProcessed;
@@ -64,6 +83,7 @@ public final class XenoWorldRenderer {
     }
 
     public static void destroyPools() {
+        deferredFrees.clear();
         if (vertexBufferPool != null) {
             vertexBufferPool.close();
             vertexBufferPool = null;
@@ -74,21 +94,41 @@ public final class XenoWorldRenderer {
         }
     }
 
+    public static synchronized void tickFrame() {
+        currentFrame++;
+
+        // Process allocations that have been abandoned for at least 3 frames
+        DeferredFree df;
+        while ((df = deferredFrees.peek()) != null) {
+            if (currentFrame - df.frameNumber >= 3) {
+                deferredFrees.poll();
+                if (df.isIndex) {
+                    if (indexBufferPool != null) {
+                        indexBufferPool.free(df.alloc);
+                    }
+                } else {
+                    if (vertexBufferPool != null) {
+                        vertexBufferPool.free(df.alloc);
+                    }
+                }
+            } else {
+                break; // Since queue is ordered, the rest are also not ready yet
+            }
+        }
+    }
+
     public static void freeAllocations(
             Map<ChunkSectionLayer, XenoBufferPool.Allocation> vertexAllocations,
             Map<ChunkSectionLayer, XenoBufferPool.Allocation> indexAllocations
     ) {
-        if (vertexBufferPool != null) {
-            for (XenoBufferPool.Allocation alloc : vertexAllocations.values()) {
-                vertexBufferPool.free(alloc);
-            }
+        // Enqueue the old allocations for deferred freeing instead of freeing them immediately
+        for (XenoBufferPool.Allocation alloc : vertexAllocations.values()) {
+            deferredFrees.add(new DeferredFree(alloc, currentFrame, false));
         }
         vertexAllocations.clear();
 
-        if (indexBufferPool != null) {
-            for (XenoBufferPool.Allocation alloc : indexAllocations.values()) {
-                indexBufferPool.free(alloc);
-            }
+        for (XenoBufferPool.Allocation alloc : indexAllocations.values()) {
+            deferredFrees.add(new DeferredFree(alloc, currentFrame, true));
         }
         indexAllocations.clear();
     }
@@ -156,29 +196,24 @@ public final class XenoWorldRenderer {
                 int vertexSize = vertexBuf.remaining();
                 int indexSize = indexBuf != null ? indexBuf.remaining() : 0;
 
-                // Request allocations from our unified pools
                 XenoBufferPool.Allocation vertexAlloc = vertexBufferPool.allocate(vertexSize);
                 XenoBufferPool.Allocation indexAlloc = null;
 
-                // Map and copy vertex data at the specific offset of the Mega VBO
                 try (GpuBufferSlice.MappedView view = vertexAlloc.buffer.map(vertexAlloc.offset, vertexSize, false, true)) {
                     MemoryIntrinsics.copy(vertexBuf, view.data(), vertexSize);
                 }
 
                 if (indexSize > 0 && indexBuf != null) {
                     indexAlloc = indexBufferPool.allocate(indexSize);
-                    // Map and copy index data at the specific offset of the Mega IBO
                     try (GpuBufferSlice.MappedView view = indexAlloc.buffer.map(indexAlloc.offset, indexSize, false, true)) {
                         MemoryIntrinsics.copy(indexBuf, view.data(), indexSize);
                     }
                 }
 
-                // Attach pool allocations to compiled mesh
                 ((XenoMeshExtension) compiled).xeno$setAllocations(layer, vertexAlloc, indexAlloc);
             }
         }
 
-        // Swap mesh reference and release old allocations
         SectionMesh oldMesh = section.sectionMesh.getAndSet(compiled);
         if (oldMesh != null) {
             oldMesh.close();

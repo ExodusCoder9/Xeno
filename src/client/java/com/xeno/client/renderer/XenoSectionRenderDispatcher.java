@@ -43,7 +43,6 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
         super(executor, renderBuffers, sectionCompiler, onSectionMeshUpdate);
         this.compiler = sectionCompiler;
         this.onSectionMeshUpdate = onSectionMeshUpdate;
-        // Dispose of vanilla's compilation queue and release its resources
         super.dispose();
     }
     
@@ -87,11 +86,13 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
 
     @Override
     public void uploadTerrainBuffersToGpu() {
+        // Increment the frame counter and process safe deferred frees
+        XenoWorldRenderer.tickFrame();
+
         UploadTask task;
         while ((task = this.uploadQueue.poll()) != null) {
             XenoWorldRenderer.uploadToGpu(task.section, task.results);
             this.onSectionMeshUpdate.accept(task.section);
-            // Safely release the builders pack back to the pool now that data is uploaded
             this.releasePack(task.builders);
         }
     }
