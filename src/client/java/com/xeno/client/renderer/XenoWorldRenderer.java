@@ -139,8 +139,8 @@ public final class XenoWorldRenderer {
 
     public void reload() {
         LOGGER.info("[Xeno] World renderer reloading");
-        destroyPools();
         initPools();
+        tickFrame();
         this.compileSectionsSkipped = 0;
         this.compileSectionsProcessed = 0;
         this.framesSinceInit = 0;
