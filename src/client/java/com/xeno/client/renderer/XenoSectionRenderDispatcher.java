@@ -1,6 +1,5 @@
 package com.xeno.client.renderer;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.xeno.client.util.XenoMeshExtension;
 import net.minecraft.TracingExecutor;
 import net.minecraft.client.renderer.RenderBuffers;
@@ -29,6 +28,7 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
     
     private final Queue<UploadTask> uploadQueue = new ConcurrentLinkedQueue<>();
     private final SectionCompiler compiler;
+    private final Consumer<RenderSection> onSectionMeshUpdate;
 
     public XenoSectionRenderDispatcher(
             TracingExecutor executor,
@@ -38,7 +38,8 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
     ) {
         super(executor, renderBuffers, sectionCompiler, onSectionMeshUpdate);
         this.compiler = sectionCompiler;
-        // Shut down vanilla's compilation queue and release its resources
+        this.onSectionMeshUpdate = onSectionMeshUpdate;
+        // Dispose of vanilla's compilation queue and release its resources
         super.dispose();
     }
     
@@ -53,12 +54,12 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
     @Override
     public @Nullable RenderSectionBufferSlice getRenderSectionSlice(@NonNull SectionMesh sectionMesh, @NonNull ChunkSectionLayer layer) {
         if (sectionMesh instanceof XenoMeshExtension ext) {
-            GpuBuffer vertexBuffer = ext.xeno$getVertexBuffer(layer);
-            GpuBuffer indexBuffer = ext.xeno$getIndexBuffer(layer);
-            if (vertexBuffer != null) {
+            XenoBufferPool.Allocation vertexAlloc = ext.xeno$getVertexAllocation(layer);
+            XenoBufferPool.Allocation indexAlloc = ext.xeno$getIndexAllocation(layer);
+            if (vertexAlloc != null) {
                 return new RenderSectionBufferSlice(
-                        vertexBuffer, 0L,
-                        indexBuffer, 0L
+                        vertexAlloc.buffer, vertexAlloc.offset,
+                        indexAlloc != null ? indexAlloc.buffer : null, indexAlloc != null ? indexAlloc.offset : 0L
                 );
             }
         }
@@ -70,6 +71,9 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
         UploadTask task;
         while ((task = this.uploadQueue.poll()) != null) {
             XenoWorldRenderer.uploadToGpu(task.section, task.results);
+            // Notify the occlusion graph and level renderer that the section mesh has been updated.
+            // This propagates visibility and triggers rendering.
+            this.onSectionMeshUpdate.accept(task.section);
         }
     }
 
@@ -90,7 +94,7 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
 
     @Override
     public @NonNull String getStats() {
-        return "Xeno Pipeline Active";
+        return "Xeno Pipeline Active (Phase 2 Pool)";
     }
 
     @Override

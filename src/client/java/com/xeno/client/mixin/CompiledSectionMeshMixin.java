@@ -1,6 +1,7 @@
 package com.xeno.client.mixin;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.xeno.client.renderer.XenoBufferPool;
+import com.xeno.client.renderer.XenoWorldRenderer;
 import com.xeno.client.util.XenoMeshExtension;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
@@ -17,44 +18,32 @@ import java.util.Map;
 public abstract class CompiledSectionMeshMixin implements XenoMeshExtension {
 
     @Unique
-    private final Map<ChunkSectionLayer, GpuBuffer> xenoVertexBuffers = new EnumMap<>(ChunkSectionLayer.class);
+    private final Map<ChunkSectionLayer, XenoBufferPool.Allocation> xenoVertexAllocations = new EnumMap<>(ChunkSectionLayer.class);
 
     @Unique
-    private final Map<ChunkSectionLayer, GpuBuffer> xenoIndexBuffers = new EnumMap<>(ChunkSectionLayer.class);
+    private final Map<ChunkSectionLayer, XenoBufferPool.Allocation> xenoIndexAllocations = new EnumMap<>(ChunkSectionLayer.class);
 
     @Override
-    public void xeno$setBuffers(ChunkSectionLayer layer, GpuBuffer vertexBuffer, GpuBuffer indexBuffer) {
-        this.xenoVertexBuffers.put(layer, vertexBuffer);
-        if (indexBuffer != null) {
-            this.xenoIndexBuffers.put(layer, indexBuffer);
+    public void xeno$setAllocations(ChunkSectionLayer layer, XenoBufferPool.Allocation vertexAlloc, XenoBufferPool.Allocation indexAlloc) {
+        this.xenoVertexAllocations.put(layer, vertexAlloc);
+        if (indexAlloc != null) {
+            this.xenoIndexAllocations.put(layer, indexAlloc);
         }
     }
 
     @Override
-    public GpuBuffer xeno$getVertexBuffer(ChunkSectionLayer layer) {
-        return this.xenoVertexBuffers.get(layer);
+    public XenoBufferPool.Allocation xeno$getVertexAllocation(ChunkSectionLayer layer) {
+        return this.xenoVertexAllocations.get(layer);
     }
 
     @Override
-    public GpuBuffer xeno$getIndexBuffer(ChunkSectionLayer layer) {
-        return this.xenoIndexBuffers.get(layer);
+    public XenoBufferPool.Allocation xeno$getIndexAllocation(ChunkSectionLayer layer) {
+        return this.xenoIndexAllocations.get(layer);
     }
 
     @Override
     public void xeno$clearBuffers() {
-        for (GpuBuffer buf : this.xenoVertexBuffers.values()) {
-            if (buf != null && !buf.isClosed()) {
-                buf.close();
-            }
-        }
-        this.xenoVertexBuffers.clear();
-
-        for (GpuBuffer buf : this.xenoIndexBuffers.values()) {
-            if (buf != null && !buf.isClosed()) {
-                buf.close();
-            }
-        }
-        this.xenoIndexBuffers.clear();
+        XenoWorldRenderer.freeAllocations(this.xenoVertexAllocations, this.xenoIndexAllocations);
     }
 
     @Inject(method = "close", at = @At("RETURN"))

@@ -1,11 +1,11 @@
 package com.xeno.client.util;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.xeno.client.renderer.XenoBufferPool;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 
 public interface XenoMeshExtension {
-    void xeno$setBuffers(ChunkSectionLayer layer, GpuBuffer vertexBuffer, GpuBuffer indexBuffer);
-    GpuBuffer xeno$getVertexBuffer(ChunkSectionLayer layer);
-    GpuBuffer xeno$getIndexBuffer(ChunkSectionLayer layer);
+    void xeno$setAllocations(ChunkSectionLayer layer, XenoBufferPool.Allocation vertexAlloc, XenoBufferPool.Allocation indexAlloc);
+    XenoBufferPool.Allocation xeno$getVertexAllocation(ChunkSectionLayer layer);
+    XenoBufferPool.Allocation xeno$getIndexAllocation(ChunkSectionLayer layer);
     void xeno$clearBuffers();
 }
