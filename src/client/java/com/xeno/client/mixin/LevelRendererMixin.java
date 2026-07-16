@@ -1,8 +1,8 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.renderer.XenoWorldRenderer;
-import com.xeno.client.util.IgnoringSectionRenderDispatcher;
-import com.xeno.client.util.IgnoringViewArea;
+import com.xeno.client.renderer.XenoSectionRenderDispatcher;
+import com.xeno.client.util.XenoViewArea;
 import com.xeno.client.util.XenoRendererExtension;
 import net.minecraft.client.Options;
 import net.minecraft.client.Camera;
@@ -15,6 +15,7 @@ import net.minecraft.client.renderer.SectionOcclusionGraph;
 import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.ViewArea;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
@@ -49,6 +50,9 @@ public abstract class LevelRendererMixin implements XenoRendererExtension {
     @Unique
     private XenoWorldRenderer xenoWorldRenderer;
 
+    @Unique
+    private ModelManager xenoModelManager;
+
     @Override
     public XenoWorldRenderer xeno$getWorldRenderer() {
         return this.xenoWorldRenderer;
@@ -61,18 +65,19 @@ public abstract class LevelRendererMixin implements XenoRendererExtension {
             ModelManager modelManager,
             TextureManager textureManager,
             AtlasManager atlasManager,
-            ShaderManager shaderManager,
+            ShaderManager shadowManager,
             GameRenderer gameRenderer,
             int width,
             int height,
             CallbackInfo ci
     ) {
         this.xenoWorldRenderer = new XenoWorldRenderer();
+        this.xenoModelManager = modelManager;
     }
 
     /**
      * THE CORE NEUTRALIZATION: intercept invalidateCompiledGeometry at HEAD,
-     * cancel vanilla, install ignoring stubs, and let Xeno's pipeline take over.
+     * cancel vanilla, install custom Xeno pipeline components.
      */
     @Inject(method = "invalidateCompiledGeometry", at = @At("HEAD"), cancellable = true)
     private void xenoNeutralizeAndReplace(
@@ -91,13 +96,30 @@ public abstract class LevelRendererMixin implements XenoRendererExtension {
             this.xenoWorldRenderer.reload();
         }
 
-        this.sectionRenderDispatcher = new IgnoringSectionRenderDispatcher(
+        // Initialize our custom SectionCompiler
+        SectionCompiler sectionCompiler = new SectionCompiler(
+                options.ambientOcclusion().get(),
+                (Boolean) options.cutoutLeaves().get(),
+                this.xenoModelManager.getBlockStateModelSet(),
+                this.xenoModelManager.getFluidStateModelSet(),
+                blockColors
+        );
+
+        this.sectionRenderDispatcher = new XenoSectionRenderDispatcher(
                 Util.backgroundExecutor(),
                 this.renderBuffers,
-                null,
+                sectionCompiler,
                 this.sectionOcclusionGraph::schedulePropagationFrom
         );
-        this.viewArea = new IgnoringViewArea(this.sectionRenderDispatcher);
+
+        int viewDistance = options.getEffectiveRenderDistance();
+        this.viewArea = new XenoViewArea(
+                this.sectionRenderDispatcher,
+                level,
+                viewDistance,
+                this.sectionOcclusionGraph
+        );
+
         this.sectionOcclusionGraph.waitAndReset(this.viewArea);
         this.clearVisibleSections();
     }

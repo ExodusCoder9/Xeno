@@ -45,4 +45,13 @@ public final class MemoryIntrinsics {
         MemorySegment srcSegment = MemorySegment.ofBuffer(src);
         MemorySegment.copy(srcSegment, 0L, HEAP, destAddress, length);
     }
+
+    /**
+     * Copies data from one ByteBuffer to another ByteBuffer using MemorySegment.
+     */
+    public static void copy(ByteBuffer src, ByteBuffer dest, long length) {
+        MemorySegment srcSegment = MemorySegment.ofBuffer(src);
+        MemorySegment destSegment = MemorySegment.ofBuffer(dest);
+        MemorySegment.copy(srcSegment, 0L, destSegment, 0L, length);
+    }
 }
