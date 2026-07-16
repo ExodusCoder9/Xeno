@@ -1,2 +1,2 @@
 accessWidener v1 official
-accessible method net/minecraft/client/renderer/SectionBufferBuilderPool <init> (Ljava/util/List;)V
+extendable method net/minecraft/client/renderer/SectionBufferBuilderPool <init> (Ljava/util/List;)V
