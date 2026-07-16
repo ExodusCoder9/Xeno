@@ -3,6 +3,7 @@ package com.xeno.client.renderer;
 import com.xeno.client.util.XenoMeshExtension;
 import net.minecraft.TracingExecutor;
 import net.minecraft.client.renderer.RenderBuffers;
+import net.minecraft.client.renderer.SectionBufferBuilderPack;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.minecraft.client.renderer.chunk.SectionMesh;
@@ -19,14 +20,17 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
     public static class UploadTask {
         public final RenderSection section;
         public final SectionCompiler.Results results;
+        public final SectionBufferBuilderPack builders;
         
-        public UploadTask(RenderSection section, SectionCompiler.Results results) {
+        public UploadTask(RenderSection section, SectionCompiler.Results results, SectionBufferBuilderPack builders) {
             this.section = section;
             this.results = results;
+            this.builders = builders;
         }
     }
     
     private final Queue<UploadTask> uploadQueue = new ConcurrentLinkedQueue<>();
+    private final Queue<SectionBufferBuilderPack> packPool = new ConcurrentLinkedQueue<>();
     private final SectionCompiler compiler;
     private final Consumer<RenderSection> onSectionMeshUpdate;
 
@@ -51,6 +55,21 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
         return this.uploadQueue;
     }
 
+    public SectionBufferBuilderPack acquirePack() {
+        SectionBufferBuilderPack pack = this.packPool.poll();
+        if (pack == null) {
+            pack = new SectionBufferBuilderPack();
+        }
+        return pack;
+    }
+
+    public void releasePack(SectionBufferBuilderPack pack) {
+        if (pack != null) {
+            pack.clearAll();
+            this.packPool.offer(pack);
+        }
+    }
+
     @Override
     public @Nullable RenderSectionBufferSlice getRenderSectionSlice(@NonNull SectionMesh sectionMesh, @NonNull ChunkSectionLayer layer) {
         if (sectionMesh instanceof XenoMeshExtension ext) {
@@ -71,9 +90,9 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
         UploadTask task;
         while ((task = this.uploadQueue.poll()) != null) {
             XenoWorldRenderer.uploadToGpu(task.section, task.results);
-            // Notify the occlusion graph and level renderer that the section mesh has been updated.
-            // This propagates visibility and triggers rendering.
             this.onSectionMeshUpdate.accept(task.section);
+            // Safely release the builders pack back to the pool now that data is uploaded
+            this.releasePack(task.builders);
         }
     }
 
@@ -90,6 +109,10 @@ public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
     @Override
     public void dispose() {
         this.clearCompileQueue();
+        SectionBufferBuilderPack pack;
+        while ((pack = this.packPool.poll()) != null) {
+            pack.close();
+        }
     }
 
     @Override

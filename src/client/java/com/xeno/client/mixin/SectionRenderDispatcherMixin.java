@@ -30,9 +30,6 @@ public abstract class SectionRenderDispatcherMixin {
     @Shadow public abstract long getSectionNode();
     @Shadow public abstract BlockPos getRenderOrigin();
 
-    @Unique
-    private static final ThreadLocal<SectionBufferBuilderPack> COMPILER_BUFFERS = ThreadLocal.withInitial(SectionBufferBuilderPack::new);
-
     @Inject(method = "compileSync", at = @At("HEAD"), cancellable = true)
     private void xenoCompileSync(RenderSectionRegion region, CallbackInfo ci) {
         ci.cancel();
@@ -56,7 +53,9 @@ public abstract class SectionRenderDispatcherMixin {
         if (compiler == null) return;
 
         SectionPos sectionPos = SectionPos.of(this.getSectionNode());
-        SectionBufferBuilderPack builders = COMPILER_BUFFERS.get();
+        
+        // Acquire builder pack from dispatcher's synchronized pool
+        SectionBufferBuilderPack builders = dispatcher.acquirePack();
         builders.clearAll();
 
         Vec3 cameraPos = XenoClient.getCameraPos();
@@ -73,6 +72,10 @@ public abstract class SectionRenderDispatcherMixin {
 
         SectionCompiler.Results results = compiler.compile(sectionPos, region, vertexSorting, builders);
 
-        dispatcher.getUploadQueue().add(new XenoSectionRenderDispatcher.UploadTask((SectionRenderDispatcher.RenderSection) (Object) this, results));
+        dispatcher.getUploadQueue().add(new XenoSectionRenderDispatcher.UploadTask(
+                (SectionRenderDispatcher.RenderSection) (Object) this,
+                results,
+                builders
+        ));
     }
 }
