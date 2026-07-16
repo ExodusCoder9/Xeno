@@ -122,5 +122,9 @@ public abstract class LevelRendererMixin implements XenoRendererExtension {
 
         this.sectionOcclusionGraph.waitAndReset(this.viewArea);
         this.clearVisibleSections();
+
+        if (this.xenoWorldRenderer != null) {
+            this.xenoWorldRenderer.endReload();
+        }
     }
 }

@@ -121,6 +121,23 @@ public class XenoBufferPool {
         }
     }
 
+    public synchronized void reset() {
+        this.freeBlocks.clear();
+        if (this.allBuffers.size() > 1) {
+            for (int i = 1; i < this.allBuffers.size(); i++) {
+                GpuBuffer buf = this.allBuffers.get(i);
+                if (buf != null && !buf.isClosed()) {
+                    buf.close();
+                }
+            }
+            GpuBuffer first = this.allBuffers.get(0);
+            this.allBuffers.clear();
+            this.allBuffers.add(first);
+            this.currentBuffer = first;
+        }
+        this.freeBlocks.add(new FreeBlock(0L, this.bufferSize));
+    }
+
     public synchronized void close() {
         for (GpuBuffer buf : this.allBuffers) {
             if (buf != null && !buf.isClosed()) {

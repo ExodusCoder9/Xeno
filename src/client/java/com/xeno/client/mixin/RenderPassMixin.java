@@ -42,18 +42,21 @@ public abstract class RenderPassMixin {
         if (XenoWorldRenderer.isPoolBuffer(vertexBuffer)) {
             ci.cancel();
 
-            // Bind VBO once for the entire batch
-            this.setVertexBuffer(firstDraw.slot(), vertexBuffer.slice());
-
             RenderPass.UniformUploader uploader = this::setUniform;
 
+            GpuBuffer currentVB = null;
             GpuBuffer currentIB = null;
             IndexType currentIBType = null;
 
-            // Execute draw calls with index buffer and UBO updates
+            // Execute draw calls with dynamic buffer binding tracking
             for (RenderPass.Draw<T> draw : draws) {
                 if (draw != null) {
-                    // Bind custom index buffer (for translucency sorting) if present, otherwise use shared index buffer
+                    GpuBuffer vb = draw.vertexBuffer();
+                    if (vb != currentVB) {
+                        this.setVertexBuffer(draw.slot(), vb.slice());
+                        currentVB = vb;
+                    }
+
                     GpuBuffer ib = draw.indexBuffer() != null ? draw.indexBuffer() : indexBuffer;
                     IndexType type = draw.indexType() != null ? draw.indexType() : indexType;
 
