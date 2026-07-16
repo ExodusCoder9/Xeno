@@ -7,9 +7,8 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
-import net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection;
-import net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSectionBufferSlice;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 public class IgnoringSectionRenderDispatcher extends SectionRenderDispatcher {
@@ -24,13 +23,13 @@ public class IgnoringSectionRenderDispatcher extends SectionRenderDispatcher {
     }
 
     @Override
-    public void setCompiler(SectionCompiler sectionCompiler) {}
+    public void setCompiler(@NonNull SectionCompiler sectionCompiler) {}
 
     @Override
-    public void setCameraPosition(Vec3 cameraPosition) {}
+    public void setCameraPosition(@NonNull Vec3 cameraPosition) {}
 
     @Override
-    public @Nullable RenderSectionBufferSlice getRenderSectionSlice(SectionMesh sectionMesh, ChunkSectionLayer layer) {
+    public @Nullable RenderSectionBufferSlice getRenderSectionSlice(@NonNull SectionMesh sectionMesh, @NonNull ChunkSectionLayer layer) {
         return null;
     }
 
@@ -55,7 +54,7 @@ public class IgnoringSectionRenderDispatcher extends SectionRenderDispatcher {
     public void dispose() {}
 
     @Override
-    public String getStats() {
+    public @NonNull String getStats() {
         return "None";
     }
 

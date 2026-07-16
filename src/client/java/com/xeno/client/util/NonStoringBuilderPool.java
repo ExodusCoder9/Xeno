@@ -3,6 +3,7 @@ package com.xeno.client.util;
 import java.util.List;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;
 import net.minecraft.client.renderer.SectionBufferBuilderPool;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 public class NonStoringBuilderPool extends SectionBufferBuilderPool {
@@ -18,7 +19,7 @@ public class NonStoringBuilderPool extends SectionBufferBuilderPool {
     }
 
     @Override
-    public void release(SectionBufferBuilderPack blockBufferBuilderStorage) {}
+    public void release(@NonNull SectionBufferBuilderPack blockBufferBuilderStorage) {}
 
     @Override
     public boolean isEmpty() {

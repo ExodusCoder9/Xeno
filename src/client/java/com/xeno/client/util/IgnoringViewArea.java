@@ -5,6 +5,7 @@ import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher.RenderSection;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 public class IgnoringViewArea extends ViewArea {
@@ -27,7 +28,7 @@ public class IgnoringViewArea extends ViewArea {
     }
 
     @Override
-    public @Nullable RenderSection getRenderSectionAt(BlockPos pos) {
+    public @Nullable RenderSection getRenderSectionAt(@NonNull BlockPos pos) {
         return null;
     }
 
