@@ -8,6 +8,7 @@
 		"DynamicUniformsMixin",
 		"LevelExtractorMixin",
 		"LevelRendererMixin",
+		"OptionsScreenMixin",
 		"RenderBuffersMixin",
 		"SectionCompilerMixin",
 		"SectionOcclusionGraphMixin",
