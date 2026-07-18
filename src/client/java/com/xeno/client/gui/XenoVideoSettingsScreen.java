@@ -780,7 +780,7 @@ public class XenoVideoSettingsScreen extends Screen {
         // Draw Widgets
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
-        // 5. Draw Tooltip Box after hovering for at least 1 second (1000 ms)
+        // 5. Draw Tooltip Box after hovering for at least 0.5 seconds (500 ms)
         if (hovered != this.lastHoveredOption) {
             this.lastHoveredOption = hovered;
             if (hovered != null) {
@@ -790,7 +790,7 @@ public class XenoVideoSettingsScreen extends Screen {
             }
         }
 
-        if (hovered != null && this.hoverStartTime > 0 && System.currentTimeMillis() - this.hoverStartTime >= 1000) {
+        if (hovered != null && this.hoverStartTime > 0 && System.currentTimeMillis() - this.hoverStartTime >= 500) {
             renderTooltip(graphics, mouseX, mouseY, hovered);
         }
 
