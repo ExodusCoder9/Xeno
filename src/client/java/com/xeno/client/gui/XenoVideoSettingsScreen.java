@@ -55,6 +55,10 @@ public class XenoVideoSettingsScreen extends Screen {
     private final Screen lastScreen;
     private final Options options;
 
+    private final int oldMipmaps;
+    private final int oldAnisotropyBit;
+    private final TextureFilteringMethod oldTextureFiltering;
+
     private final List<XenoTab> tabs = new ArrayList<>();
     private int currentTab = 0; // 0: General, 1: Quality, 2: Performance, 3: Advanced
 
@@ -68,6 +72,9 @@ public class XenoVideoSettingsScreen extends Screen {
         super(TITLE);
         this.lastScreen = lastScreen;
         this.options = options;
+        this.oldMipmaps = options.mipmapLevels().get();
+        this.oldAnisotropyBit = options.maxAnisotropyBit().get();
+        this.oldTextureFiltering = options.textureFiltering().get();
     }
 
     @Override
@@ -100,7 +107,7 @@ public class XenoVideoSettingsScreen extends Screen {
                         textColor = 0xFFFFFFFF;
                     } else {
                         bgColor = 0x00000000;
-                        textColor = 0xFFAAAAAA; // muted/unselected tabs (medium gray)
+                        textColor = 0xFFAAAAAA; // muted/unselected tabs
                     }
 
                     if (bgColor != 0) {
@@ -129,16 +136,16 @@ public class XenoVideoSettingsScreen extends Screen {
         // Rebuild active tab options
         populateOptionsForTab(this.currentTab);
 
-        // Vertical Scroller (Width: 6px thumb, X: width - 12)
+        // Vertical Scroller
         this.scroller = XenoScroller.vertical(
                 this.width - 12, 40,
                 this.height - 40 - 35
         );
         this.addRenderableWidget(this.scroller);
 
-        // Done button at the bottom center of the options list
-        int doneX = 130 + (this.width - 160) / 2 - 100;
-        this.addRenderableWidget(new XenoButton(doneX, this.height - 30, 200, 20, Component.translatable("gui.done"), _ -> this.onClose()) {
+        // Apply Options button on the right side of the footer (X starts at width - 150, width 120, height 20)
+        int applyX = this.width - 30 - 120;
+        this.addRenderableWidget(new XenoButton(applyX, this.height - 30, 120, 20, Component.literal("Apply Options"), _ -> this.applyOptions()) {
             @Override
             protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
                 int x = this.getX();
@@ -147,11 +154,18 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                if (hovered) {
-                    graphics.fill(x, y, x + w, y + h, 0x1AFFFFFF); // subtle white hover highlight
-                }
+                // Lighter hue of purple, a little more transparent:
+                // Normal border: 0x60A78BFA (translucent light purple border)
+                // Hover border: 0xFFA78BFA (solid light purple border)
+                // Normal background: 0x10A78BFA (very transparent light purple background)
+                // Hover background: 0x25A78BFA (translucent light purple background)
+                int bgColor = hovered ? 0x25A78BFA : 0x10A78BFA;
+                int borderColor = hovered ? 0xFFA78BFA : 0x60A78BFA;
 
-                int textColor = hovered ? 0xFFFFFFFF : 0xFFD8B4FE;
+                graphics.fill(x, y, x + w, y + h, bgColor);
+                graphics.outline(x, y, w, h, borderColor);
+
+                int textColor = hovered ? 0xFFFFFFFF : 0xFFE9D5FF;
                 graphics.centeredText(
                         Minecraft.getInstance().font,
                         this.getMessage(),
@@ -185,6 +199,12 @@ public class XenoVideoSettingsScreen extends Screen {
                     PerformanceImpact.LOW);
             addToggle(this.options.enableVsync(), "VSync",
                     "Synchronizes frame output with monitor refresh rate. Reduces screen tearing but may add input lag.",
+                    PerformanceImpact.LOW);
+            addToggle(this.options.fullscreen(), "Fullscreen",
+                    "Toggles between windowed and fullscreen display modes.",
+                    PerformanceImpact.LOW);
+            addToggle(this.options.exclusiveFullscreen(), "Exclusive Fullscreen",
+                    "Enables exclusive control over the monitor display when running in fullscreen.",
                     PerformanceImpact.LOW);
             addCycle(this.options.attackIndicator(), "Attack Indicator",
                     "Sets the display style and position for the combat crosshair attack indicator.",
@@ -281,7 +301,6 @@ public class XenoVideoSettingsScreen extends Screen {
 
         Component msg = getSliderValueText(name, current);
 
-        // Slider track is 80px wide on the right (X: width - 110 to width - 30)
         XenoSlider slider = new XenoSlider(0, y, 80, 20, msg, sliderValue, s -> {
             int value;
             if ("FPS Limit".equals(name)) {
@@ -379,7 +398,6 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                // Borderless layout - only draw right-aligned text value (toggle text color: 0xFF8B5CF6, hovered: 0xFFFFFFFF)
                 int textColor = hovered ? 0xFFFFFFFF : 0xFF8B5CF6;
                 graphics.text(
                         Minecraft.getInstance().font,
@@ -414,7 +432,6 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                // Borderless layout - only draw right-aligned text value (toggle text color: 0xFF8B5CF6, hovered: 0xFFFFFFFF)
                 int textColor = hovered ? 0xFFFFFFFF : 0xFF8B5CF6;
                 graphics.text(
                         Minecraft.getInstance().font,
@@ -474,7 +491,6 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                // Borderless layout - only draw right-aligned text value (Soft Violet color: 0xFFD8B4FE, hovered: 0xFFFFFFFF)
                 int textColor = hovered ? 0xFFFFFFFF : 0xFFD8B4FE;
                 graphics.text(
                         Minecraft.getInstance().font,
@@ -550,6 +566,20 @@ public class XenoVideoSettingsScreen extends Screen {
         return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase();
     }
 
+    private void applyOptions() {
+        this.minecraft.options.save();
+        this.minecraft.getWindow().changeFullscreenVideoMode();
+
+        int currentMip = this.options.mipmapLevels().get();
+        int currentAniso = this.options.maxAnisotropyBit().get();
+        TextureFilteringMethod currentFilter = this.options.textureFiltering().get();
+
+        if (currentMip != this.oldMipmaps || currentAniso != this.oldAnisotropyBit || currentFilter != this.oldTextureFiltering) {
+            this.minecraft.updateMaxMipLevel(currentMip);
+            this.minecraft.delayTextureReload();
+        }
+    }
+
     private void updateScrollerRange() {
         float contentHeight = this.currentTabOptions.size() * ROW_HEIGHT;
         float visibleHeight = this.height - 40 - 35;
@@ -568,9 +598,6 @@ public class XenoVideoSettingsScreen extends Screen {
             int controlWidth = widget.getWidth();
             int controlHeight = widget.getHeight();
 
-            // Set positions of widgets
-            // Slider: X starts at width - 110, width 80
-            // Buttons: X starts at width - 150, width 120
             int widgetX = (widget instanceof XenoSlider) ? (this.width - 30 - 80) : (this.width - 30 - 120);
             int widgetY = yPos + (ROW_HEIGHT - controlHeight) / 2;
 
@@ -630,7 +657,6 @@ public class XenoVideoSettingsScreen extends Screen {
             int yPos = 40 + i * ROW_HEIGHT - (int) this.scrollOffset;
 
             if (yPos + ROW_HEIGHT > visibleMinY && yPos < visibleMaxY) {
-                // If hovered, draw a very subtle translucent white/gray highlight (0x1AFFFFFF) behind the row
                 if (hovered == entry) {
                     graphics.fill(130, yPos, this.width - 30, yPos + ROW_HEIGHT - 2, 0x1AFFFFFF);
                 }
@@ -638,11 +664,10 @@ public class XenoVideoSettingsScreen extends Screen {
                 // Option Names: Pure White (0xFFFFFFFF) left-aligned
                 graphics.text(this.font, Component.literal(entry.name()), 140, yPos + (ROW_HEIGHT - 8) / 2, 0xFFFFFFFF);
 
-                // Option Values: If the widget is a slider, draw its value text (Soft Violet 0xFFD8B4FE) right-aligned to the left of the slider
+                // Option Values for Sliders
                 if (entry.widget() instanceof XenoSlider) {
                     Component valMsg = entry.widget().getMessage();
                     int textWidth = this.font.width(valMsg);
-                    // Slider starts at width - 110, so draw text right-aligned at width - 115
                     int textColor = (hovered == entry) ? 0xFFFFFFFF : 0xFFD8B4FE;
                     graphics.text(this.font, valMsg, this.width - 115 - textWidth, yPos + (ROW_HEIGHT - 8) / 2, textColor);
                 }
@@ -652,7 +677,7 @@ public class XenoVideoSettingsScreen extends Screen {
         // Draw Widgets
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
-        // 5. Draw Tooltip Box at the very end of the draw cycle
+        // 5. Draw Tooltip Box
         if (hovered != null) {
             renderTooltip(graphics, mouseX, mouseY, hovered);
         }
