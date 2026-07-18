@@ -27,7 +27,7 @@ public class XenoVideoSettingsScreen extends Screen {
     public enum PerformanceImpact {
         LOW("Low", 0xFF4ADE80),
         MEDIUM("Medium", 0xFFFACC15),
-        HIGH("High", 0XFFA855F7);
+        HIGH("High", 0xFF8B5CF6);
 
         private final String label;
         private final int color;
@@ -93,14 +93,14 @@ public class XenoVideoSettingsScreen extends Screen {
                     int textColor;
 
                     if (this.isActive()) {
-                        bgColor = 0x1AA855F7; // subtle highlight
-                        textColor = 0xFFF1F5F9; // crisp white/lilac
+                        bgColor = 0x1A8B5CF6; // subtle purple glow
+                        textColor = 0xFFFFFFFF; // pure white
                     } else if (hovered) {
-                        bgColor = 0x11A855F7; // very subtle hover highlight
-                        textColor = 0xFFF1F5F9;
+                        bgColor = 0x1AFFFFFF; // subtle white hover highlight
+                        textColor = 0xFFFFFFFF;
                     } else {
                         bgColor = 0x00000000;
-                        textColor = 0xFF64748B; // muted/unselected element color
+                        textColor = 0xFFAAAAAA; // muted/unselected tabs (medium gray)
                     }
 
                     if (bgColor != 0) {
@@ -108,8 +108,8 @@ public class XenoVideoSettingsScreen extends Screen {
                     }
 
                     if (this.isActive()) {
-                        // 2px wide violet line on the far left edge
-                        graphics.fill(x, y, x + 2, y + h, 0XFFA855F7);
+                        // 2px wide violet line on the far left edge (0xFF8B5CF6)
+                        graphics.fill(x, y, x + 2, y + h, 0xFF8B5CF6);
                     }
 
                     graphics.text(
@@ -147,11 +147,11 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                int bgColor = hovered ? 0x1AA855F7 : 0x40120F24;
-                graphics.fill(x, y, x + w, y + h, bgColor);
-                graphics.outline(x, y, w, h, hovered ? 0XFFA855F7 : 0xFF3B0764);
+                if (hovered) {
+                    graphics.fill(x, y, x + w, y + h, 0x1AFFFFFF); // subtle white hover highlight
+                }
 
-                int textColor = hovered ? 0xFFF3E8FF : 0xFFC084FC;
+                int textColor = hovered ? 0xFFFFFFFF : 0xFFD8B4FE;
                 graphics.centeredText(
                         Minecraft.getInstance().font,
                         this.getMessage(),
@@ -170,7 +170,10 @@ public class XenoVideoSettingsScreen extends Screen {
         this.currentTabOptions.clear();
 
         if (tabIndex == 0) {
-            // General Options
+            // General Tab (Core rendering & UI)
+            addCycle(this.options.preferredGraphicsBackend(), "Graphics API",
+                    "Chooses the preferred graphics rendering API. Default relies on native platforms; Vulkan offers modern hardware optimizations.",
+                    PerformanceImpact.MEDIUM);
             addSlider(this.options.renderDistance(), "Render Distance", 2, 32,
                     "Determines how far chunks are rendered around the player. Higher values increase visibility but cost more performance.",
                     PerformanceImpact.MEDIUM);
@@ -183,9 +186,6 @@ public class XenoVideoSettingsScreen extends Screen {
             addToggle(this.options.enableVsync(), "VSync",
                     "Synchronizes frame output with monitor refresh rate. Reduces screen tearing but may add input lag.",
                     PerformanceImpact.LOW);
-            addCycle(this.options.preferredGraphicsBackend(), "Graphics API",
-                    "Chooses the preferred graphics rendering API. Default relies on native platforms; Vulkan offers modern hardware optimizations.",
-                    PerformanceImpact.MEDIUM);
             addCycle(this.options.attackIndicator(), "Attack Indicator",
                     "Sets the display style and position for the combat crosshair attack indicator.",
                     PerformanceImpact.LOW);
@@ -194,10 +194,13 @@ public class XenoVideoSettingsScreen extends Screen {
                     PerformanceImpact.LOW);
 
         } else if (tabIndex == 1) {
-            // Quality Options
+            // Quality Tab (Visual fidelity)
             addCycle(this.options.graphicsPreset(), "Graphics",
                     "Controls visual graphics preset. Fast disables extra lighting effects; Fabulous enables advanced layers.",
                     PerformanceImpact.HIGH);
+            addToggle(this.options.ambientOcclusion(), "Smooth Lighting",
+                    "Applies ambient shadows between blocks to present smooth, atmospheric surface illumination.",
+                    PerformanceImpact.MEDIUM);
             addCycle(this.options.cloudStatus(), "Clouds",
                     "Adjusts cloud styling. Fancy renders beautiful volumetric clouds; OFF disables cloud layers completely.",
                     PerformanceImpact.LOW);
@@ -210,41 +213,38 @@ public class XenoVideoSettingsScreen extends Screen {
             addCycle(this.options.particles(), "Particles",
                     "Specifies density of environmental, combat, and command-driven particles.",
                     PerformanceImpact.MEDIUM);
-            addSlider(this.options.mipmapLevels(), "Mipmap Levels", 0, 4,
-                    "Sharpens distant textures using multi-resolution texture maps. Set to OFF to disable mipmaps.",
-                    PerformanceImpact.LOW);
-            addDoubleSlider(this.options.entityDistanceScaling(), "Entity Distance", 0.5, 5.0,
-                    "Adjusts the distance threshold for rendering entity models. Lower scaling values save significant GPU time.",
-                    PerformanceImpact.MEDIUM);
-            addToggle(this.options.vignette(), "Show Vignette",
-                    "Applies a cinematic darkening overlay around the borders of the screen.",
-                    PerformanceImpact.LOW);
-
-        } else if (tabIndex == 2) {
-            // Performance Options
-            addToggle(this.options.ambientOcclusion(), "Smooth Lighting",
-                    "Applies ambient shadows between blocks to present smooth, atmospheric surface illumination.",
-                    PerformanceImpact.MEDIUM);
             addToggle(this.options.entityShadows(), "Entity Shadows",
                     "Enables circular shadow silhouettes beneath living entity entities and items.",
                     PerformanceImpact.LOW);
             addToggle(this.options.cutoutLeaves(), "See-Through Leaves",
                     "Controls leaf block transparency. Solid opaque leaves bypass translucency checks and render faster.",
                     PerformanceImpact.MEDIUM);
+            addSlider(this.options.weatherRadius(), "Weather Effect Radius", 2, 10,
+                    "Defines block radius for weather rendering and audio sources centered on the player.",
+                    PerformanceImpact.MEDIUM);
+            addToggle(this.options.vignette(), "Show Vignette",
+                    "Applies a cinematic darkening overlay around the borders of the screen.",
+                    PerformanceImpact.LOW);
+
+        } else if (tabIndex == 2) {
+            // Performance Tab (Optimization)
+            addDoubleToggle(this.options.chunkSectionFadeInTime(), "Chunk Fade Time",
+                    "Applies smooth fade-in animations to newly loaded chunk sections.",
+                    PerformanceImpact.LOW);
+            addDoubleSlider(this.options.entityDistanceScaling(), "Entity Distance", 0.5, 5.0,
+                    "Adjusts the distance threshold for rendering entity models. Lower scaling values save significant GPU time.",
+                    PerformanceImpact.MEDIUM);
+            addSlider(this.options.mipmapLevels(), "Mipmap Levels", 0, 4,
+                    "Sharpens distant textures using multi-resolution texture maps. Set to OFF to disable mipmaps.",
+                    PerformanceImpact.LOW);
+
+        } else if (tabIndex == 3) {
+            // Advanced Tab (Deep Engine configs)
             addCycle(this.options.textureFiltering(), "Texture Filtering",
                     "Applies texture sampling methods. RGSS or Anisotropic filtering keep oblique angles sharp.",
                     PerformanceImpact.LOW);
             addCycle(this.options.maxAnisotropyBit(), "Anisotropic Value",
                     "Specifies level of anisotropic filtering. Higher values retain fine textures on steep slopes.",
-                    PerformanceImpact.LOW);
-
-        } else if (tabIndex == 3) {
-            // Advanced Options
-            addSlider(this.options.weatherRadius(), "Weather Effect Radius", 2, 10,
-                    "Defines block radius for weather rendering and audio sources centered on the player.",
-                    PerformanceImpact.MEDIUM);
-            addDoubleToggle(this.options.chunkSectionFadeInTime(), "Chunk Fade Time",
-                    "Applies smooth fade-in animations to newly loaded chunk sections.",
                     PerformanceImpact.LOW);
         }
     }
@@ -281,7 +281,8 @@ public class XenoVideoSettingsScreen extends Screen {
 
         Component msg = getSliderValueText(name, current);
 
-        XenoSlider slider = new XenoSlider(0, y, 120, 20, msg, sliderValue, s -> {
+        // Slider track is 80px wide on the right (X: width - 110 to width - 30)
+        XenoSlider slider = new XenoSlider(0, y, 80, 20, msg, sliderValue, s -> {
             int value;
             if ("FPS Limit".equals(name)) {
                 int rawValue = 10 + (int) Math.round(s.getDoubleValue() * 250);
@@ -307,35 +308,14 @@ public class XenoVideoSettingsScreen extends Screen {
                 int y = this.getY();
                 int w = this.getWidth();
                 int h = this.getHeight();
-                boolean hovered = this.isHoveredOrFocused();
 
-                if (hovered) {
-                    graphics.fill(x, y, x + w, y + h, 0x11A855F7);
-                }
+                // 2px wide thin translucent white line for track
+                graphics.fill(x, y + h / 2 - 1, x + w, y + h / 2 + 1, 0x40FFFFFF);
 
-                // Slider track
-                graphics.fill(x, y + h / 2 - 1, x + w, y + h / 2 + 1, 0xFF120F20);
-
-                // Slider handle
+                // Slider handle (accent color ARGB: 0xFF8B5CF6)
                 int handleWidth = 4;
                 int handleX = x + (int) (this.getDoubleValue() * (w - handleWidth));
-                int handleColor = (hovered || this.isFocused()) ? 0xFFC084FC : 0xFFA855F7;
-
-                // Draw filled part of the track
-                graphics.fill(x, y + h / 2 - 1, handleX, y + h / 2 + 1, 0XFFA855F7);
-
-                // Draw handle line
-                graphics.fill(handleX, y, handleX + handleWidth, y + h, handleColor);
-
-                // Right aligned inside control zones
-                int textColor = hovered ? 0xFFF3E8FF : 0xFFC084FC;
-                graphics.text(
-                        Minecraft.getInstance().font,
-                        this.getMessage(),
-                        x + w - Minecraft.getInstance().font.width(this.getMessage()) - 6,
-                        y + (h - 8) / 2,
-                        textColor
-                );
+                graphics.fill(handleX, y, handleX + handleWidth, y + h, 0xFF8B5CF6);
             }
         };
 
@@ -351,7 +331,7 @@ public class XenoVideoSettingsScreen extends Screen {
         double sliderValue = (current - min) / (max - min);
         Component msg = Component.literal(Math.round(current * 100) + "%");
 
-        XenoSlider slider = new XenoSlider(0, y, 120, 20, msg, sliderValue, s -> {
+        XenoSlider slider = new XenoSlider(0, y, 80, 20, msg, sliderValue, s -> {
             double rawVal = min + s.getDoubleValue() * (max - min);
             double value = Math.round(rawVal * 4.0) / 4.0;
             value = Math.max(min, Math.min(max, value));
@@ -364,35 +344,14 @@ public class XenoVideoSettingsScreen extends Screen {
                 int y = this.getY();
                 int w = this.getWidth();
                 int h = this.getHeight();
-                boolean hovered = this.isHoveredOrFocused();
 
-                if (hovered) {
-                    graphics.fill(x, y, x + w, y + h, 0x11A855F7);
-                }
+                // 2px wide thin translucent white line for track
+                graphics.fill(x, y + h / 2 - 1, x + w, y + h / 2 + 1, 0x40FFFFFF);
 
-                // Slider track
-                graphics.fill(x, y + h / 2 - 1, x + w, y + h / 2 + 1, 0xFF120F20);
-
-                // Slider handle
+                // Slider handle (accent color ARGB: 0xFF8B5CF6)
                 int handleWidth = 4;
                 int handleX = x + (int) (this.getDoubleValue() * (w - handleWidth));
-                int handleColor = (hovered || this.isFocused()) ? 0xFFC084FC : 0xFFA855F7;
-
-                // Draw filled part of the track
-                graphics.fill(x, y + h / 2 - 1, handleX, y + h / 2 + 1, 0XFFA855F7);
-
-                // Draw handle line
-                graphics.fill(handleX, y, handleX + handleWidth, y + h, handleColor);
-
-                // Right aligned inside control zones
-                int textColor = hovered ? 0xFFF3E8FF : 0xFFC084FC;
-                graphics.text(
-                        Minecraft.getInstance().font,
-                        this.getMessage(),
-                        x + w - Minecraft.getInstance().font.width(this.getMessage()) - 6,
-                        y + (h - 8) / 2,
-                        textColor
-                );
+                graphics.fill(handleX, y, handleX + handleWidth, y + h, 0xFF8B5CF6);
             }
         };
 
@@ -420,11 +379,8 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                int bgColor = hovered ? 0x1AA855F7 : 0x40120F24;
-                graphics.fill(x, y, x + w, y + h, bgColor);
-                graphics.outline(x, y, w, h, hovered ? 0XFFA855F7 : 0xFF3B0764);
-
-                int textColor = hovered ? 0xFFF3E8FF : 0xFFC084FC;
+                // Borderless layout - only draw right-aligned text value (toggle text color: 0xFF8B5CF6, hovered: 0xFFFFFFFF)
+                int textColor = hovered ? 0xFFFFFFFF : 0xFF8B5CF6;
                 graphics.text(
                         Minecraft.getInstance().font,
                         this.getMessage(),
@@ -458,11 +414,8 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                int bgColor = hovered ? 0x1AA855F7 : 0x40120F24;
-                graphics.fill(x, y, x + w, y + h, bgColor);
-                graphics.outline(x, y, w, h, hovered ? 0XFFA855F7 : 0xFF3B0764);
-
-                int textColor = hovered ? 0xFFF3E8FF : 0xFFC084FC;
+                // Borderless layout - only draw right-aligned text value (toggle text color: 0xFF8B5CF6, hovered: 0xFFFFFFFF)
+                int textColor = hovered ? 0xFFFFFFFF : 0xFF8B5CF6;
                 graphics.text(
                         Minecraft.getInstance().font,
                         this.getMessage(),
@@ -521,11 +474,8 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                int bgColor = hovered ? 0x1AA855F7 : 0x40120F24;
-                graphics.fill(x, y, x + w, y + h, bgColor);
-                graphics.outline(x, y, w, h, hovered ? 0XFFA855F7 : 0xFF3B0764);
-
-                int textColor = hovered ? 0xFFF3E8FF : 0xFFC084FC;
+                // Borderless layout - only draw right-aligned text value (Soft Violet color: 0xFFD8B4FE, hovered: 0xFFFFFFFF)
+                int textColor = hovered ? 0xFFFFFFFF : 0xFFD8B4FE;
                 graphics.text(
                         Minecraft.getInstance().font,
                         this.getMessage(),
@@ -553,7 +503,7 @@ public class XenoVideoSettingsScreen extends Screen {
         if (value instanceof TextureFilteringMethod) {
             if (value == TextureFilteringMethod.NONE) return Component.literal("None");
             if (value == TextureFilteringMethod.RGSS) return Component.literal("RGSS");
-            if (value == TextureFilteringMethod.ANISOTROPIC) return Component.literal("Anisotropic Filtering");
+            if (value == TextureFilteringMethod.ANISOTROPIC) return Component.literal("Anisotropic");
         }
         if (value instanceof AttackIndicatorStatus) {
             if (value == AttackIndicatorStatus.OFF) return Component.literal("OFF");
@@ -617,7 +567,11 @@ public class XenoVideoSettingsScreen extends Screen {
             int yPos = 40 + i * ROW_HEIGHT - (int) this.scrollOffset;
             int controlWidth = widget.getWidth();
             int controlHeight = widget.getHeight();
-            int widgetX = this.width - 30 - controlWidth - 10;
+
+            // Set positions of widgets
+            // Slider: X starts at width - 110, width 80
+            // Buttons: X starts at width - 150, width 120
+            int widgetX = (widget instanceof XenoSlider) ? (this.width - 30 - 80) : (this.width - 30 - 120);
             int widgetY = yPos + (ROW_HEIGHT - controlHeight) / 2;
 
             boolean inBounds = (yPos >= visibleMinY - 2 && yPos + ROW_HEIGHT <= visibleMaxY + 2);
@@ -656,29 +610,42 @@ public class XenoVideoSettingsScreen extends Screen {
 
         updateWidgetPositions();
 
-        // 1. Draw blackened translucent background overlay (0xD5080510)
-        graphics.fill(0, 0, this.width, this.height, 0xD5080510);
+        // 1. Draw smooth dark translucent black screen background (0x99050505)
+        graphics.fill(0, 0, this.width, this.height, 0x99050505);
 
-        // 2. Draw Sidebar Panel Background (0xE0100C1E)
-        graphics.fill(0, 0, 110, this.height, 0xE0100C1E);
+        // 2. Draw Sidebar Panel Background (0xB3020202) from X: 0 to 110
+        graphics.fill(0, 0, 110, this.height, 0xB3020202);
 
-        // 3. Draw Title left-aligned in content panel
-        graphics.text(this.font, this.getTitle(), 130, 15, 0xFFF1F5F9);
+        // 3. Draw Title: left-aligned in content panel
+        graphics.text(this.font, this.getTitle(), 130, 15, 0xFFFFFFFF);
 
         // 4. Draw Option Rows
         int visibleMinY = 40;
         int visibleMaxY = this.height - 35;
+
+        OptionEntry hovered = findHoveredOption(mouseX, mouseY);
 
         for (int i = 0; i < this.currentTabOptions.size(); i++) {
             OptionEntry entry = this.currentTabOptions.get(i);
             int yPos = 40 + i * ROW_HEIGHT - (int) this.scrollOffset;
 
             if (yPos + ROW_HEIGHT > visibleMinY && yPos < visibleMaxY) {
-                // Minimal translucent dark row bands (0x40120F24)
-                graphics.fill(130, yPos, this.width - 30, yPos + ROW_HEIGHT - 2, 0x40120F24);
+                // If hovered, draw a very subtle translucent white/gray highlight (0x1AFFFFFF) behind the row
+                if (hovered == entry) {
+                    graphics.fill(130, yPos, this.width - 30, yPos + ROW_HEIGHT - 2, 0x1AFFFFFF);
+                }
 
-                // Option Names: Clean off-white (0xFFF1F5F9) left-aligned
-                graphics.text(this.font, Component.literal(entry.name()), 140, yPos + (ROW_HEIGHT - 8) / 2, 0xFFF1F5F9);
+                // Option Names: Pure White (0xFFFFFFFF) left-aligned
+                graphics.text(this.font, Component.literal(entry.name()), 140, yPos + (ROW_HEIGHT - 8) / 2, 0xFFFFFFFF);
+
+                // Option Values: If the widget is a slider, draw its value text (Soft Violet 0xFFD8B4FE) right-aligned to the left of the slider
+                if (entry.widget() instanceof XenoSlider) {
+                    Component valMsg = entry.widget().getMessage();
+                    int textWidth = this.font.width(valMsg);
+                    // Slider starts at width - 110, so draw text right-aligned at width - 115
+                    int textColor = (hovered == entry) ? 0xFFFFFFFF : 0xFFD8B4FE;
+                    graphics.text(this.font, valMsg, this.width - 115 - textWidth, yPos + (ROW_HEIGHT - 8) / 2, textColor);
+                }
             }
         }
 
@@ -686,7 +653,6 @@ public class XenoVideoSettingsScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
         // 5. Draw Tooltip Box at the very end of the draw cycle
-        OptionEntry hovered = findHoveredOption(mouseX, mouseY);
         if (hovered != null) {
             renderTooltip(graphics, mouseX, mouseY, hovered);
         }
@@ -723,18 +689,18 @@ public class XenoVideoSettingsScreen extends Screen {
             boxY = mouseY + 12;
         }
 
-        // Background (0xEB07050B), smooth thin border (0xFF3B0764)
-        graphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xEB07050B);
-        graphics.outline(boxX, boxY, boxWidth, boxHeight, 0xFF3B0764);
+        // Tooltip Background: Almost solid black (0xFA000000) with a 1px soft violet border (0xFF8B5CF6)
+        graphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFA000000);
+        graphics.outline(boxX, boxY, boxWidth, boxHeight, 0xFF8B5CF6);
 
         int textY = boxY + 6;
         for (FormattedCharSequence line : lines) {
-            graphics.text(this.font, line, boxX + 6, textY, 0xFFF1F5F9);
+            graphics.text(this.font, line, boxX + 6, textY, 0xFFFFFFFF);
             textY += 10;
         }
 
         textY += 2;
-        graphics.text(this.font, impactLabel, boxX + 6, textY, 0xFF64748B);
+        graphics.text(this.font, impactLabel, boxX + 6, textY, 0xFFAAAAAA);
         graphics.text(this.font, impactValue, boxX + 6 + labelWidth, textY, impactColor);
     }
 
