@@ -9,13 +9,18 @@ import java.util.List;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.PreferredGraphicsApi;
+import net.minecraft.client.TextureFilteringMethod;
+import net.minecraft.client.AttackIndicatorStatus;
+import net.minecraft.client.CloudStatus;
+import net.minecraft.client.GraphicsPreset;
+import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.util.FormattedCharSequence;
-import org.jspecify.annotations.NonNull;
 
 public class XenoVideoSettingsScreen extends Screen {
 
@@ -45,7 +50,7 @@ public class XenoVideoSettingsScreen extends Screen {
     }
 
     private static final Component TITLE = Component.translatable("options.videoTitle");
-    private static final int ROW_HEIGHT = 30; // Clean, modern vertical spacing
+    private static final int ROW_HEIGHT = 30;
 
     private final Screen lastScreen;
     private final Options options;
@@ -71,7 +76,7 @@ public class XenoVideoSettingsScreen extends Screen {
         this.scrollOffset = 0;
         this.targetScrollOffset = 0;
 
-        // Initialize sidebar tabs
+        // Rebuild sidebar tabs
         int tabY = 40;
         String[] tabNames = {"General", "Quality", "Performance", "Advanced"};
         for (int i = 0; i < tabNames.length; i++) {
@@ -121,15 +126,41 @@ public class XenoVideoSettingsScreen extends Screen {
             tabY += 24;
         }
 
-        // Populate active tab options
+        // Rebuild active tab options
         populateOptionsForTab(this.currentTab);
 
         // Vertical Scroller (Width: 6px thumb, X: width - 12)
         this.scroller = XenoScroller.vertical(
                 this.width - 12, 40,
-                this.height - 50
+                this.height - 40 - 35
         );
         this.addRenderableWidget(this.scroller);
+
+        // Done button at the bottom center of the options list
+        int doneX = 130 + (this.width - 160) / 2 - 100;
+        this.addRenderableWidget(new XenoButton(doneX, this.height - 30, 200, 20, Component.translatable("gui.done"), _ -> this.onClose()) {
+            @Override
+            protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+                int x = this.getX();
+                int y = this.getY();
+                int w = this.getWidth();
+                int h = this.getHeight();
+                boolean hovered = this.isHoveredOrFocused();
+
+                int bgColor = hovered ? 0x1AA855F7 : 0x40120F24;
+                graphics.fill(x, y, x + w, y + h, bgColor);
+                graphics.outline(x, y, w, h, hovered ? 0XFFA855F7 : 0xFF3B0764);
+
+                int textColor = hovered ? 0xFFF3E8FF : 0xFFC084FC;
+                graphics.centeredText(
+                        Minecraft.getInstance().font,
+                        this.getMessage(),
+                        x + w / 2,
+                        y + (h - 8) / 2,
+                        textColor
+                );
+            }
+        });
 
         updateScrollerRange();
         updateWidgetPositions();
@@ -139,7 +170,7 @@ public class XenoVideoSettingsScreen extends Screen {
         this.currentTabOptions.clear();
 
         if (tabIndex == 0) {
-            // General
+            // General Options
             addSlider(this.options.renderDistance(), "Render Distance", 2, 32,
                     "Determines how far chunks are rendered around the player. Higher values increase visibility but cost more performance.",
                     PerformanceImpact.MEDIUM);
@@ -152,27 +183,68 @@ public class XenoVideoSettingsScreen extends Screen {
             addToggle(this.options.enableVsync(), "VSync",
                     "Synchronizes frame output with monitor refresh rate. Reduces screen tearing but may add input lag.",
                     PerformanceImpact.LOW);
+            addCycle(this.options.preferredGraphicsBackend(), "Graphics API",
+                    "Chooses the preferred graphics rendering API. Default relies on native platforms; Vulkan offers modern hardware optimizations.",
+                    PerformanceImpact.MEDIUM);
+            addCycle(this.options.attackIndicator(), "Attack Indicator",
+                    "Sets the display style and position for the combat crosshair attack indicator.",
+                    PerformanceImpact.LOW);
+            addToggle(this.options.showAutosaveIndicator(), "Autosave Indicator",
+                    "Enables a subtle disk indicator in the corner of the screen when the game performs an autosave.",
+                    PerformanceImpact.LOW);
+
         } else if (tabIndex == 1) {
-            // Quality
+            // Quality Options
             addCycle(this.options.graphicsPreset(), "Graphics",
-                    "Controls visual quality level. Fast disables effects, Fancy enables them, Fabulous adds translucency sorting.",
+                    "Controls visual graphics preset. Fast disables extra lighting effects; Fabulous enables advanced layers.",
                     PerformanceImpact.HIGH);
             addCycle(this.options.cloudStatus(), "Clouds",
-                    "Controls cloud rendering. Off disables clouds completely for a performance boost.",
+                    "Adjusts cloud styling. Fancy renders beautiful volumetric clouds; OFF disables cloud layers completely.",
+                    PerformanceImpact.LOW);
+            addSlider(this.options.cloudRange(), "Cloud Distance", 2, 128,
+                    "Specifies the maximum distance (in chunks) cloud models are rendered.",
+                    PerformanceImpact.LOW);
+            addCycle(this.options.biomeBlendRadius(), "Biome Blend",
+                    "Determines blending radius for neighboring biome colors. OFF yields sharp boundaries; higher values blend smoothly.",
                     PerformanceImpact.LOW);
             addCycle(this.options.particles(), "Particles",
-                    "Controls particle density. Fewer particles reduce CPU overhead during combat and weather.",
+                    "Specifies density of environmental, combat, and command-driven particles.",
+                    PerformanceImpact.MEDIUM);
+            addSlider(this.options.mipmapLevels(), "Mipmap Levels", 0, 4,
+                    "Sharpens distant textures using multi-resolution texture maps. Set to OFF to disable mipmaps.",
+                    PerformanceImpact.LOW);
+            addDoubleSlider(this.options.entityDistanceScaling(), "Entity Distance", 0.5, 5.0,
+                    "Adjusts the distance threshold for rendering entity models. Lower scaling values save significant GPU time.",
+                    PerformanceImpact.MEDIUM);
+            addToggle(this.options.vignette(), "Show Vignette",
+                    "Applies a cinematic darkening overlay around the borders of the screen.",
+                    PerformanceImpact.LOW);
+
+        } else if (tabIndex == 2) {
+            // Performance Options
+            addToggle(this.options.ambientOcclusion(), "Smooth Lighting",
+                    "Applies ambient shadows between blocks to present smooth, atmospheric surface illumination.",
                     PerformanceImpact.MEDIUM);
             addToggle(this.options.entityShadows(), "Entity Shadows",
-                    "Renders simple circular shadows under entities. Disabling saves minor GPU time.",
+                    "Enables circular shadow silhouettes beneath living entity entities and items.",
                     PerformanceImpact.LOW);
-            addSlider(this.options.biomeBlendRadius(), "Biome Blend", 0, 7,
-                    "Controls color blending radius between biomes. Lower values are cheaper.",
+            addToggle(this.options.cutoutLeaves(), "See-Through Leaves",
+                    "Controls leaf block transparency. Solid opaque leaves bypass translucency checks and render faster.",
+                    PerformanceImpact.MEDIUM);
+            addCycle(this.options.textureFiltering(), "Texture Filtering",
+                    "Applies texture sampling methods. RGSS or Anisotropic filtering keep oblique angles sharp.",
                     PerformanceImpact.LOW);
-        } else if (tabIndex == 2) {
-            // Performance
-            addSlider(this.options.mipmapLevels(), "Mipmap Levels", 0, 4,
-                    "Controls texture mipmap quality. Lower values use less VRAM but may cause texture shimmer.",
+            addCycle(this.options.maxAnisotropyBit(), "Anisotropic Value",
+                    "Specifies level of anisotropic filtering. Higher values retain fine textures on steep slopes.",
+                    PerformanceImpact.LOW);
+
+        } else if (tabIndex == 3) {
+            // Advanced Options
+            addSlider(this.options.weatherRadius(), "Weather Effect Radius", 2, 10,
+                    "Defines block radius for weather rendering and audio sources centered on the player.",
+                    PerformanceImpact.MEDIUM);
+            addDoubleToggle(this.options.chunkSectionFadeInTime(), "Chunk Fade Time",
+                    "Applies smooth fade-in animations to newly loaded chunk sections.",
                     PerformanceImpact.LOW);
         }
     }
@@ -191,6 +263,10 @@ public class XenoVideoSettingsScreen extends Screen {
             current = 260;
             option.set(260);
         }
+        if ("Weather Effect Radius".equals(name) && current < 3) {
+            current = 10;
+            option.set(10);
+        }
 
         double sliderValue;
         if ("FPS Limit".equals(name)) {
@@ -203,14 +279,7 @@ public class XenoVideoSettingsScreen extends Screen {
             sliderValue = max > min ? (double) (current - min) / (max - min) : 0.0;
         }
 
-        Component msg;
-        if ("FPS Limit".equals(name) && current == 260) {
-            msg = Component.literal("Unlimited");
-        } else if ("Biome Blend".equals(name)) {
-            msg = Component.literal(current == 0 ? "OFF" : (current * 2 + 1) + "x" + (current * 2 + 1));
-        } else {
-            msg = Component.literal(current + ("Render Distance".equals(name) || "Simulation Distance".equals(name) ? " chunks" : ""));
-        }
+        Component msg = getSliderValueText(name, current);
 
         XenoSlider slider = new XenoSlider(0, y, 120, 20, msg, sliderValue, s -> {
             int value;
@@ -225,18 +294,12 @@ public class XenoVideoSettingsScreen extends Screen {
                 if ("Simulation Distance".equals(name) && value < 5) {
                     value = 5;
                 }
+                if ("Weather Effect Radius".equals(name) && value < 3) {
+                    value = 3;
+                }
             }
             option.set(value);
-
-            Component newMsg;
-            if ("FPS Limit".equals(name) && value == 260) {
-                newMsg = Component.literal("Unlimited");
-            } else if ("Biome Blend".equals(name)) {
-                newMsg = Component.literal(value == 0 ? "OFF" : (value * 2 + 1) + "x" + (value * 2 + 1));
-            } else {
-                newMsg = Component.literal(value + ("Render Distance".equals(name) || "Simulation Distance".equals(name) ? " chunks" : ""));
-            }
-            s.setMessage(newMsg);
+            s.setMessage(getSliderValueText(name, value));
         }) {
             @Override
             protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
@@ -246,7 +309,6 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                // Clean flat design: subtle background on hover
                 if (hovered) {
                     graphics.fill(x, y, x + w, y + h, 0x11A855F7);
                 }
@@ -281,16 +343,74 @@ public class XenoVideoSettingsScreen extends Screen {
         this.currentTabOptions.add(new OptionEntry(slider, Component.literal(desc), impact, name));
     }
 
-    private void addToggle(OptionInstance<Boolean> option, String name, String desc, PerformanceImpact impact) {
+    private void addDoubleSlider(OptionInstance<Double> option, String name, double min, double max, String desc, PerformanceImpact impact) {
         int index = this.currentTabOptions.size();
         int y = 40 + index * ROW_HEIGHT;
-        boolean current = option.get();
-        Component msg = Component.literal(current ? "ON" : "OFF");
+        double current = option.get();
+
+        double sliderValue = (current - min) / (max - min);
+        Component msg = Component.literal(Math.round(current * 100) + "%");
+
+        XenoSlider slider = new XenoSlider(0, y, 120, 20, msg, sliderValue, s -> {
+            double rawVal = min + s.getDoubleValue() * (max - min);
+            double value = Math.round(rawVal * 4.0) / 4.0;
+            value = Math.max(min, Math.min(max, value));
+            option.set(value);
+            s.setMessage(Component.literal(Math.round(value * 100) + "%"));
+        }) {
+            @Override
+            protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+                int x = this.getX();
+                int y = this.getY();
+                int w = this.getWidth();
+                int h = this.getHeight();
+                boolean hovered = this.isHoveredOrFocused();
+
+                if (hovered) {
+                    graphics.fill(x, y, x + w, y + h, 0x11A855F7);
+                }
+
+                // Slider track
+                graphics.fill(x, y + h / 2 - 1, x + w, y + h / 2 + 1, 0xFF120F20);
+
+                // Slider handle
+                int handleWidth = 4;
+                int handleX = x + (int) (this.getDoubleValue() * (w - handleWidth));
+                int handleColor = (hovered || this.isFocused()) ? 0xFFC084FC : 0xFFA855F7;
+
+                // Draw filled part of the track
+                graphics.fill(x, y + h / 2 - 1, handleX, y + h / 2 + 1, 0XFFA855F7);
+
+                // Draw handle line
+                graphics.fill(handleX, y, handleX + handleWidth, y + h, handleColor);
+
+                // Right aligned inside control zones
+                int textColor = hovered ? 0xFFF3E8FF : 0xFFC084FC;
+                graphics.text(
+                        Minecraft.getInstance().font,
+                        this.getMessage(),
+                        x + w - Minecraft.getInstance().font.width(this.getMessage()) - 6,
+                        y + (h - 8) / 2,
+                        textColor
+                );
+            }
+        };
+
+        this.addRenderableWidget(slider);
+        this.currentTabOptions.add(new OptionEntry(slider, Component.literal(desc), impact, name));
+    }
+
+    private void addDoubleToggle(OptionInstance<Double> option, String name, String desc, PerformanceImpact impact) {
+        int index = this.currentTabOptions.size();
+        int y = 40 + index * ROW_HEIGHT;
+        double current = option.get();
+        Component msg = getOptionValueText(name, current);
 
         XenoButton button = new XenoButton(0, y, 120, 20, msg, btn -> {
-            boolean val = option.get();
-            option.set(!val);
-            btn.setMessage(Component.literal(!val ? "ON" : "OFF"));
+            double val = option.get();
+            double nextVal = val > 0.0 ? 0.0 : 0.75;
+            option.set(nextVal);
+            btn.setMessage(getOptionValueText(name, nextVal));
         }) {
             @Override
             protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
@@ -300,7 +420,45 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                int bgColor = hovered ? 0x1AA855F7 : 0xFF120F20;
+                int bgColor = hovered ? 0x1AA855F7 : 0x40120F24;
+                graphics.fill(x, y, x + w, y + h, bgColor);
+                graphics.outline(x, y, w, h, hovered ? 0XFFA855F7 : 0xFF3B0764);
+
+                int textColor = hovered ? 0xFFF3E8FF : 0xFFC084FC;
+                graphics.text(
+                        Minecraft.getInstance().font,
+                        this.getMessage(),
+                        x + w - Minecraft.getInstance().font.width(this.getMessage()) - 6,
+                        y + (h - 8) / 2,
+                        textColor
+                );
+            }
+        };
+
+        this.addRenderableWidget(button);
+        this.currentTabOptions.add(new OptionEntry(button, Component.literal(desc), impact, name));
+    }
+
+    private void addToggle(OptionInstance<Boolean> option, String name, String desc, PerformanceImpact impact) {
+        int index = this.currentTabOptions.size();
+        int y = 40 + index * ROW_HEIGHT;
+        boolean current = option.get();
+        Component msg = getOptionValueText(name, current);
+
+        XenoButton button = new XenoButton(0, y, 120, 20, msg, btn -> {
+            boolean val = option.get();
+            option.set(!val);
+            btn.setMessage(getOptionValueText(name, !val));
+        }) {
+            @Override
+            protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+                int x = this.getX();
+                int y = this.getY();
+                int w = this.getWidth();
+                int h = this.getHeight();
+                boolean hovered = this.isHoveredOrFocused();
+
+                int bgColor = hovered ? 0x1AA855F7 : 0x40120F24;
                 graphics.fill(x, y, x + w, y + h, bgColor);
                 graphics.outline(x, y, w, h, hovered ? 0XFFA855F7 : 0xFF3B0764);
 
@@ -323,15 +481,37 @@ public class XenoVideoSettingsScreen extends Screen {
     private void addCycle(OptionInstance option, String name, String desc, PerformanceImpact impact) {
         int index = this.currentTabOptions.size();
         int y = 40 + index * ROW_HEIGHT;
-        Enum<?> current = (Enum<?>) option.get();
-        Component msg = Component.literal(capitalize(current.name()));
+        Object current = option.get();
+
+        Component msg = getOptionValueText(name, current);
 
         XenoButton button = new XenoButton(0, y, 120, 20, msg, btn -> {
-            Enum<?> val = (Enum<?>) option.get();
-            Object[] constants = val.getDeclaringClass().getEnumConstants();
-            int next = (val.ordinal() + 1) % constants.length;
-            option.set(constants[next]);
-            btn.setMessage(Component.literal(capitalize(((Enum<?>) constants[next]).name())));
+            Object val = option.get();
+            Object nextVal;
+            if (val instanceof Enum<?>) {
+                Object[] constants = val.getClass().getEnumConstants();
+                int next = (((Enum<?>) val).ordinal() + 1) % constants.length;
+                nextVal = constants[next];
+                if (nextVal == GraphicsPreset.CUSTOM) {
+                    nextVal = GraphicsPreset.FAST; // Skip CUSTOM
+                }
+            } else if (val instanceof Boolean) {
+                nextVal = !((Boolean) val);
+            } else if (val instanceof Integer) {
+                int intVal = (Integer) val;
+                if ("Biome Blend".equals(name)) {
+                    nextVal = (intVal + 1) % 8; // 0 to 7
+                } else if ("Anisotropic Value".equals(name)) {
+                    nextVal = 1 + (intVal % 3); // 1 to 3
+                } else {
+                    nextVal = intVal + 1;
+                }
+            } else {
+                nextVal = val;
+            }
+
+            option.set(nextVal);
+            btn.setMessage(getOptionValueText(name, nextVal));
         }) {
             @Override
             protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
@@ -341,7 +521,7 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                int bgColor = hovered ? 0x1AA855F7 : 0xFF120F20;
+                int bgColor = hovered ? 0x1AA855F7 : 0x40120F24;
                 graphics.fill(x, y, x + w, y + h, bgColor);
                 graphics.outline(x, y, w, h, hovered ? 0XFFA855F7 : 0xFF3B0764);
 
@@ -360,6 +540,61 @@ public class XenoVideoSettingsScreen extends Screen {
         this.currentTabOptions.add(new OptionEntry(button, Component.literal(desc), impact, name));
     }
 
+    private static Component getOptionValueText(String optionName, Object value) {
+        if ("Chunk Fade Time".equals(optionName)) {
+            return Component.literal((Double) value > 0.0 ? "ON" : "OFF");
+        }
+        if (value instanceof Boolean) {
+            return Component.literal((Boolean) value ? "ON" : "OFF");
+        }
+        if (value instanceof PreferredGraphicsApi) {
+            return ((PreferredGraphicsApi) value).caption();
+        }
+        if (value instanceof TextureFilteringMethod) {
+            if (value == TextureFilteringMethod.NONE) return Component.literal("None");
+            if (value == TextureFilteringMethod.RGSS) return Component.literal("RGSS");
+            if (value == TextureFilteringMethod.ANISOTROPIC) return Component.literal("Anisotropic Filtering");
+        }
+        if (value instanceof AttackIndicatorStatus) {
+            if (value == AttackIndicatorStatus.OFF) return Component.literal("OFF");
+            if (value == AttackIndicatorStatus.CROSSHAIR) return Component.literal("Crosshair");
+            if (value == AttackIndicatorStatus.HOTBAR) return Component.literal("Hotbar");
+        }
+        if (value instanceof Enum<?>) {
+            return Component.literal(capitalize(((Enum<?>) value).name()));
+        }
+        if (value instanceof Integer) {
+            int val = (Integer) value;
+            if ("Biome Blend".equals(optionName)) {
+                return Component.literal(val == 0 ? "OFF" : (val * 2 + 1) + "x" + (val * 2 + 1));
+            }
+            if ("Anisotropic Value".equals(optionName)) {
+                return Component.literal((1 << val) + "x");
+            }
+            return Component.literal(String.valueOf(val));
+        }
+        return Component.literal(value.toString());
+    }
+
+    private static Component getSliderValueText(String optionName, int value) {
+        if ("FPS Limit".equals(optionName) && value == 260) {
+            return Component.literal("Unlimited");
+        }
+        if ("Render Distance".equals(optionName) || "Simulation Distance".equals(optionName)) {
+            return Component.literal(value + " chunks");
+        }
+        if ("Cloud Distance".equals(optionName)) {
+            return Component.literal(value + " chunks");
+        }
+        if ("Weather Effect Radius".equals(optionName)) {
+            return Component.literal(value + " blocks");
+        }
+        if ("Mipmap Levels".equals(optionName)) {
+            return Component.literal(value == 0 ? "OFF" : value + "x");
+        }
+        return Component.literal(String.valueOf(value));
+    }
+
     private static String capitalize(String s) {
         if (s == null || s.isEmpty()) return s;
         return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase();
@@ -367,13 +602,13 @@ public class XenoVideoSettingsScreen extends Screen {
 
     private void updateScrollerRange() {
         float contentHeight = this.currentTabOptions.size() * ROW_HEIGHT;
-        float visibleHeight = this.height - 50;
+        float visibleHeight = this.height - 40 - 35;
         this.scroller.setScrollRange(contentHeight, visibleHeight);
     }
 
     private void updateWidgetPositions() {
         int visibleMinY = 40;
-        int visibleMaxY = this.height - 10;
+        int visibleMaxY = this.height - 35;
 
         for (int i = 0; i < this.currentTabOptions.size(); i++) {
             OptionEntry entry = this.currentTabOptions.get(i);
@@ -396,7 +631,7 @@ public class XenoVideoSettingsScreen extends Screen {
 
     private OptionEntry findHoveredOption(double mouseX, double mouseY) {
         int visibleMinY = 40;
-        int visibleMaxY = this.height - 10;
+        int visibleMaxY = this.height - 35;
 
         for (int i = 0; i < this.currentTabOptions.size(); i++) {
             OptionEntry entry = this.currentTabOptions.get(i);
@@ -412,7 +647,7 @@ public class XenoVideoSettingsScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         this.scrollOffset += (this.targetScrollOffset - this.scrollOffset) * 0.25F;
 
         if (this.scroller != null) {
@@ -421,28 +656,28 @@ public class XenoVideoSettingsScreen extends Screen {
 
         updateWidgetPositions();
 
-        // 1. Draw Deep dark slate charcoal background with faint purple tint (0xFF0B0914)
-        graphics.fill(0, 0, this.width, this.height, 0xFF0B0914);
+        // 1. Draw blackened translucent background overlay (0xD5080510)
+        graphics.fill(0, 0, this.width, this.height, 0xD5080510);
 
-        // 2. Draw Sidebar Panel Background (0xFF120F20)
-        graphics.fill(0, 0, 110, this.height, 0xFF120F20);
+        // 2. Draw Sidebar Panel Background (0xE0100C1E)
+        graphics.fill(0, 0, 110, this.height, 0xE0100C1E);
 
-        // 3. Draw Title (options.videoTitle) left-aligned in content panel
+        // 3. Draw Title left-aligned in content panel
         graphics.text(this.font, this.getTitle(), 130, 15, 0xFFF1F5F9);
 
         // 4. Draw Option Rows
         int visibleMinY = 40;
-        int visibleMaxY = this.height - 10;
+        int visibleMaxY = this.height - 35;
 
         for (int i = 0; i < this.currentTabOptions.size(); i++) {
             OptionEntry entry = this.currentTabOptions.get(i);
             int yPos = 40 + i * ROW_HEIGHT - (int) this.scrollOffset;
 
             if (yPos + ROW_HEIGHT > visibleMinY && yPos < visibleMaxY) {
-                // Low-profile dark background strip (0xFF18152A)
-                graphics.fill(130, yPos, this.width - 30, yPos + ROW_HEIGHT - 2, 0xFF18152A);
+                // Minimal translucent dark row bands (0x40120F24)
+                graphics.fill(130, yPos, this.width - 30, yPos + ROW_HEIGHT - 2, 0x40120F24);
 
-                // Option Names: Crisp white/lilac (0xFFF1F5F9) left-aligned
+                // Option Names: Clean off-white (0xFFF1F5F9) left-aligned
                 graphics.text(this.font, Component.literal(entry.name()), 140, yPos + (ROW_HEIGHT - 8) / 2, 0xFFF1F5F9);
             }
         }
@@ -450,7 +685,7 @@ public class XenoVideoSettingsScreen extends Screen {
         // Draw Widgets
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
-        // 5. Draw Tooltip Box
+        // 5. Draw Tooltip Box at the very end of the draw cycle
         OptionEntry hovered = findHoveredOption(mouseX, mouseY);
         if (hovered != null) {
             renderTooltip(graphics, mouseX, mouseY, hovered);
@@ -488,8 +723,8 @@ public class XenoVideoSettingsScreen extends Screen {
             boxY = mouseY + 12;
         }
 
-        // Background (0xFF09070F), smooth thin border (0xFF3B0764)
-        graphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF09070F);
+        // Background (0xEB07050B), smooth thin border (0xFF3B0764)
+        graphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xEB07050B);
         graphics.outline(boxX, boxY, boxWidth, boxHeight, 0xFF3B0764);
 
         int textY = boxY + 6;
@@ -531,7 +766,7 @@ public class XenoVideoSettingsScreen extends Screen {
 
         // Scroller bounds click check
         if (this.scroller != null) {
-            if (mx >= this.width - 16 && mx <= this.width && my >= 40 && my <= this.height - 10) {
+            if (mx >= this.width - 16 && mx <= this.width && my >= 40 && my <= this.height - 35) {
                 if (this.scroller.mouseClicked(event, doubleClick)) {
                     this.setFocused(this.scroller);
                     if (event.button() == 0) {
