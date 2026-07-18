@@ -5,7 +5,9 @@ import com.xeno.client.gui.widget.XenoScroller;
 import com.xeno.client.gui.widget.XenoSlider;
 import com.xeno.client.gui.widget.XenoTab;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 import net.minecraft.client.Minecraft;
@@ -63,10 +65,12 @@ public class XenoVideoSettingsScreen extends Screen {
     private int currentTab = 0; // 0: General, 1: Quality, 2: Performance, 3: Advanced
 
     private final List<OptionEntry> currentTabOptions = new ArrayList<>();
+    private final Map<OptionInstance<?>, Object> pendingChanges = new HashMap<>();
 
     private XenoScroller scroller;
     private float scrollOffset;
     private float targetScrollOffset;
+    private long warningBannerTime = 0;
 
     public XenoVideoSettingsScreen(Screen lastScreen, Options options) {
         super(TITLE);
@@ -154,11 +158,6 @@ public class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                // Lighter hue of purple, a little more transparent:
-                // Normal border: 0x60A78BFA (translucent light purple border)
-                // Hover border: 0xFFA78BFA (solid light purple border)
-                // Normal background: 0x10A78BFA (very transparent light purple background)
-                // Hover background: 0x25A78BFA (translucent light purple background)
                 int bgColor = hovered ? 0x25A78BFA : 0x10A78BFA;
                 int borderColor = hovered ? 0xFFA78BFA : 0x60A78BFA;
 
@@ -178,6 +177,83 @@ public class XenoVideoSettingsScreen extends Screen {
 
         updateScrollerRange();
         updateWidgetPositions();
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T getOptionValue(OptionInstance<T> option) {
+        if (this.pendingChanges.containsKey(option)) {
+            return (T) this.pendingChanges.get(option);
+        }
+        return option.get();
+    }
+
+    private void markOptionChanged(OptionInstance<?> option, Object value) {
+        this.pendingChanges.put(option, value);
+        if (option != this.options.graphicsPreset()) {
+            setGraphicsPresetToCustom();
+        }
+    }
+
+    private void setGraphicsPresetToCustom() {
+        this.pendingChanges.put(this.options.graphicsPreset(), GraphicsPreset.CUSTOM);
+    }
+
+    private void applyPresetToPending(GraphicsPreset preset) {
+        if (preset == GraphicsPreset.CUSTOM) return;
+
+        this.pendingChanges.put(this.options.graphicsPreset(), preset);
+
+        if (preset == GraphicsPreset.FAST) {
+            this.pendingChanges.put(this.options.biomeBlendRadius(), 1);
+            this.pendingChanges.put(this.options.renderDistance(), 8);
+            this.pendingChanges.put(this.options.simulationDistance(), 6);
+            this.pendingChanges.put(this.options.ambientOcclusion(), false);
+            this.pendingChanges.put(this.options.cloudStatus(), CloudStatus.FAST);
+            this.pendingChanges.put(this.options.particles(), ParticleStatus.DECREASED);
+            this.pendingChanges.put(this.options.mipmapLevels(), 2);
+            this.pendingChanges.put(this.options.entityShadows(), false);
+            this.pendingChanges.put(this.options.entityDistanceScaling(), 0.75);
+            this.pendingChanges.put(this.options.cloudRange(), 32);
+            this.pendingChanges.put(this.options.cutoutLeaves(), false);
+            this.pendingChanges.put(this.options.improvedTransparency(), false);
+            this.pendingChanges.put(this.options.weatherRadius(), 5);
+            this.pendingChanges.put(this.options.maxAnisotropyBit(), 1);
+            this.pendingChanges.put(this.options.textureFiltering(), TextureFilteringMethod.NONE);
+        } else if (preset == GraphicsPreset.FANCY) {
+            this.pendingChanges.put(this.options.biomeBlendRadius(), 2);
+            this.pendingChanges.put(this.options.renderDistance(), 16);
+            this.pendingChanges.put(this.options.simulationDistance(), 12);
+            this.pendingChanges.put(this.options.ambientOcclusion(), true);
+            this.pendingChanges.put(this.options.cloudStatus(), CloudStatus.FANCY);
+            this.pendingChanges.put(this.options.particles(), ParticleStatus.ALL);
+            this.pendingChanges.put(this.options.mipmapLevels(), 4);
+            this.pendingChanges.put(this.options.entityShadows(), true);
+            this.pendingChanges.put(this.options.entityDistanceScaling(), 1.0);
+            this.pendingChanges.put(this.options.cloudRange(), 64);
+            this.pendingChanges.put(this.options.cutoutLeaves(), true);
+            this.pendingChanges.put(this.options.improvedTransparency(), false);
+            this.pendingChanges.put(this.options.weatherRadius(), 10);
+            this.pendingChanges.put(this.options.maxAnisotropyBit(), 1);
+            this.pendingChanges.put(this.options.textureFiltering(), TextureFilteringMethod.RGSS);
+        } else if (preset == GraphicsPreset.FABULOUS) {
+            this.pendingChanges.put(this.options.biomeBlendRadius(), 2);
+            this.pendingChanges.put(this.options.renderDistance(), 32);
+            this.pendingChanges.put(this.options.simulationDistance(), 12);
+            this.pendingChanges.put(this.options.ambientOcclusion(), true);
+            this.pendingChanges.put(this.options.cloudStatus(), CloudStatus.FANCY);
+            this.pendingChanges.put(this.options.particles(), ParticleStatus.ALL);
+            this.pendingChanges.put(this.options.mipmapLevels(), 4);
+            this.pendingChanges.put(this.options.entityShadows(), true);
+            this.pendingChanges.put(this.options.entityDistanceScaling(), 1.25);
+            this.pendingChanges.put(this.options.cloudRange(), 128);
+            this.pendingChanges.put(this.options.cutoutLeaves(), true);
+            this.pendingChanges.put(this.options.improvedTransparency(), true);
+            this.pendingChanges.put(this.options.weatherRadius(), 10);
+            this.pendingChanges.put(this.options.maxAnisotropyBit(), 2);
+            this.pendingChanges.put(this.options.textureFiltering(), TextureFilteringMethod.ANISOTROPIC);
+        }
+
+        this.rebuildWidgets();
     }
 
     private void populateOptionsForTab(int tabIndex) {
@@ -272,20 +348,17 @@ public class XenoVideoSettingsScreen extends Screen {
     private void addSlider(OptionInstance<Integer> option, String name, int min, int max, String desc, PerformanceImpact impact) {
         int index = this.currentTabOptions.size();
         int y = 40 + index * ROW_HEIGHT;
-        int current = option.get();
+        int current = getOptionValue(option);
 
         // Safe capping boundaries
         if ("Simulation Distance".equals(name) && current < 5) {
             current = 5;
-            option.set(5);
         }
         if ("FPS Limit".equals(name) && current > 250) {
             current = 260;
-            option.set(260);
         }
         if ("Weather Effect Radius".equals(name) && current < 3) {
             current = 10;
-            option.set(10);
         }
 
         double sliderValue;
@@ -318,7 +391,7 @@ public class XenoVideoSettingsScreen extends Screen {
                     value = 3;
                 }
             }
-            option.set(value);
+            markOptionChanged(option, value);
             s.setMessage(getSliderValueText(name, value));
         }) {
             @Override
@@ -345,7 +418,7 @@ public class XenoVideoSettingsScreen extends Screen {
     private void addDoubleSlider(OptionInstance<Double> option, String name, double min, double max, String desc, PerformanceImpact impact) {
         int index = this.currentTabOptions.size();
         int y = 40 + index * ROW_HEIGHT;
-        double current = option.get();
+        double current = getOptionValue(option);
 
         double sliderValue = (current - min) / (max - min);
         Component msg = Component.literal(Math.round(current * 100) + "%");
@@ -354,7 +427,7 @@ public class XenoVideoSettingsScreen extends Screen {
             double rawVal = min + s.getDoubleValue() * (max - min);
             double value = Math.round(rawVal * 4.0) / 4.0;
             value = Math.max(min, Math.min(max, value));
-            option.set(value);
+            markOptionChanged(option, value);
             s.setMessage(Component.literal(Math.round(value * 100) + "%"));
         }) {
             @Override
@@ -381,13 +454,13 @@ public class XenoVideoSettingsScreen extends Screen {
     private void addDoubleToggle(OptionInstance<Double> option, String name, String desc, PerformanceImpact impact) {
         int index = this.currentTabOptions.size();
         int y = 40 + index * ROW_HEIGHT;
-        double current = option.get();
+        double current = getOptionValue(option);
         Component msg = getOptionValueText(name, current);
 
         XenoButton button = new XenoButton(0, y, 120, 20, msg, btn -> {
-            double val = option.get();
+            double val = getOptionValue(option);
             double nextVal = val > 0.0 ? 0.0 : 0.75;
-            option.set(nextVal);
+            markOptionChanged(option, nextVal);
             btn.setMessage(getOptionValueText(name, nextVal));
         }) {
             @Override
@@ -416,12 +489,12 @@ public class XenoVideoSettingsScreen extends Screen {
     private void addToggle(OptionInstance<Boolean> option, String name, String desc, PerformanceImpact impact) {
         int index = this.currentTabOptions.size();
         int y = 40 + index * ROW_HEIGHT;
-        boolean current = option.get();
+        boolean current = getOptionValue(option);
         Component msg = getOptionValueText(name, current);
 
         XenoButton button = new XenoButton(0, y, 120, 20, msg, btn -> {
-            boolean val = option.get();
-            option.set(!val);
+            boolean val = getOptionValue(option);
+            markOptionChanged(option, !val);
             btn.setMessage(getOptionValueText(name, !val));
         }) {
             @Override
@@ -451,12 +524,12 @@ public class XenoVideoSettingsScreen extends Screen {
     private void addCycle(OptionInstance option, String name, String desc, PerformanceImpact impact) {
         int index = this.currentTabOptions.size();
         int y = 40 + index * ROW_HEIGHT;
-        Object current = option.get();
+        Object current = getOptionValue(option);
 
         Component msg = getOptionValueText(name, current);
 
         XenoButton button = new XenoButton(0, y, 120, 20, msg, btn -> {
-            Object val = option.get();
+            Object val = getOptionValue(option);
             Object nextVal;
             if (val instanceof Enum<?>) {
                 Object[] constants = val.getClass().getEnumConstants();
@@ -480,8 +553,12 @@ public class XenoVideoSettingsScreen extends Screen {
                 nextVal = val;
             }
 
-            option.set(nextVal);
-            btn.setMessage(getOptionValueText(name, nextVal));
+            if (option == this.options.graphicsPreset()) {
+                applyPresetToPending((GraphicsPreset) nextVal);
+            } else {
+                markOptionChanged(option, nextVal);
+                btn.setMessage(getOptionValueText(name, nextVal));
+            }
         }) {
             @Override
             protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
@@ -567,6 +644,25 @@ public class XenoVideoSettingsScreen extends Screen {
     }
 
     private void applyOptions() {
+        boolean restartWantedBefore = this.options.isRestartRequiredToApplyVideoSettings();
+
+        // Check if preferredGraphicsBackend has a pending change
+        boolean backendChanged = false;
+        if (this.pendingChanges.containsKey(this.options.preferredGraphicsBackend())) {
+            Object newVal = this.pendingChanges.get(this.options.preferredGraphicsBackend());
+            if (newVal != this.options.preferredGraphicsBackend().get()) {
+                backendChanged = true;
+            }
+        }
+
+        // Apply all pending changes
+        for (Map.Entry<OptionInstance<?>, Object> entry : this.pendingChanges.entrySet()) {
+            OptionInstance option = entry.getKey();
+            Object value = entry.getValue();
+            option.set(value);
+        }
+
+        this.pendingChanges.clear();
         this.minecraft.options.save();
         this.minecraft.getWindow().changeFullscreenVideoMode();
 
@@ -577,6 +673,11 @@ public class XenoVideoSettingsScreen extends Screen {
         if (currentMip != this.oldMipmaps || currentAniso != this.oldAnisotropyBit || currentFilter != this.oldTextureFiltering) {
             this.minecraft.updateMaxMipLevel(currentMip);
             this.minecraft.delayTextureReload();
+        }
+
+        boolean restartWantedAfter = this.options.isRestartRequiredToApplyVideoSettings();
+        if (backendChanged || (!restartWantedBefore && restartWantedAfter)) {
+            this.warningBannerTime = System.currentTimeMillis() + 5000;
         }
     }
 
@@ -681,6 +782,13 @@ public class XenoVideoSettingsScreen extends Screen {
         if (hovered != null) {
             renderTooltip(graphics, mouseX, mouseY, hovered);
         }
+
+        // 6. Draw Elegant Restart Warning Banner at the top of the screen (lasts 5s)
+        if (System.currentTimeMillis() < this.warningBannerTime) {
+            graphics.fill(0, 0, this.width, 14, 0xDDDC2626); // warning orange-red
+            Component msg = Component.translatable("options.restartRequired");
+            graphics.centeredText(this.font, msg, this.width / 2, 3, 0xFFFFFFFF); // Pure White contrasts beautifully
+        }
     }
 
     private void renderTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY, OptionEntry entry) {
@@ -782,7 +890,6 @@ public class XenoVideoSettingsScreen extends Screen {
 
     @Override
     public void onClose() {
-        this.minecraft.options.save();
         this.minecraft.gui.setScreen(this.lastScreen);
     }
 }
