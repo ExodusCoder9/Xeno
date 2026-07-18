@@ -23,6 +23,12 @@ public abstract class CompiledSectionMeshMixin implements XenoMeshExtension {
     @Unique
     private final Map<ChunkSectionLayer, XenoBufferPool.Allocation> xenoIndexAllocations = new EnumMap<>(ChunkSectionLayer.class);
 
+    @Unique
+    private float[] xenoTranslucentQuadCenters;
+
+    @Unique
+    private int xenoTranslucentQuadCount;
+
     @Override
     public void xeno$setAllocations(ChunkSectionLayer layer, XenoBufferPool.Allocation vertexAlloc, XenoBufferPool.Allocation indexAlloc) {
         this.xenoVertexAllocations.put(layer, vertexAlloc);
@@ -44,6 +50,22 @@ public abstract class CompiledSectionMeshMixin implements XenoMeshExtension {
     @Override
     public void xeno$clearBuffers() {
         XenoWorldRenderer.freeAllocations(this.xenoVertexAllocations, this.xenoIndexAllocations);
+    }
+
+    @Override
+    public void xeno$setTranslucentData(float[] quadCenters, int quadCount) {
+        this.xenoTranslucentQuadCenters = quadCenters;
+        this.xenoTranslucentQuadCount = quadCount;
+    }
+
+    @Override
+    public float[] xeno$getTranslucentQuadCenters() {
+        return this.xenoTranslucentQuadCenters;
+    }
+
+    @Override
+    public int xeno$getTranslucentQuadCount() {
+        return this.xenoTranslucentQuadCount;
     }
 
     @Inject(method = "close", at = @At("RETURN"))

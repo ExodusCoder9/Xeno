@@ -187,6 +187,9 @@ public final class XenoWorldRenderer {
         TranslucencyPointOfView pointOfView = TranslucencyPointOfView.of(cameraPos != null ? cameraPos : Vec3.ZERO, sectionNode);
         CompiledSectionMesh compiled = new CompiledSectionMesh(pointOfView, results);
 
+        float[] quadCenters = null;
+        int quadCount = 0;
+
         for (Map.Entry<ChunkSectionLayer, MeshData> entry : results.renderedLayers.entrySet()) {
             ChunkSectionLayer layer = entry.getKey();
             MeshData mesh = entry.getValue();
@@ -213,7 +216,42 @@ public final class XenoWorldRenderer {
                 }
 
                 ((XenoMeshExtension) compiled).xeno$setAllocations(layer, vertexAlloc, indexAlloc);
+
+                if (layer == ChunkSectionLayer.TRANSLUCENT) {
+                    quadCount = vertexSize / (4 * 28);
+                    quadCenters = new float[quadCount * 3];
+                    for (int i = 0; i < quadCount; i++) {
+                        int v0 = i * 4 * 28;
+                        int v1 = (i * 4 + 1) * 28;
+                        int v2 = (i * 4 + 2) * 28;
+                        int v3 = (i * 4 + 3) * 28;
+
+                        float x0 = vertexBuf.getFloat(v0);
+                        float y0 = vertexBuf.getFloat(v0 + 4);
+                        float z0 = vertexBuf.getFloat(v0 + 8);
+
+                        float x1 = vertexBuf.getFloat(v1);
+                        float y1 = vertexBuf.getFloat(v1 + 4);
+                        float z1 = vertexBuf.getFloat(v1 + 8);
+
+                        float x2 = vertexBuf.getFloat(v2);
+                        float y2 = vertexBuf.getFloat(v2 + 4);
+                        float z2 = vertexBuf.getFloat(v2 + 8);
+
+                        float x3 = vertexBuf.getFloat(v3);
+                        float y3 = vertexBuf.getFloat(v3 + 4);
+                        float z3 = vertexBuf.getFloat(v3 + 8);
+
+                        quadCenters[i * 3] = (x0 + x1 + x2 + x3) / 4.0f;
+                        quadCenters[i * 3 + 1] = (y0 + y1 + y2 + y3) / 4.0f;
+                        quadCenters[i * 3 + 2] = (z0 + z1 + z2 + z3) / 4.0f;
+                    }
+                }
             }
+        }
+
+        if (quadCenters != null) {
+            ((XenoMeshExtension) compiled).xeno$setTranslucentData(quadCenters, quadCount);
         }
 
         SectionMesh oldMesh = section.sectionMesh.getAndSet(compiled);

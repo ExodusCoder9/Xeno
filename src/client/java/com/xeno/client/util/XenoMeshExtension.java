@@ -8,4 +8,7 @@ public interface XenoMeshExtension {
     XenoBufferPool.Allocation xeno$getVertexAllocation(ChunkSectionLayer layer);
     XenoBufferPool.Allocation xeno$getIndexAllocation(ChunkSectionLayer layer);
     void xeno$clearBuffers();
+    void xeno$setTranslucentData(float[] quadCenters, int quadCount);
+    float[] xeno$getTranslucentQuadCenters();
+    int xeno$getTranslucentQuadCount();
 }

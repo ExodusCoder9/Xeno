@@ -311,6 +311,9 @@ public class XenoVideoSettingsScreen extends Screen {
             addCycle(this.options.particles(), "Particles",
                     "Specifies density of environmental, combat, and command-driven particles.",
                     PerformanceImpact.MEDIUM);
+            addCycle(this.options.mipmapLevels(), "Mipmap",
+                    "Sharpens distant textures using multi-resolution texture maps. Lower levels can improve performance.",
+                    PerformanceImpact.LOW);
             addToggle(this.options.entityShadows(), "Entity Shadows",
                     "Enables circular shadow silhouettes beneath living entity entities and items.",
                     PerformanceImpact.LOW);
@@ -332,9 +335,6 @@ public class XenoVideoSettingsScreen extends Screen {
             addDoubleSlider(this.options.entityDistanceScaling(), "Entity Distance", 0.5, 5.0,
                     "Adjusts the distance threshold for rendering entity models. Lower scaling values save significant GPU time.",
                     PerformanceImpact.MEDIUM);
-            addSlider(this.options.mipmapLevels(), "Mipmap Levels", 0, 4,
-                    "Sharpens distant textures using multi-resolution texture maps. Set to OFF to disable mipmaps.",
-                    PerformanceImpact.LOW);
 
         } else if (tabIndex == 3) {
             // Advanced Tab (Deep Engine configs)
@@ -548,6 +548,8 @@ public class XenoVideoSettingsScreen extends Screen {
                     nextVal = (intVal + 1) % 8; // 0 to 7
                 } else if ("Anisotropic Value".equals(name)) {
                     nextVal = 1 + (intVal % 3); // 1 to 3
+                } else if ("Mipmap".equals(name) || "Mipmap Levels".equals(name)) {
+                    nextVal = (intVal + 1) % 5;
                 } else {
                     nextVal = intVal + 1;
                 }
@@ -615,6 +617,9 @@ public class XenoVideoSettingsScreen extends Screen {
             }
             if ("Anisotropic Value".equals(optionName)) {
                 return Component.literal((1 << val) + "x");
+            }
+            if ("Mipmap".equals(optionName) || "Mipmap Levels".equals(optionName)) {
+                return Component.literal(val == 0 ? "Off" : val + "x");
             }
             return Component.literal(String.valueOf(val));
         }

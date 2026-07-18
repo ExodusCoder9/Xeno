@@ -9,6 +9,7 @@ import net.minecraft.client.renderer.SectionBufferBuilderPack;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.minecraft.client.renderer.chunk.SectionMesh;
+import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -86,6 +87,17 @@ public abstract class SectionRenderDispatcherMixin {
                 // If compilation failed/cancelled, safely return the builders pack back to the pool
                 dispatcher.releasePack(builders);
             }
+        }
+    }
+
+    @Inject(method = "resortTransparency", at = @At("HEAD"), cancellable = true)
+    private void xenoResortTransparency(CallbackInfo ci) {
+        ci.cancel();
+
+        SectionMesh mesh = this.sectionMesh.get();
+        if (mesh instanceof CompiledSectionMesh compiled && mesh instanceof com.xeno.client.util.XenoMeshExtension ext) {
+            com.xeno.client.renderer.XenoBufferPool.Allocation indexAlloc = ext.xeno$getIndexAllocation(net.minecraft.client.renderer.chunk.ChunkSectionLayer.TRANSLUCENT);
+            com.xeno.client.renderer.TranslucentSorter.resort(compiled, ext, this.getSectionNode(), this.getRenderOrigin(), indexAlloc);
         }
     }
 }
