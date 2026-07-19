@@ -64,7 +64,7 @@ public final class XenoWorldRenderer {
 
     public static void initPools() {
         if (vertexBufferPool == null) {
-            // Allocate 128MB Vertex Buffer Pool (iGPU friendly)
+            // Allocate 128MB Vertex Buffer Pool
             vertexBufferPool = new XenoBufferPool(
                     "XenoVertexPool",
                     GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE,
@@ -72,7 +72,7 @@ public final class XenoWorldRenderer {
             );
         }
         if (indexBufferPool == null) {
-            // Allocate 32MB Index Buffer Pool (iGPU friendly)
+            // Allocate 32MB Index Buffer Pool
             indexBufferPool = new XenoBufferPool(
                     "XenoIndexPool",
                     GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_MAP_WRITE,
