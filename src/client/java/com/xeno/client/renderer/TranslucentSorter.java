@@ -71,8 +71,8 @@ public final class TranslucentSorter {
                 indexBuf.flip();
 
                 Minecraft.getInstance().execute(() -> {
-                    try (GpuBufferSlice.MappedView view = indexAlloc.buffer.map(indexAlloc.offset, quadCount * 6 * 2, false, true)) {
-                        MemoryIntrinsics.copy(indexBuf, view.data(), quadCount * 6 * 2);
+                    try (GpuBufferSlice.MappedView view = indexAlloc.buffer.map(indexAlloc.offset, (long) quadCount * 6 * 2, false, true)) {
+                        MemoryIntrinsics.copy(indexBuf, view.data(), (long) quadCount * 6 * 2);
                     }
 
                     TranslucencyPointOfView pointOfView = TranslucencyPointOfView.of(cameraPos != null ? cameraPos : Vec3.ZERO, sectionNode);
