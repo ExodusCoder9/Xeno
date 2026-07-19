@@ -23,6 +23,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.util.FormattedCharSequence;
+import org.jspecify.annotations.NonNull;
 
 public class XenoVideoSettingsScreen extends Screen {
 
@@ -428,7 +429,7 @@ public class XenoVideoSettingsScreen extends Screen {
         XenoSlider slider = new XenoSlider(0, y, 80, 20, msg, sliderValue, s -> {
             double rawVal = min + s.getDoubleValue() * (max - min);
             double value = Math.round(rawVal * 4.0) / 4.0;
-            value = Math.max(min, Math.min(max, value));
+            value = Math.clamp(value, min, max);
             markOptionChanged(option, value);
             s.setMessage(Component.literal(Math.round(value * 100) + "%"));
         }) {
@@ -736,7 +737,7 @@ public class XenoVideoSettingsScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         this.scrollOffset += (this.targetScrollOffset - this.scrollOffset) * 0.25F;
 
         if (this.scroller != null) {
