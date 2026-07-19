@@ -82,7 +82,7 @@ public class XenoShader {
             return false;
         }
 
-        // Clean up individual shaders as they are linked into the program now
+        // Clean up individual shaders as they are linked into the program
         GL20.glDeleteShader(vertexShader);
         GL20.glDeleteShader(fragmentShader);
 
