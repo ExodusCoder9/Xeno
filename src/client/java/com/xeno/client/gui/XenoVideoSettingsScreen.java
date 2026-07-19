@@ -63,7 +63,7 @@ public class XenoVideoSettingsScreen extends Screen {
     private final TextureFilteringMethod oldTextureFiltering;
 
     private final List<XenoTab> tabs = new ArrayList<>();
-    private int currentTab = 0; // 0: General, 1: Quality, 2: Performance, 3: Advanced
+    private int currentTab = 0;
 
     private final List<OptionEntry> currentTabOptions = new ArrayList<>();
     private final Map<OptionInstance<?>, Object> pendingChanges = new HashMap<>();
@@ -90,7 +90,6 @@ public class XenoVideoSettingsScreen extends Screen {
         this.scrollOffset = 0;
         this.targetScrollOffset = 0;
 
-        // Rebuild sidebar tabs
         int tabY = 40;
         String[] tabNames = {"General", "Quality", "Performance", "Advanced"};
         for (int i = 0; i < tabNames.length; i++) {
@@ -107,14 +106,14 @@ public class XenoVideoSettingsScreen extends Screen {
                     int textColor;
 
                     if (this.isActive()) {
-                        bgColor = 0x1A8B5CF6; // subtle purple glow
-                        textColor = 0xFFFFFFFF; // pure white
+                        bgColor = 0x1A8B5CF6;
+                        textColor = 0xFFFFFFFF;
                     } else if (hovered) {
-                        bgColor = 0x1AFFFFFF; // subtle white hover highlight
+                        bgColor = 0x1AFFFFFF;
                         textColor = 0xFFFFFFFF;
                     } else {
                         bgColor = 0x00000000;
-                        textColor = 0xFFAAAAAA; // muted/unselected tabs
+                        textColor = 0xFFAAAAAA;
                     }
 
                     if (bgColor != 0) {
@@ -122,7 +121,6 @@ public class XenoVideoSettingsScreen extends Screen {
                     }
 
                     if (this.isActive()) {
-                        // 2px wide violet line on the far left edge (0xFF8B5CF6)
                         graphics.fill(x, y, x + 2, y + h, 0xFF8B5CF6);
                     }
 
@@ -140,17 +138,14 @@ public class XenoVideoSettingsScreen extends Screen {
             tabY += 24;
         }
 
-        // Rebuild active tab options
         populateOptionsForTab(this.currentTab);
 
-        // Vertical Scroller
         this.scroller = XenoScroller.vertical(
                 this.width - 12, 40,
                 this.height - 40 - 35
         );
         this.addRenderableWidget(this.scroller);
 
-        // Apply Options button on the right side of the footer (X starts at width - 150, width 120, height 20)
         int applyX = this.width - 30 - 120;
         this.addRenderableWidget(new XenoButton(applyX, this.height - 30, 120, 20, Component.literal("Apply Options"), _ -> this.applyOptions()) {
             @Override
@@ -263,10 +258,12 @@ public class XenoVideoSettingsScreen extends Screen {
         this.currentTabOptions.clear();
 
         if (tabIndex == 0) {
-            // General Tab (Core rendering & UI)
             addCycle(this.options.preferredGraphicsBackend(), "Graphics API",
                     "Chooses the preferred graphics rendering API. Default relies on native platforms; Vulkan offers modern hardware optimizations.",
                     PerformanceImpact.MEDIUM);
+            addCycle(this.options.guiScale(), "GUI Scale",
+                    "Adjusts the size of the user interface.",
+                    PerformanceImpact.LOW);
             addSlider(this.options.renderDistance(), "Render Distance", 2, 32,
                     "Determines how far chunks are rendered around the player. Higher values increase visibility but cost more performance.",
                     PerformanceImpact.MEDIUM);
@@ -293,7 +290,6 @@ public class XenoVideoSettingsScreen extends Screen {
                     PerformanceImpact.LOW);
 
         } else if (tabIndex == 1) {
-            // Quality Tab (Visual fidelity)
             addCycle(this.options.graphicsPreset(), "Graphics",
                     "Controls visual graphics preset. Fast disables extra lighting effects; Fabulous enables advanced layers.",
                     PerformanceImpact.HIGH);
@@ -329,7 +325,6 @@ public class XenoVideoSettingsScreen extends Screen {
                     PerformanceImpact.LOW);
 
         } else if (tabIndex == 2) {
-            // Performance Tab (Optimization)
             addDoubleToggle(this.options.chunkSectionFadeInTime(), "Chunk Fade Time",
                     "Applies smooth fade-in animations to newly loaded chunk sections.",
                     PerformanceImpact.LOW);
@@ -338,7 +333,6 @@ public class XenoVideoSettingsScreen extends Screen {
                     PerformanceImpact.MEDIUM);
 
         } else if (tabIndex == 3) {
-            // Advanced Tab (Deep Engine configs)
             addCycle(this.options.textureFiltering(), "Texture Filtering",
                     "Applies texture sampling methods. RGSS or Anisotropic filtering keep oblique angles sharp.",
                     PerformanceImpact.LOW);
@@ -353,7 +347,6 @@ public class XenoVideoSettingsScreen extends Screen {
         int y = 40 + index * ROW_HEIGHT;
         int current = getOptionValue(option);
 
-        // Safe capping boundaries
         if ("Simulation Distance".equals(name) && current < 5) {
             current = 5;
         }
@@ -404,10 +397,8 @@ public class XenoVideoSettingsScreen extends Screen {
                 int w = this.getWidth();
                 int h = this.getHeight();
 
-                // 2px wide thin translucent white line for track
                 graphics.fill(x, y + h / 2 - 1, x + w, y + h / 2 + 1, 0x40FFFFFF);
 
-                // Slider handle (accent color ARGB: 0xFF8B5CF6)
                 int handleWidth = 4;
                 int handleX = x + (int) (this.getDoubleValue() * (w - handleWidth));
                 graphics.fill(handleX, y, handleX + handleWidth, y + h, 0xFF8B5CF6);
@@ -440,10 +431,8 @@ public class XenoVideoSettingsScreen extends Screen {
                 int w = this.getWidth();
                 int h = this.getHeight();
 
-                // 2px wide thin translucent white line for track
                 graphics.fill(x, y + h / 2 - 1, x + w, y + h / 2 + 1, 0x40FFFFFF);
 
-                // Slider handle (accent color ARGB: 0xFF8B5CF6)
                 int handleWidth = 4;
                 int handleX = x + (int) (this.getDoubleValue() * (w - handleWidth));
                 graphics.fill(handleX, y, handleX + handleWidth, y + h, 0xFF8B5CF6);
@@ -539,18 +528,20 @@ public class XenoVideoSettingsScreen extends Screen {
                 int next = (((Enum<?>) val).ordinal() + 1) % constants.length;
                 nextVal = constants[next];
                 if (nextVal == GraphicsPreset.CUSTOM) {
-                    nextVal = GraphicsPreset.FAST; // Skip CUSTOM
+                    nextVal = GraphicsPreset.FAST;
                 }
             } else if (val instanceof Boolean) {
                 nextVal = !((Boolean) val);
             } else if (val instanceof Integer) {
                 int intVal = (Integer) val;
                 if ("Biome Blend".equals(name)) {
-                    nextVal = (intVal + 1) % 8; // 0 to 7
+                    nextVal = (intVal + 1) % 8;
                 } else if ("Anisotropic Value".equals(name)) {
-                    nextVal = 1 + (intVal % 3); // 1 to 3
+                    nextVal = 1 + (intVal % 3);
                 } else if ("Mipmap".equals(name) || "Mipmap Levels".equals(name)) {
                     nextVal = (intVal + 1) % 5;
+                } else if ("GUI Scale".equals(name)) {
+                    nextVal = intVal >= 4 ? 1 : intVal + 1;
                 } else {
                     nextVal = intVal + 1;
                 }
@@ -622,6 +613,9 @@ public class XenoVideoSettingsScreen extends Screen {
             if ("Mipmap".equals(optionName) || "Mipmap Levels".equals(optionName)) {
                 return Component.literal(val == 0 ? "Off" : val + "x");
             }
+            if ("GUI Scale".equals(optionName)) {
+                return Component.literal(val + "x");
+            }
             return Component.literal(String.valueOf(val));
         }
         return Component.literal(value.toString());
@@ -654,7 +648,6 @@ public class XenoVideoSettingsScreen extends Screen {
     private void applyOptions() {
         boolean restartWantedBefore = this.options.isRestartRequiredToApplyVideoSettings();
 
-        // Check if preferredGraphicsBackend has a pending change
         boolean backendChanged = false;
         if (this.pendingChanges.containsKey(this.options.preferredGraphicsBackend())) {
             Object newVal = this.pendingChanges.get(this.options.preferredGraphicsBackend());
@@ -663,7 +656,6 @@ public class XenoVideoSettingsScreen extends Screen {
             }
         }
 
-        // Apply all pending changes
         for (Map.Entry<OptionInstance<?>, Object> entry : this.pendingChanges.entrySet()) {
             OptionInstance option = entry.getKey();
             Object value = entry.getValue();
@@ -746,16 +738,12 @@ public class XenoVideoSettingsScreen extends Screen {
 
         updateWidgetPositions();
 
-        // 1. Draw smooth dark translucent black screen background (0x99050505)
         graphics.fill(0, 0, this.width, this.height, 0x99050505);
 
-        // 2. Draw Sidebar Panel Background (0xB3020202) from X: 0 to 110
         graphics.fill(0, 0, 110, this.height, 0xB3020202);
 
-        // 3. Draw Title: left-aligned in content panel
         graphics.text(this.font, this.getTitle(), 130, 15, 0xFFFFFFFF);
 
-        // 4. Draw Option Rows
         int visibleMinY = 40;
         int visibleMaxY = this.height - 35;
 
@@ -770,10 +758,8 @@ public class XenoVideoSettingsScreen extends Screen {
                     graphics.fill(130, yPos, this.width - 30, yPos + ROW_HEIGHT - 2, 0x1AFFFFFF);
                 }
 
-                // Option Names: Pure White (0xFFFFFFFF) left-aligned
                 graphics.text(this.font, Component.literal(entry.name()), 140, yPos + (ROW_HEIGHT - 8) / 2, 0xFFFFFFFF);
 
-                // Option Values for Sliders
                 if (entry.widget() instanceof XenoSlider) {
                     Component valMsg = entry.widget().getMessage();
                     int textWidth = this.font.width(valMsg);
@@ -783,10 +769,8 @@ public class XenoVideoSettingsScreen extends Screen {
             }
         }
 
-        // Draw Widgets
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
-        // 5. Draw Tooltip Box after hovering for at least 0.5 seconds (500 ms)
         if (hovered != this.lastHoveredOption) {
             this.lastHoveredOption = hovered;
             if (hovered != null) {
@@ -800,11 +784,10 @@ public class XenoVideoSettingsScreen extends Screen {
             renderTooltip(graphics, mouseX, mouseY, hovered);
         }
 
-        // 6. Draw Elegant Restart Warning Banner at the top of the screen (lasts 5s)
         if (System.currentTimeMillis() < this.warningBannerTime) {
-            graphics.fill(0, 0, this.width, 14, 0xDDDC2626); // warning orange-red
+            graphics.fill(0, 0, this.width, 14, 0xDDDC2626);
             Component msg = Component.translatable("options.restartRequired");
-            graphics.centeredText(this.font, msg, this.width / 2, 3, 0xFFFFFFFF); // Pure White contrasts beautifully
+            graphics.centeredText(this.font, msg, this.width / 2, 3, 0xFFFFFFFF);
         }
     }
 
@@ -839,7 +822,6 @@ public class XenoVideoSettingsScreen extends Screen {
             boxY = mouseY + 12;
         }
 
-        // Tooltip Background: Almost solid black (0xFA000000) with a 1px soft violet border (0xFF8B5CF6)
         graphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFA000000);
         graphics.outline(boxX, boxY, boxWidth, boxHeight, 0xFF8B5CF6);
 
@@ -860,7 +842,6 @@ public class XenoVideoSettingsScreen extends Screen {
         double my = event.y();
 
         if (event.button() == 0) {
-            // Sidebar tab click check (X: 0 to 110, Y: 40 + (index * 24) to + 20)
             if (mx >= 0 && mx <= 110) {
                 for (int i = 0; i < 4; i++) {
                     int minY = 40 + i * 24;
@@ -880,7 +861,6 @@ public class XenoVideoSettingsScreen extends Screen {
             }
         }
 
-        // Scroller bounds click check
         if (this.scroller != null) {
             if (mx >= this.width - 16 && mx <= this.width && my >= 40 && my <= this.height - 35) {
                 if (this.scroller.mouseClicked(event, doubleClick)) {
