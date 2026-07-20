@@ -2,7 +2,7 @@ package com.xeno.client.renderer.sorting;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.xeno.client.renderer.memory.MemoryIntrinsics;
-import com.xeno.client.renderer.memory.XenoMultiArenaAllocator;
+import com.xeno.client.renderer.memory.XGenerationalMultiBufferAllocator;
 import net.minecraft.client.Minecraft;
 import com.xeno.client.XenoClient;
 import com.xeno.client.renderer.util.XenoMeshExtension;
@@ -27,7 +27,7 @@ public final class TranslucentSorter {
             XenoMeshExtension ext,
             long sectionNode,
             BlockPos origin,
-            XenoMultiArenaAllocator.AllocationHandle indexAlloc
+            XGenerationalMultiBufferAllocator.AllocationHandle indexAlloc
     ) {
         float[] centers = ext.xeno$getTranslucentQuadCenters();
         int quadCount = ext.xeno$getTranslucentQuadCount();

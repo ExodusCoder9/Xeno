@@ -2,7 +2,7 @@ package com.xeno.client.renderer.dispatcher;
 
 import com.xeno.client.XenoClient;
 import com.xeno.client.renderer.XenoWorldRenderer;
-import com.xeno.client.renderer.memory.XenoMultiArenaAllocator;
+import com.xeno.client.renderer.memory.XGenerationalMultiBufferAllocator;
 import com.xeno.client.renderer.sorting.TranslucentSorter;
 import com.xeno.client.renderer.util.XenoMeshExtension;
 import com.mojang.blaze3d.vertex.VertexSorting;
@@ -30,8 +30,7 @@ import java.util.function.Consumer;
 
 /**
  * Custom Section Renderer that implements IXenoSectionRenderer.
- * It manages asynchronous mesh uploads and buffer pools using Xeno's allocator systems.
- * Implements a prioritized, rate-limited, and cancelable chunk compilation lifecycle.
+ * Manages asynchronous mesh uploads and buffer pools using XGenerationalMultiBufferAllocator.
  */
 public class XenoSectionRenderer implements IXenoSectionRenderer {
 
@@ -125,8 +124,8 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
     @Override
     public SectionRenderDispatcher.@Nullable RenderSectionBufferSlice getRenderSectionSlice(@NonNull SectionMesh sectionMesh, @NonNull ChunkSectionLayer layer) {
         if (sectionMesh instanceof XenoMeshExtension ext) {
-            XenoMultiArenaAllocator.AllocationHandle vertexAlloc = ext.xeno$getVertexAllocation(layer);
-            XenoMultiArenaAllocator.AllocationHandle indexAlloc = ext.xeno$getIndexAllocation(layer);
+            XGenerationalMultiBufferAllocator.AllocationHandle vertexAlloc = ext.xeno$getVertexAllocation(layer);
+            XGenerationalMultiBufferAllocator.AllocationHandle indexAlloc = ext.xeno$getIndexAllocation(layer);
             if (vertexAlloc != null && vertexAlloc.valid && vertexAlloc.getBuffer() != null) {
                 return new SectionRenderDispatcher.RenderSectionBufferSlice(
                         vertexAlloc.getBuffer(), vertexAlloc.offset,
@@ -187,7 +186,7 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
 
     @Override
     public @NonNull String getStats() {
-        return "Xeno Pipeline Active (Prioritized Executor)";
+        return "Xeno Pipeline Active (XGenerational Multi-Buffer)";
     }
 
     @Override
@@ -298,7 +297,7 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
     public void resortTransparency(SectionRenderDispatcher.RenderSection section) {
         SectionMesh mesh = section.getSectionMesh();
         if (mesh instanceof CompiledSectionMesh compiled && mesh instanceof XenoMeshExtension ext) {
-            XenoMultiArenaAllocator.AllocationHandle indexAlloc = ext.xeno$getIndexAllocation(ChunkSectionLayer.TRANSLUCENT);
+            XGenerationalMultiBufferAllocator.AllocationHandle indexAlloc = ext.xeno$getIndexAllocation(ChunkSectionLayer.TRANSLUCENT);
             TranslucentSorter.resort(compiled, ext, section.getSectionNode(), section.getRenderOrigin(), indexAlloc);
         }
     }

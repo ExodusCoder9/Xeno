@@ -1,16 +1,16 @@
 package com.xeno.client.renderer.memory;
 
 /**
- * Interface defining the API contract for the Incrementally Defragmenting Auto-Sizing Multi-Arena Allocator.
+ * Interface defining the API contract for the Unified Generational Multi-Buffer Allocator.
  */
 public interface IXenoArenaAllocator {
 
     public interface DefragListener {
-        void onAllocationMoved(XenoMultiArenaAllocator.AllocationHandle handle, long oldOffset, long newOffset);
+        void onAllocationMoved(XGenerationalMultiBufferAllocator.AllocationHandle handle, long oldOffset, long newOffset);
     }
 
-    XenoMultiArenaAllocator.AllocationHandle allocate(long size, Object ownerTag);
-    void free(XenoMultiArenaAllocator.AllocationHandle handle);
+    XGenerationalMultiBufferAllocator.AllocationHandle allocate(long size, Object ownerTag);
+    void free(XGenerationalMultiBufferAllocator.AllocationHandle handle);
     int tickIncrementalDefrag(int maxMovesPerFrame);
     void reset();
     void close();

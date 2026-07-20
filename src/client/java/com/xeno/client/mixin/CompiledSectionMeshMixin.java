@@ -1,7 +1,6 @@
 package com.xeno.client.mixin;
 
-import com.xeno.client.renderer.memory.XenoMultiArenaAllocator;
-import com.xeno.client.renderer.memory.IXenoArenaAllocator;
+import com.xeno.client.renderer.memory.XGenerationalMultiBufferAllocator;
 import com.xeno.client.renderer.XenoWorldRenderer;
 import com.xeno.client.renderer.util.XenoMeshExtension;
 import com.xeno.client.renderer.draw.XenoUniformBinder;
@@ -19,13 +18,13 @@ import java.util.EnumMap;
 import java.util.Map;
 
 @Mixin(CompiledSectionMesh.class)
-public abstract class CompiledSectionMeshMixin implements XenoMeshExtension, IXenoArenaAllocator.DefragListener {
+public abstract class CompiledSectionMeshMixin implements XenoMeshExtension {
 
     @Unique
-    private final Map<ChunkSectionLayer, XenoMultiArenaAllocator.AllocationHandle> xenoVertexAllocations = new EnumMap<>(ChunkSectionLayer.class);
+    private final Map<ChunkSectionLayer, XGenerationalMultiBufferAllocator.AllocationHandle> xenoVertexAllocations = new EnumMap<>(ChunkSectionLayer.class);
 
     @Unique
-    private final Map<ChunkSectionLayer, XenoMultiArenaAllocator.AllocationHandle> xenoIndexAllocations = new EnumMap<>(ChunkSectionLayer.class);
+    private final Map<ChunkSectionLayer, XGenerationalMultiBufferAllocator.AllocationHandle> xenoIndexAllocations = new EnumMap<>(ChunkSectionLayer.class);
 
     @Unique
     private final Map<ChunkSectionLayer, RenderPass.Draw<GpuBufferSlice[]>> xenoCachedDraws = new EnumMap<>(ChunkSectionLayer.class);
@@ -40,7 +39,7 @@ public abstract class CompiledSectionMeshMixin implements XenoMeshExtension, IXe
     private int xenoTranslucentQuadCount;
 
     @Override
-    public void xeno$setAllocations(ChunkSectionLayer layer, XenoMultiArenaAllocator.AllocationHandle vertexAlloc, XenoMultiArenaAllocator.AllocationHandle indexAlloc) {
+    public void xeno$setAllocations(ChunkSectionLayer layer, XGenerationalMultiBufferAllocator.AllocationHandle vertexAlloc, XGenerationalMultiBufferAllocator.AllocationHandle indexAlloc) {
         this.xenoVertexAllocations.put(layer, vertexAlloc);
         if (indexAlloc != null) {
             this.xenoIndexAllocations.put(layer, indexAlloc);
@@ -48,12 +47,12 @@ public abstract class CompiledSectionMeshMixin implements XenoMeshExtension, IXe
     }
 
     @Override
-    public XenoMultiArenaAllocator.AllocationHandle xeno$getVertexAllocation(ChunkSectionLayer layer) {
+    public XGenerationalMultiBufferAllocator.AllocationHandle xeno$getVertexAllocation(ChunkSectionLayer layer) {
         return this.xenoVertexAllocations.get(layer);
     }
 
     @Override
-    public XenoMultiArenaAllocator.AllocationHandle xeno$getIndexAllocation(ChunkSectionLayer layer) {
+    public XGenerationalMultiBufferAllocator.AllocationHandle xeno$getIndexAllocation(ChunkSectionLayer layer) {
         return this.xenoIndexAllocations.get(layer);
     }
 
@@ -98,40 +97,6 @@ public abstract class CompiledSectionMeshMixin implements XenoMeshExtension, IXe
     @Override
     public XenoUniformBinder xeno$getUniformBinder(ChunkSectionLayer layer) {
         return this.xenoUniformBinders.get(layer);
-    }
-
-    @Override
-    public void onAllocationMoved(XenoMultiArenaAllocator.AllocationHandle handle, long oldOffset, long newOffset) {
-        for (Map.Entry<ChunkSectionLayer, XenoMultiArenaAllocator.AllocationHandle> entry : this.xenoVertexAllocations.entrySet()) {
-            if (entry.getValue() == handle) {
-                ChunkSectionLayer layer = entry.getKey();
-                RenderPass.Draw<GpuBufferSlice[]> oldDraw = this.xenoCachedDraws.get(layer);
-                if (oldDraw != null) {
-                    int baseVertex = (int) (newOffset / layer.pipeline().getVertexFormatBinding(0).getVertexSize());
-                    RenderPass.Draw<GpuBufferSlice[]> newDraw = new RenderPass.Draw<>(
-                            oldDraw.slot(), handle.getBuffer(), oldDraw.indexBuffer(), oldDraw.indexType(),
-                            oldDraw.firstIndex(), oldDraw.indexCount(), baseVertex, oldDraw.uniformUploaderConsumer()
-                    );
-                    this.xenoCachedDraws.put(layer, newDraw);
-                }
-                return;
-            }
-        }
-        for (Map.Entry<ChunkSectionLayer, XenoMultiArenaAllocator.AllocationHandle> entry : this.xenoIndexAllocations.entrySet()) {
-            if (entry.getValue() == handle) {
-                ChunkSectionLayer layer = entry.getKey();
-                RenderPass.Draw<GpuBufferSlice[]> oldDraw = this.xenoCachedDraws.get(layer);
-                if (oldDraw != null && oldDraw.indexType() != null) {
-                    int firstIndex = (int) (newOffset / oldDraw.indexType().bytes);
-                    RenderPass.Draw<GpuBufferSlice[]> newDraw = new RenderPass.Draw<>(
-                            oldDraw.slot(), oldDraw.vertexBuffer(), handle.getBuffer(), oldDraw.indexType(),
-                            firstIndex, oldDraw.indexCount(), oldDraw.baseVertex(), oldDraw.uniformUploaderConsumer()
-                    );
-                    this.xenoCachedDraws.put(layer, newDraw);
-                }
-                return;
-            }
-        }
     }
 
     @Inject(method = "close", at = @At("RETURN"))
