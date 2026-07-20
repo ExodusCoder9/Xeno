@@ -1,4 +1,4 @@
-package com.xeno.client.renderer;
+package com.xeno.client.renderer.memory;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.systems.RenderSystem;

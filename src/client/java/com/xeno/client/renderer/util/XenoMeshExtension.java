@@ -1,6 +1,6 @@
 package com.xeno.client.renderer.util;
 
-import com.xeno.client.renderer.XenoBufferPool;
+import com.xeno.client.renderer.memory.XenoBufferPool;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 
 public interface XenoMeshExtension {

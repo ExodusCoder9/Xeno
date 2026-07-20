@@ -1,5 +1,6 @@
 package com.xeno.client.renderer;
 
+import com.xeno.client.renderer.memory.XenoBufferPool;
 import com.xeno.client.renderer.util.XenoMeshExtension;
 import net.minecraft.TracingExecutor;
 import net.minecraft.client.renderer.RenderBuffers;
@@ -15,7 +16,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 
-public class XenoSectionRenderDispatcher extends SectionRenderDispatcher {
+public class XenoSectionRenderDispatcher extends SectionRenderDispatcher  {
     
     public static class UploadTask {
         public final RenderSection section;

@@ -1,4 +1,4 @@
-package com.xeno.client.renderer;
+package com.xeno.client.renderer.memory;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

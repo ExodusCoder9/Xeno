@@ -1,6 +1,6 @@
 package com.xeno.client.mixin;
 
-import com.xeno.client.renderer.XenoBufferPool;
+import com.xeno.client.renderer.memory.XenoBufferPool;
 import com.xeno.client.renderer.XenoWorldRenderer;
 import com.xeno.client.renderer.util.XenoMeshExtension;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;

@@ -1,6 +1,8 @@
-package com.xeno.client.renderer;
+package com.xeno.client.renderer.sorting;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.xeno.client.renderer.memory.MemoryIntrinsics;
+import com.xeno.client.renderer.memory.XenoBufferPool;
 import net.minecraft.client.Minecraft;
 import com.xeno.client.XenoClient;
 import com.xeno.client.renderer.util.XenoMeshExtension;
