@@ -1,16 +1,12 @@
 package com.xeno.client.mixin;
 
-import com.xeno.client.XenoClient;
-import com.xeno.client.renderer.culling.CullingOutput;
-import com.xeno.client.renderer.culling.CullingRequest;
-import com.xeno.client.renderer.culling.CullingThread;
-import com.xeno.client.renderer.culling.XenoVisibility;
+import com.xeno.client.renderer.culling.IXenoCullingManager;
+import com.xeno.client.renderer.culling.XenoCullingManager;
+import com.xeno.client.renderer.culling.XenoCullingManagerProvider;
 import it.unimi.dsi.fastutil.longs.LongCollection;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSets;
-import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.RotatingSectionStorage;
 import net.minecraft.client.renderer.Octree;
 import net.minecraft.client.renderer.SectionOcclusionGraph;
 import net.minecraft.client.renderer.ViewArea;
@@ -18,11 +14,7 @@ import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.ChunkLoadingRenderState;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
 import net.minecraft.util.VisibleForDebug;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,7 +26,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(SectionOcclusionGraph.class)
-public class SectionOcclusionGraphMixin {
+public class SectionOcclusionGraphMixin implements XenoCullingManagerProvider {
     @Shadow @Final
     private LongOpenHashSet emptySections;
 
@@ -42,41 +34,24 @@ public class SectionOcclusionGraphMixin {
     private LongOpenHashSet loadedChunks;
 
     @Unique
-    private CullingThread xenoCullingThread;
-
-    @Unique
-    private ViewArea xenoViewArea;
-
-    @Unique
-    private final List<SectionRenderDispatcher.RenderSection> xenoPendingPropagations = new ArrayList<>();
-
-    @Unique
-    private final CullingRequest[] xenoRequests = new CullingRequest[] { new CullingRequest(), new CullingRequest() };
-
-    @Unique
-    private int xenoWriteIndex = 0;
-
-    @Unique
-    private boolean xenoQueuedUpdateAfterReset;
+    private IXenoCullingManager xeno$cullingManager;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void xenoOnInit(CallbackInfo ci) {
-        this.xenoCullingThread = new CullingThread();
-        this.xenoCullingThread.start();
-        XenoClient.setCullingThread(this.xenoCullingThread);
+        this.xeno$cullingManager = new XenoCullingManager();
+    }
+
+    @Override
+    public IXenoCullingManager xeno$getCullingManager() {
+        return this.xeno$cullingManager;
     }
 
     @Inject(method = "waitAndReset", at = @At("HEAD"), cancellable = true)
     private void xenoWaitAndReset(@Nullable ViewArea viewArea, CallbackInfo ci) {
         ci.cancel();
-        this.xenoViewArea = viewArea;
-        XenoClient.setViewArea(viewArea);
-        this.xenoPendingPropagations.clear();
-        if (this.xenoCullingThread != null) {
-            this.xenoCullingThread.reset();
+        if (this.xeno$cullingManager != null) {
+            this.xeno$cullingManager.waitAndReset(viewArea);
         }
-        XenoVisibility.invalidate();
-        this.xenoQueuedUpdateAfterReset = true;
     }
 
     @Inject(method = "expectedChunks", at = @At("HEAD"), cancellable = true)
@@ -87,8 +62,8 @@ public class SectionOcclusionGraphMixin {
     @Inject(method = "invalidate", at = @At("HEAD"), cancellable = true)
     private void xenoInvalidate(CallbackInfo ci) {
         ci.cancel();
-        if (this.xenoCullingThread != null) {
-            this.xenoCullingThread.invalidate();
+        if (this.xeno$cullingManager != null) {
+            this.xeno$cullingManager.invalidate();
         }
     }
 
@@ -105,41 +80,17 @@ public class SectionOcclusionGraphMixin {
             CallbackInfo ci
     ) {
         ci.cancel();
-        if (this.xenoCullingThread == null) return;
-
-        CullingOutput output = this.xenoCullingThread.getLatestOutput();
-        if (output == null) return;
-
-        XenoVisibility.publish(output.sectionVisibility(), output.opaqueSections());
-
-        List<SectionRenderDispatcher.RenderSection> occlusionVisible = output.occlusionVisible();
-        Vec3 camPos = output.cameraPos();
-        BlockPos cameraCenter = SectionPos.of(camPos).center();
-
-        for (SectionRenderDispatcher.RenderSection section : occlusionVisible) {
-            AABB bb = section.getBoundingBox();
-
-            if (frustum.isVisible(bb)) {
-                visibleSections.add(section);
-
-                if (cameraCenter.getX() > bb.minX - 32
-                        && cameraCenter.getX() < bb.maxX + 32
-                        && cameraCenter.getY() > bb.minY - 32
-                        && cameraCenter.getY() < bb.maxY + 32
-                        && cameraCenter.getZ() > bb.minZ - 32
-                        && cameraCenter.getZ() < bb.maxZ + 32) {
-                    nearbyVisibleSections.add(section);
-                }
-            }
+        if (this.xeno$cullingManager != null) {
+            this.xeno$cullingManager.addSectionsInFrustum(frustum, visibleSections, nearbyVisibleSections);
         }
     }
 
     @Inject(method = "consumeFrustumUpdate", at = @At("HEAD"), cancellable = true)
     private void xenoConsumeFrustumUpdate(CallbackInfoReturnable<Boolean> cir) {
-        if (this.xenoCullingThread == null) {
+        if (this.xeno$cullingManager == null) {
             cir.setReturnValue(false);
         } else {
-            cir.setReturnValue(this.xenoCullingThread.consumeFrustumUpdate());
+            cir.setReturnValue(this.xeno$cullingManager.consumeFrustumUpdate());
         }
     }
 
@@ -149,114 +100,30 @@ public class SectionOcclusionGraphMixin {
             CallbackInfo ci
     ) {
         ci.cancel();
-        this.xenoPendingPropagations.add(section);
+        if (this.xeno$cullingManager != null) {
+            this.xeno$cullingManager.schedulePropagationFrom(section);
+        }
     }
 
     @Inject(method = "update", at = @At("HEAD"), cancellable = true)
     private void xenoUpdate(
             CameraRenderState camera,
             int fov,
-            ChunkLoadingRenderState chunkLoadingRenderState,
+            ChunkLoadingRenderState chunkLoading,
             CallbackInfo ci
     ) {
         ci.cancel();
-        if (this.xenoCullingThread == null || this.xenoViewArea == null) return;
-
-        XenoClient.setCameraState(camera.yRot, camera.xRot, camera.pos);
-
-        this.xenoUpdateLoadedChunks(chunkLoadingRenderState.addedLoadedChunks, chunkLoadingRenderState.removedLoadedChunks);
-        this.xenoUpdateEmptySections(chunkLoadingRenderState.addedEmptySections, chunkLoadingRenderState.removedEmptySections);
-
-        if (this.xenoCullingThread.isProcessing()) {
-            return;
+        if (this.xeno$cullingManager != null) {
+            this.xeno$cullingManager.update(camera, fov, chunkLoading, this.emptySections, this.loadedChunks);
         }
-
-        if (!camera.isFrustumCaptured) {
-            CullingRequest request = this.xenoRequests[this.xenoWriteIndex];
-
-            request.cameraBlockPos = camera.blockPos;
-            request.cameraPos = camera.pos;
-            request.smartCull = camera.smartCull;
-            request.frustum = camera.cullFrustum;
-            request.fov = fov;
-            request.cameraYaw = camera.yRot;
-            request.cameraPitch = camera.xRot;
-            request.viewArea = this.xenoViewArea;
-
-            RotatingSectionStorage<SectionRenderDispatcher.RenderSection> storage =
-                    ((ViewAreaAccessor) this.xenoViewArea).getSections();
-
-            int minY = this.xenoViewArea.minSectionY();
-            int maxY = this.xenoViewArea.maxSectionY();
-            int viewDistance = this.xenoViewArea.getViewDistance();
-            int sizeY = maxY - minY + 1;
-            int sizeXZ = viewDistance * 2 + 1;
-            int totalSections = sizeXZ * sizeY * sizeXZ;
-
-            if (request.sectionArray.length != totalSections) {
-                request.sectionArray = new SectionRenderDispatcher.RenderSection[totalSections];
-            } else {
-                java.util.Arrays.fill(request.sectionArray, null);
-            }
-
-            for (SectionRenderDispatcher.RenderSection section : storage) {
-                if (section != null) {
-                    request.sectionArray[section.index] = section;
-                }
-            }
-
-            request.minY = minY;
-            request.maxY = maxY;
-            request.sizeY = sizeY;
-            request.sizeXZ = sizeXZ;
-            request.viewDistance = viewDistance;
-
-            request.emptySections.clear();
-            request.emptySections.addAll(this.emptySections);
-
-            request.loadedChunks.clear();
-            request.loadedChunks.addAll(this.loadedChunks);
-
-            request.propagations.clear();
-            request.propagations.addAll(this.xenoPendingPropagations);
-            this.xenoPendingPropagations.clear();
-
-            request.cancelled = false;
-            this.xenoCullingThread.submitRequest(request);
-            this.xenoWriteIndex = (this.xenoWriteIndex + 1) % 2;
-            this.xenoQueuedUpdateAfterReset = false;
-        }
-    }
-
-    @Unique
-    private void xenoUpdateEmptySections(LongOpenHashSet added, LongOpenHashSet removed) {
-        this.emptySections.addAll(added);
-        var iter = removed.longIterator();
-        while (iter.hasNext()) {
-            long sectionNode = iter.nextLong();
-            if (this.emptySections.remove(sectionNode)) {
-                SectionRenderDispatcher.RenderSection section =
-                        ((ViewAreaAccessor) this.xenoViewArea).invokeGetRenderSection(sectionNode);
-                if (section != null) {
-                    this.xenoPendingPropagations.add(section);
-                    section.setWasPreviouslyEmpty(true);
-                }
-            }
-        }
-    }
-
-    @Unique
-    private void xenoUpdateLoadedChunks(LongOpenHashSet added, LongOpenHashSet removed) {
-        this.loadedChunks.addAll(added);
-        this.loadedChunks.removeAll(removed);
     }
 
     @Inject(method = "getOctree", at = @At("HEAD"), cancellable = true)
     private void xenoGetOctree(CallbackInfoReturnable<@Nullable Octree> cir) {
-        if (this.xenoCullingThread == null) {
+        if (this.xeno$cullingManager == null) {
             cir.setReturnValue(null);
         } else {
-            cir.setReturnValue(this.xenoCullingThread.getOctree());
+            cir.setReturnValue(this.xeno$cullingManager.getOctree());
         }
     }
 
