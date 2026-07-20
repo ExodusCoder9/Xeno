@@ -2,7 +2,7 @@ package com.xeno.client.renderer.sorting;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.xeno.client.renderer.memory.MemoryIntrinsics;
-import com.xeno.client.renderer.memory.XenoBufferPool;
+import com.xeno.client.renderer.memory.XenoMultiArenaAllocator;
 import net.minecraft.client.Minecraft;
 import com.xeno.client.XenoClient;
 import com.xeno.client.renderer.util.XenoMeshExtension;
@@ -27,12 +27,12 @@ public final class TranslucentSorter {
             XenoMeshExtension ext,
             long sectionNode,
             BlockPos origin,
-            XenoBufferPool.Allocation indexAlloc
+            XenoMultiArenaAllocator.AllocationHandle indexAlloc
     ) {
         float[] centers = ext.xeno$getTranslucentQuadCenters();
         int quadCount = ext.xeno$getTranslucentQuadCount();
 
-        if (centers != null && quadCount > 0 && indexAlloc != null) {
+        if (centers != null && quadCount > 0 && indexAlloc != null && indexAlloc.valid) {
             CompletableFuture.runAsync(() -> {
                 Vec3 cameraPos = XenoClient.getCameraPos();
                 double cx = cameraPos != null ? cameraPos.x - origin.getX() : 0;
@@ -73,12 +73,14 @@ public final class TranslucentSorter {
                 indexBuf.flip();
 
                 Minecraft.getInstance().execute(() -> {
-                    try (GpuBufferSlice.MappedView view = indexAlloc.buffer.map(indexAlloc.offset, (long) quadCount * 6 * 2, false, true)) {
-                        MemoryIntrinsics.copy(indexBuf, view.data(), (long) quadCount * 6 * 2);
-                    }
+                    if (indexAlloc.getBuffer() != null && !indexAlloc.getBuffer().isClosed()) {
+                        try (GpuBufferSlice.MappedView view = indexAlloc.getBuffer().map(indexAlloc.offset, (long) quadCount * 6 * 2, false, true)) {
+                            MemoryIntrinsics.copy(indexBuf, view.data(), (long) quadCount * 6 * 2);
+                        }
 
-                    TranslucencyPointOfView pointOfView = TranslucencyPointOfView.of(cameraPos != null ? cameraPos : Vec3.ZERO, sectionNode);
-                    compiled.setTranslucencyPointOfView(pointOfView);
+                        TranslucencyPointOfView pointOfView = TranslucencyPointOfView.of(cameraPos != null ? cameraPos : Vec3.ZERO, sectionNode);
+                        compiled.setTranslucencyPointOfView(pointOfView);
+                    }
                 });
             }, Util.backgroundExecutor());
         }

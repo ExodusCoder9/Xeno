@@ -2,7 +2,7 @@ package com.xeno.client.renderer.dispatcher;
 
 import com.xeno.client.XenoClient;
 import com.xeno.client.renderer.XenoWorldRenderer;
-import com.xeno.client.renderer.memory.XenoBufferPool;
+import com.xeno.client.renderer.memory.XenoMultiArenaAllocator;
 import com.xeno.client.renderer.sorting.TranslucentSorter;
 import com.xeno.client.renderer.util.XenoMeshExtension;
 import com.mojang.blaze3d.vertex.VertexSorting;
@@ -125,12 +125,13 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
     @Override
     public SectionRenderDispatcher.@Nullable RenderSectionBufferSlice getRenderSectionSlice(@NonNull SectionMesh sectionMesh, @NonNull ChunkSectionLayer layer) {
         if (sectionMesh instanceof XenoMeshExtension ext) {
-            XenoBufferPool.Allocation vertexAlloc = ext.xeno$getVertexAllocation(layer);
-            XenoBufferPool.Allocation indexAlloc = ext.xeno$getIndexAllocation(layer);
-            if (vertexAlloc != null) {
+            XenoMultiArenaAllocator.AllocationHandle vertexAlloc = ext.xeno$getVertexAllocation(layer);
+            XenoMultiArenaAllocator.AllocationHandle indexAlloc = ext.xeno$getIndexAllocation(layer);
+            if (vertexAlloc != null && vertexAlloc.valid && vertexAlloc.getBuffer() != null) {
                 return new SectionRenderDispatcher.RenderSectionBufferSlice(
-                        vertexAlloc.buffer, vertexAlloc.offset,
-                        indexAlloc != null ? indexAlloc.buffer : null, indexAlloc != null ? indexAlloc.offset : 0L
+                        vertexAlloc.getBuffer(), vertexAlloc.offset,
+                        (indexAlloc != null && indexAlloc.valid) ? indexAlloc.getBuffer() : null,
+                        (indexAlloc != null && indexAlloc.valid) ? indexAlloc.offset : 0L
                 );
             }
         }
@@ -255,7 +256,7 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
             // Silently absorb exceptions during reload
         } finally {
             if (results != null) {
-                // If compiling on the main thread, upload immediately to bypass the queue
+                // If compiling on the main thread, upload immediately to bypass the queue (fixes block breaking delay)
                 if (Minecraft.getInstance().isSameThread()) {
                     XenoWorldRenderer.uploadToGpu(section, results);
                     if (this.onSectionMeshUpdate != null) {
@@ -297,7 +298,7 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
     public void resortTransparency(SectionRenderDispatcher.RenderSection section) {
         SectionMesh mesh = section.getSectionMesh();
         if (mesh instanceof CompiledSectionMesh compiled && mesh instanceof XenoMeshExtension ext) {
-            XenoBufferPool.Allocation indexAlloc = ext.xeno$getIndexAllocation(ChunkSectionLayer.TRANSLUCENT);
+            XenoMultiArenaAllocator.AllocationHandle indexAlloc = ext.xeno$getIndexAllocation(ChunkSectionLayer.TRANSLUCENT);
             TranslucentSorter.resort(compiled, ext, section.getSectionNode(), section.getRenderOrigin(), indexAlloc);
         }
     }

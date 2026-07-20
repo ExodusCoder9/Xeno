@@ -55,6 +55,16 @@ public class XenoMultiArenaAllocator implements IXenoArenaAllocator {
         return arena;
     }
 
+    public synchronized boolean containsBuffer(GpuBuffer buffer) {
+        if (buffer == null) return false;
+        for (XenoDefragArena arena : this.arenas) {
+            if (arena.buffer == buffer) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public synchronized AllocationHandle allocate(long size, Object ownerTag) {
         long alignedSize = (size + 15) & ~15;

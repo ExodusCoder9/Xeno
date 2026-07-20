@@ -6,7 +6,7 @@ import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.logging.LogUtils;
 import com.xeno.client.XenoClient;
 import com.xeno.client.renderer.memory.MemoryIntrinsics;
-import com.xeno.client.renderer.memory.XenoBufferPool;
+import com.xeno.client.renderer.memory.XenoMultiArenaAllocator;
 import com.xeno.client.renderer.util.XenoMeshExtension;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
@@ -26,17 +26,17 @@ public final class XenoWorldRenderer {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static @Nullable XenoWorldRenderer instance;
 
-    private static XenoBufferPool vertexBufferPool;
-    private static XenoBufferPool indexBufferPool;
+    private static XenoMultiArenaAllocator vertexBufferPool;
+    private static XenoMultiArenaAllocator indexBufferPool;
 
     private static int currentFrame = 0;
 
     private static class DeferredFree {
-        public final XenoBufferPool.Allocation alloc;
+        public final XenoMultiArenaAllocator.AllocationHandle alloc;
         public final int frameNumber;
         public final boolean isIndex;
 
-        public DeferredFree(XenoBufferPool.Allocation alloc, int frameNumber, boolean isIndex) {
+        public DeferredFree(XenoMultiArenaAllocator.AllocationHandle alloc, int frameNumber, boolean isIndex) {
             this.alloc = alloc;
             this.frameNumber = frameNumber;
             this.isIndex = isIndex;
@@ -66,17 +66,17 @@ public final class XenoWorldRenderer {
 
     public static void initPools() {
         if (vertexBufferPool == null) {
-            // Allocate 128MB Vertex Buffer Pool
-            vertexBufferPool = new XenoBufferPool(
-                    "XenoVertexPool",
+            // Allocate Auto-Sizing Vertex Multi-Arena Pool
+            vertexBufferPool = new XenoMultiArenaAllocator(
+                    "XenoVertexArena",
                     GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE,
                     128 * 1024 * 1024L
             );
         }
         if (indexBufferPool == null) {
-            // Allocate 32MB Index Buffer Pool
-            indexBufferPool = new XenoBufferPool(
-                    "XenoIndexPool",
+            // Allocate Auto-Sizing Index Multi-Arena Pool
+            indexBufferPool = new XenoMultiArenaAllocator(
+                    "XenoIndexArena",
                     GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_MAP_WRITE,
                     32 * 1024 * 1024L
             );
@@ -97,6 +97,10 @@ public final class XenoWorldRenderer {
 
     public static synchronized void tickFrame() {
         currentFrame++;
+
+        // Run background incremental defragmentation (1-2 moves per frame)
+        if (vertexBufferPool != null) vertexBufferPool.tickIncrementalDefrag(2);
+        if (indexBufferPool != null) indexBufferPool.tickIncrementalDefrag(2);
 
         // Process allocations that have been abandoned for at least 3 frames
         DeferredFree df;
@@ -123,15 +127,15 @@ public final class XenoWorldRenderer {
     }
 
     public static void freeAllocations(
-            Map<ChunkSectionLayer, XenoBufferPool.Allocation> vertexAllocations,
-            Map<ChunkSectionLayer, XenoBufferPool.Allocation> indexAllocations
+            Map<ChunkSectionLayer, XenoMultiArenaAllocator.AllocationHandle> vertexAllocations,
+            Map<ChunkSectionLayer, XenoMultiArenaAllocator.AllocationHandle> indexAllocations
     ) {
-        for (XenoBufferPool.Allocation alloc : vertexAllocations.values()) {
+        for (XenoMultiArenaAllocator.AllocationHandle alloc : vertexAllocations.values()) {
             deferredFrees.add(new DeferredFree(alloc, currentFrame, false));
         }
         vertexAllocations.clear();
 
-        for (XenoBufferPool.Allocation alloc : indexAllocations.values()) {
+        for (XenoMultiArenaAllocator.AllocationHandle alloc : indexAllocations.values()) {
             deferredFrees.add(new DeferredFree(alloc, currentFrame, true));
         }
         indexAllocations.clear();
@@ -203,16 +207,16 @@ public final class XenoWorldRenderer {
                 int vertexSize = vertexBuf.remaining();
                 int indexSize = indexBuf != null ? indexBuf.remaining() : 0;
 
-                XenoBufferPool.Allocation vertexAlloc = vertexBufferPool.allocate(vertexSize);
-                XenoBufferPool.Allocation indexAlloc = null;
+                XenoMultiArenaAllocator.AllocationHandle vertexAlloc = vertexBufferPool.allocate(vertexSize, compiled);
+                XenoMultiArenaAllocator.AllocationHandle indexAlloc = null;
 
-                try (GpuBufferSlice.MappedView view = vertexAlloc.buffer.map(vertexAlloc.offset, vertexSize, false, true)) {
+                try (GpuBufferSlice.MappedView view = vertexAlloc.getBuffer().map(vertexAlloc.offset, vertexSize, false, true)) {
                     MemoryIntrinsics.copy(vertexBuf, view.data(), vertexSize);
                 }
 
                 if (indexSize > 0 && indexBuf != null) {
-                    indexAlloc = indexBufferPool.allocate(indexSize);
-                    try (GpuBufferSlice.MappedView view = indexAlloc.buffer.map(indexAlloc.offset, indexSize, false, true)) {
+                    indexAlloc = indexBufferPool.allocate(indexSize, compiled);
+                    try (GpuBufferSlice.MappedView view = indexAlloc.getBuffer().map(indexAlloc.offset, indexSize, false, true)) {
                         MemoryIntrinsics.copy(indexBuf, view.data(), indexSize);
                     }
                 }
@@ -228,13 +232,13 @@ public final class XenoWorldRenderer {
                 com.mojang.blaze3d.IndexType indexType = null;
                 int firstIndex = 0;
                 if (indexAlloc != null) {
-                    indexBuffer = indexAlloc.buffer;
+                    indexBuffer = indexAlloc.getBuffer();
                     indexType = sectionDraw.indexType();
                     firstIndex = (int)(indexAlloc.offset / indexType.bytes);
                 }
                 
                 com.mojang.blaze3d.systems.RenderPass.Draw<GpuBufferSlice[]> cachedDraw = new com.mojang.blaze3d.systems.RenderPass.Draw<>(
-                    0, vertexAlloc.buffer, indexBuffer, indexType, firstIndex, indexCount, baseVertex, binder
+                    0, vertexAlloc.getBuffer(), indexBuffer, indexType, firstIndex, indexCount, baseVertex, binder
                 );
                 
                 ((XenoMeshExtension) compiled).xeno$setCachedDraw(layer, cachedDraw);
