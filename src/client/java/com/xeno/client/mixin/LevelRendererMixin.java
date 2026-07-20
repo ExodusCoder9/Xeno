@@ -1,6 +1,11 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.renderer.XenoWorldRenderer;
+import com.xeno.client.renderer.draw.IXenoDrawListManager;
+import com.xeno.client.renderer.draw.XenoDrawListManager;
+import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import net.minecraft.client.renderer.texture.TextureManager;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.xeno.client.renderer.util.XenoViewArea;
 import com.xeno.client.renderer.util.XenoRendererExtension;
@@ -53,6 +58,21 @@ public abstract class LevelRendererMixin implements XenoRendererExtension {
     @Shadow @Final private LevelTargetBundle targets;
     @Shadow private @org.jspecify.annotations.Nullable ViewArea viewArea;
     @Shadow private @org.jspecify.annotations.Nullable SectionRenderDispatcher sectionRenderDispatcher;
+    @Shadow @Final private it.unimi.dsi.fastutil.objects.ObjectArrayList<SectionRenderDispatcher.RenderSection> visibleSections;
+    @Shadow @Final private TextureManager textureManager;
+
+    @Unique
+    private final IXenoDrawListManager xeno$drawListManager = new XenoDrawListManager();
+
+    @Inject(method = "prepareChunkRenders", at = @At("HEAD"), cancellable = true)
+    private void xenoPrepareChunkRenders(org.joml.Matrix4fc modelViewMatrix, CallbackInfoReturnable<ChunkSectionsToRender> cir) {
+        cir.setReturnValue(this.xeno$drawListManager.prepareChunkRenders(
+                this.visibleSections,
+                this.sectionRenderDispatcher,
+                this.textureManager,
+                modelViewMatrix
+        ));
+    }
 
     @Shadow
     public abstract void clearVisibleSections();

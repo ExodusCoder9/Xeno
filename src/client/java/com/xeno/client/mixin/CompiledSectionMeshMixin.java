@@ -3,6 +3,9 @@ package com.xeno.client.mixin;
 import com.xeno.client.renderer.memory.XenoBufferPool;
 import com.xeno.client.renderer.XenoWorldRenderer;
 import com.xeno.client.renderer.util.XenoMeshExtension;
+import com.xeno.client.renderer.draw.XenoUniformBinder;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.systems.RenderPass;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,6 +25,12 @@ public abstract class CompiledSectionMeshMixin implements XenoMeshExtension {
 
     @Unique
     private final Map<ChunkSectionLayer, XenoBufferPool.Allocation> xenoIndexAllocations = new EnumMap<>(ChunkSectionLayer.class);
+
+    @Unique
+    private final Map<ChunkSectionLayer, RenderPass.Draw<GpuBufferSlice[]>> xenoCachedDraws = new EnumMap<>(ChunkSectionLayer.class);
+
+    @Unique
+    private final Map<ChunkSectionLayer, XenoUniformBinder> xenoUniformBinders = new EnumMap<>(ChunkSectionLayer.class);
 
     @Unique
     private float[] xenoTranslucentQuadCenters;
@@ -50,6 +59,8 @@ public abstract class CompiledSectionMeshMixin implements XenoMeshExtension {
     @Override
     public void xeno$clearBuffers() {
         XenoWorldRenderer.freeAllocations(this.xenoVertexAllocations, this.xenoIndexAllocations);
+        this.xenoCachedDraws.clear();
+        this.xenoUniformBinders.clear();
     }
 
     @Override
@@ -66,6 +77,26 @@ public abstract class CompiledSectionMeshMixin implements XenoMeshExtension {
     @Override
     public int xeno$getTranslucentQuadCount() {
         return this.xenoTranslucentQuadCount;
+    }
+
+    @Override
+    public void xeno$setCachedDraw(ChunkSectionLayer layer, RenderPass.Draw<GpuBufferSlice[]> draw) {
+        this.xenoCachedDraws.put(layer, draw);
+    }
+
+    @Override
+    public RenderPass.Draw<GpuBufferSlice[]> xeno$getCachedDraw(ChunkSectionLayer layer) {
+        return this.xenoCachedDraws.get(layer);
+    }
+
+    @Override
+    public void xeno$setUniformBinder(ChunkSectionLayer layer, XenoUniformBinder binder) {
+        this.xenoUniformBinders.put(layer, binder);
+    }
+
+    @Override
+    public XenoUniformBinder xeno$getUniformBinder(ChunkSectionLayer layer) {
+        return this.xenoUniformBinders.get(layer);
     }
 
     @Inject(method = "close", at = @At("RETURN"))

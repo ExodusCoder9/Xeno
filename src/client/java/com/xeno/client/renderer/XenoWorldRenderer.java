@@ -219,6 +219,27 @@ public final class XenoWorldRenderer {
 
                 ((XenoMeshExtension) compiled).xeno$setAllocations(layer, vertexAlloc, indexAlloc);
 
+                com.xeno.client.renderer.draw.XenoUniformBinder binder = new com.xeno.client.renderer.draw.XenoUniformBinder();
+                int baseVertex = (int)(vertexAlloc.offset / layer.pipeline().getVertexFormatBinding(0).getVertexSize());
+                net.minecraft.client.renderer.chunk.SectionMesh.SectionDraw sectionDraw = compiled.getSectionDraw(layer);
+                int indexCount = sectionDraw.indexCount();
+                
+                GpuBuffer indexBuffer = null;
+                com.mojang.blaze3d.IndexType indexType = null;
+                int firstIndex = 0;
+                if (indexAlloc != null) {
+                    indexBuffer = indexAlloc.buffer;
+                    indexType = sectionDraw.indexType();
+                    firstIndex = (int)(indexAlloc.offset / indexType.bytes);
+                }
+                
+                com.mojang.blaze3d.systems.RenderPass.Draw<GpuBufferSlice[]> cachedDraw = new com.mojang.blaze3d.systems.RenderPass.Draw<>(
+                    0, vertexAlloc.buffer, indexBuffer, indexType, firstIndex, indexCount, baseVertex, binder
+                );
+                
+                ((XenoMeshExtension) compiled).xeno$setCachedDraw(layer, cachedDraw);
+                ((XenoMeshExtension) compiled).xeno$setUniformBinder(layer, binder);
+
                 if (layer == ChunkSectionLayer.TRANSLUCENT) {
                     quadCount = vertexSize / (4 * 28);
                     quadCenters = new float[quadCount * 3];
