@@ -15,19 +15,22 @@ import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
-import net.minecraft.util.Util;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.function.Consumer;
 
 /**
  * Custom Section Renderer that implements IXenoSectionRenderer.
  * It manages asynchronous mesh uploads and buffer pools using Xeno's allocator systems.
+ * Implements a prioritized, rate-limited, and cancelable chunk compilation lifecycle.
  */
 public class XenoSectionRenderer implements IXenoSectionRenderer {
 
@@ -43,14 +46,68 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
         }
     }
 
+    public static class CompileTask implements Comparable<CompileTask> {
+        public final SectionRenderDispatcher.RenderSection section;
+        public final RenderSectionRegion region;
+        public final double distanceSq;
+        public final long version;
+
+        public CompileTask(SectionRenderDispatcher.RenderSection section, RenderSectionRegion region, double distanceSq, long version) {
+            this.section = section;
+            this.region = region;
+            this.distanceSq = distanceSq;
+            this.version = version;
+        }
+
+        @Override
+        public int compareTo(CompileTask o) {
+            return Double.compare(this.distanceSq, o.distanceSq);
+        }
+    }
+
     private final Queue<UploadTask> uploadQueue = new ConcurrentLinkedQueue<>();
     private final Queue<SectionBufferBuilderPack> packPool = new ConcurrentLinkedQueue<>();
+    private final PriorityBlockingQueue<CompileTask> compileQueue = new PriorityBlockingQueue<>();
+    private final ConcurrentHashMap<Long, Long> taskVersions = new ConcurrentHashMap<>();
+    private final List<Thread> workerThreads = new ArrayList<>();
     private final Consumer<SectionRenderDispatcher.RenderSection> onSectionMeshUpdate;
     private SectionCompiler compiler;
+    private volatile boolean disposed = false;
 
     public XenoSectionRenderer(SectionCompiler compiler, Consumer<SectionRenderDispatcher.RenderSection> onSectionMeshUpdate) {
         this.compiler = compiler;
         this.onSectionMeshUpdate = onSectionMeshUpdate;
+
+        int coreCount = Math.max(1, Runtime.getRuntime().availableProcessors() - 2);
+        for (int i = 0; i < coreCount; i++) {
+            Thread thread = new Thread(this::workerLoop, "Xeno-ChunkCompiler-" + i);
+            thread.setDaemon(true);
+            thread.setPriority(Thread.NORM_PRIORITY - 1);
+            thread.start();
+            this.workerThreads.add(thread);
+        }
+    }
+
+    private void workerLoop() {
+        while (!this.disposed && !Thread.currentThread().isInterrupted()) {
+            try {
+                CompileTask task = this.compileQueue.take();
+                long sectionNode = task.section.getSectionNode();
+                Long latestVersion = this.taskVersions.get(sectionNode);
+
+                // If version is outdated or task region is invalid, skip execution to save CPU cycles
+                if (latestVersion == null || latestVersion != task.version) {
+                    continue;
+                }
+
+                this.compileSectionSync(task.section, task.region);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception e) {
+                // Safely absorb worker errors to maintain thread stability
+            }
+        }
     }
 
     @Override
@@ -83,27 +140,37 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
         XenoWorldRenderer.tickFrame();
 
         UploadTask task;
-        while ((task = this.uploadQueue.poll()) != null) {
+        int uploadsThisFrame = 0;
+        int maxUploadsPerFrame = 8; // limit GPU uploads per frame to prevent stutters
+
+        while (uploadsThisFrame < maxUploadsPerFrame && (task = this.uploadQueue.poll()) != null) {
             XenoWorldRenderer.uploadToGpu(task.section, task.results);
             if (this.onSectionMeshUpdate != null) {
                 this.onSectionMeshUpdate.accept(task.section);
             }
             this.releasePack(task.builders);
+            uploadsThisFrame++;
         }
     }
 
     @Override
     public void clearCompileQueue() {
         this.uploadQueue.clear();
+        this.compileQueue.clear();
+        this.taskVersions.clear();
     }
 
     @Override
     public boolean isQueueEmpty() {
-        return this.uploadQueue.isEmpty();
+        return this.uploadQueue.isEmpty() && this.compileQueue.isEmpty();
     }
 
     @Override
     public void dispose() {
+        this.disposed = true;
+        for (Thread thread : this.workerThreads) {
+            thread.interrupt();
+        }
         this.clearCompileQueue();
         SectionBufferBuilderPack pack;
         while ((pack = this.packPool.poll()) != null) {
@@ -113,12 +180,12 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
 
     @Override
     public @NonNull String getStats() {
-        return "Xeno Pipeline Active (Phase 2 Pool)";
+        return "Xeno Pipeline Active (Prioritized Executor)";
     }
 
     @Override
     public int getCompileQueueSize() {
-        return this.uploadQueue.size();
+        return this.compileQueue.size() + this.uploadQueue.size();
     }
 
     @Override
@@ -128,7 +195,7 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
 
     @Override
     public void setCameraPosition(Vec3 cameraPosition) {
-        // No-op or tracked if needed
+        // Handled automatically via XenoClient state tracking
     }
 
     @Override
@@ -160,10 +227,8 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
         if (comp == null) return;
 
         SectionPos sectionPos = SectionPos.of(section.getSectionNode());
-        
-        // Acquire builder pack from dispatcher's synchronized pool
         SectionBufferBuilderPack builders = this.acquirePack();
-        builders.discardAll(); // Silently reset builders to start fresh without warnings
+        builders.discardAll();
 
         SectionCompiler.Results results = null;
         try {
@@ -181,12 +246,11 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
 
             results = comp.compile(sectionPos, region, vertexSorting, builders);
         } catch (Throwable t) {
-            // Silently absorb exceptions during reload as the region is invalidated
+            // Silently absorb exceptions during reload
         } finally {
             if (results != null) {
                 this.queueUpload(section, results, builders);
             } else {
-                // If compilation failed/cancelled, safely return the builders pack back to the pool
                 this.releasePack(builders);
             }
         }
@@ -194,9 +258,24 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
 
     @Override
     public void compileSectionAsync(SectionRenderDispatcher.RenderSection section, RenderSectionRegion region) {
-        CompletableFuture.runAsync(() -> {
-            this.compileSectionSync(section, region);
-        }, Util.backgroundExecutor());
+        if (region == null) return;
+        long sectionNode = section.getSectionNode();
+        long version = System.nanoTime();
+        this.taskVersions.put(sectionNode, version);
+
+        BlockPos origin = section.getRenderOrigin();
+        Vec3 camPos = XenoClient.getCameraPos();
+        double dx = 0;
+        double dy = 0;
+        double dz = 0;
+        if (camPos != null) {
+            dx = camPos.x - origin.getX() - 8.0;
+            dy = camPos.y - origin.getY() - 8.0;
+            dz = camPos.z - origin.getZ() - 8.0;
+        }
+        double distanceSq = dx * dx + dy * dy + dz * dz;
+
+        this.compileQueue.add(new CompileTask(section, region, distanceSq, version));
     }
 
     @Override

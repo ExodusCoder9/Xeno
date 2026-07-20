@@ -87,11 +87,14 @@ public final class XenoSectionCompiler {
         int minY = sectionPos.minBlockY();
         int minZ = sectionPos.minBlockZ();
 
+        net.minecraft.client.renderer.chunk.SectionCopy[] sections = ((com.xeno.client.mixin.RenderSectionRegionAccessor) region).xeno$getSections();
+        net.minecraft.client.renderer.chunk.SectionCopy centerSection = sections[13];
+
         for (int y = 0; y < 16; y++) {
             for (int z = 0; z < 16; z++) {
                 for (int x = 0; x < 16; x++) {
                     pos.set(minX + x, minY + y, minZ + z);
-                    BlockState blockState = region.getBlockState(pos);
+                    BlockState blockState = centerSection.getBlockState(pos);
 
                     if (blockState.isAir()) continue;
 
@@ -101,7 +104,7 @@ public final class XenoSectionCompiler {
                         }
 
                         if (blockState.hasBlockEntity()) {
-                            BlockEntity blockEntity = region.getBlockEntity(pos);
+                            BlockEntity blockEntity = centerSection.getBlockEntity(pos);
                             if (blockEntity != null) {
                                 results.blockEntities.add(blockEntity);
                             }

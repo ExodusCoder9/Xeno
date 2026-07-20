@@ -17,7 +17,8 @@
 		"CompiledSectionMeshMixin",
 		"SectionRenderDispatcherMixin",
 		"SectionRenderDispatcherOuterMixin",
-		"RenderPassMixin"
+		"RenderPassMixin",
+		"RenderSectionRegionAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
