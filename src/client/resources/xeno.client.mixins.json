@@ -16,6 +16,7 @@
 		"ViewAreaAccessor",
 		"CompiledSectionMeshMixin",
 		"SectionRenderDispatcherMixin",
+		"SectionRenderDispatcherOuterMixin",
 		"RenderPassMixin"
 	],
 	"injectors": {

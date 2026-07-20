@@ -1,7 +1,7 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.renderer.XenoWorldRenderer;
-import com.xeno.client.renderer.XenoSectionRenderDispatcher;
+
 import com.xeno.client.renderer.util.XenoViewArea;
 import com.xeno.client.renderer.util.XenoRendererExtension;
 import net.minecraft.client.Options;
@@ -115,7 +115,7 @@ public abstract class LevelRendererMixin implements XenoRendererExtension {
                 blockColors
         );
 
-        this.sectionRenderDispatcher = new XenoSectionRenderDispatcher(
+        this.sectionRenderDispatcher = new SectionRenderDispatcher(
                 Util.backgroundExecutor(),
                 this.renderBuffers,
                 sectionCompiler,
