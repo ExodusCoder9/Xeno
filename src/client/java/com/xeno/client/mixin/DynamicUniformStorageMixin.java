@@ -1,19 +1,21 @@
 package com.xeno.client.mixin;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.xeno.client.renderer.DynamicUniformStorageExtensions;
+import com.xeno.client.renderer.uniform.XenoUniformManager;
 import net.minecraft.client.renderer.DynamicUniformStorage;
 import net.minecraft.client.renderer.MappableRingBuffer;
-import net.minecraft.util.Mth;
+import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.slf4j.Logger;
-import com.xeno.client.renderer.DynamicUniformStorageExtensions;
-import java.nio.ByteBuffer;
+
 import java.util.List;
 
 @Mixin(DynamicUniformStorage.class)
-public abstract class DynamicUniformStorageMixin<T extends DynamicUniformStorage.DynamicUniform> implements DynamicUniformStorageExtensions<T> {
+public abstract class DynamicUniformStorageMixin<T extends DynamicUniformStorage.DynamicUniform>
+        implements DynamicUniformStorageExtensions<T>, XenoUniformManager.UniformStorageState<T> {
+
     @Shadow @Final private static Logger LOGGER;
     @Shadow @Final private int blockSize;
     @Shadow private MappableRingBuffer ringBuffer;
@@ -26,36 +28,52 @@ public abstract class DynamicUniformStorageMixin<T extends DynamicUniformStorage
     protected abstract void resizeBuffers(final int newCapacity);
 
     @Override
+    public int getBlockSize() {
+        return this.blockSize;
+    }
+
+    @Override
+    public MappableRingBuffer getRingBuffer() {
+        return this.ringBuffer;
+    }
+
+    @Override
+    public int getNextBlock() {
+        return this.nextBlock;
+    }
+
+    @Override
+    public void setNextBlock(int nextBlock) {
+        this.nextBlock = nextBlock;
+    }
+
+    @Override
+    public int getCapacity() {
+        return this.capacity;
+    }
+
+    @Override
+    public void setLastUniform(T uniform) {
+        this.lastUniform = uniform;
+    }
+
+    @Override
+    public String getLabel() {
+        return this.label;
+    }
+
+    @Override
+    public Logger getLogger() {
+        return LOGGER;
+    }
+
+    @Override
+    public void callResizeBuffers(int newCapacity) {
+        this.resizeBuffers(newCapacity);
+    }
+
+    @Override
     public GpuBufferSlice[] xeno$writeUniforms(final List<T> uniforms) {
-        int size = uniforms.size();
-        if (size == 0) {
-            return new GpuBufferSlice[0];
-        }
-
-        if (this.nextBlock + size > this.capacity) {
-            int newCapacity = Mth.smallestEncompassingPowerOfTwo(Math.max(this.capacity + 1, size));
-            LOGGER.info(
-               "Resizing {}, capacity limit of {} reached during a single frame. New capacity will be {}.", this.label, this.capacity, newCapacity
-            );
-            this.resizeBuffers(newCapacity);
-        }
-
-        int firstOffset = this.nextBlock * this.blockSize;
-        GpuBufferSlice[] result = new GpuBufferSlice[size];
-
-        try (GpuBufferSlice.MappedView view = this.ringBuffer.currentBuffer().slice(firstOffset, (long) size * this.blockSize).map(false, true)) {
-            ByteBuffer byteBuffer = view.data();
-
-            for (int i = 0; i < size; i++) {
-                T uniform = uniforms.get(i);
-                result[i] = this.ringBuffer.currentBuffer().slice(firstOffset + (long) i * this.blockSize, this.blockSize);
-                byteBuffer.position(i * this.blockSize);
-                uniform.write(byteBuffer);
-            }
-        }
-
-        this.nextBlock += size;
-        this.lastUniform = uniforms.get(size - 1);
-        return result;
+        return XenoUniformManager.writeUniforms(uniforms, this);
     }
 }

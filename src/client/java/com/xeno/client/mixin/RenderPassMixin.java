@@ -4,7 +4,7 @@ import com.mojang.blaze3d.IndexType;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.RenderPass;
-import com.xeno.client.renderer.XenoWorldRenderer;
+import com.xeno.client.renderer.pass.XenoBatchRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -29,49 +29,11 @@ public abstract class RenderPassMixin {
             T uniformArgument,
             CallbackInfo ci
     ) {
-        if (draws == null || draws.isEmpty()) {
+        if (XenoBatchRenderer.drawMultipleIndexed(
+                draws, defaultIndexBuffer, defaultIndexType, uniformArgument,
+                this::setVertexBuffer, this::setIndexBuffer, this::setUniform, this::drawIndexed
+        )) {
             ci.cancel();
-            return;
-        }
-
-        RenderPass.Draw<T> firstDraw = draws.iterator().next();
-        if (firstDraw == null) return;
-        GpuBuffer vertexBuffer = firstDraw.vertexBuffer();
-
-        // Check if the vertex buffer belongs to our custom Xeno pool
-        if (XenoWorldRenderer.isPoolBuffer(vertexBuffer)) {
-            ci.cancel();
-
-            RenderPass.UniformUploader uploader = this::setUniform;
-
-            GpuBuffer currentVB = null;
-            GpuBuffer currentIB = null;
-            IndexType currentIBType = null;
-
-            // Execute draw calls with dynamic buffer binding tracking
-            for (RenderPass.Draw<T> draw : draws) {
-                if (draw != null) {
-                    GpuBuffer vb = draw.vertexBuffer();
-                    if (vb != currentVB) {
-                        this.setVertexBuffer(draw.slot(), vb.slice());
-                        currentVB = vb;
-                    }
-
-                    GpuBuffer ib = draw.indexBuffer() != null ? draw.indexBuffer() : defaultIndexBuffer;
-                    IndexType type = draw.indexType() != null ? draw.indexType() : defaultIndexType;
-
-                    if (ib != currentIB || type != currentIBType) {
-                        this.setIndexBuffer(ib, type);
-                        currentIB = ib;
-                        currentIBType = type;
-                    }
-
-                    if (draw.uniformUploaderConsumer() != null) {
-                        draw.uniformUploaderConsumer().accept(uniformArgument, uploader);
-                    }
-                    this.drawIndexed(draw.indexCount(), 1, draw.firstIndex(), draw.baseVertex(), 0);
-                }
-            }
         }
     }
 }
