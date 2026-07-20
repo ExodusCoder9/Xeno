@@ -29,7 +29,7 @@ public class SectionRenderDispatcherOuterMixin implements XenoRendererProvider {
     @Unique
     private IXenoSectionRenderer xeno$renderer;
 
-    @Inject(method = "<init>", at = @At("HEAD"))
+    @Inject(method = "<init>", at = @At("RETURN"))
     private void onInit(
             TracingExecutor executor,
             RenderBuffers renderBuffers,
@@ -41,13 +41,13 @@ public class SectionRenderDispatcherOuterMixin implements XenoRendererProvider {
     }
 
     @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/StagingBuffer;create(Ljava/lang/String;Lcom/mojang/blaze3d/systems/GpuDevice;I)Lcom/mojang/blaze3d/vertex/StagingBuffer;"))
-    private static StagingBuffer redirectStagingBufferCreate(String name, GpuDevice gpuDevice, int bufferSize) {
+    private StagingBuffer redirectStagingBufferCreate(String name, GpuDevice gpuDevice, int bufferSize) {
         // Return null to completely bypass staging buffer creation
         return null;
     }
 
     @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;makeEnumMap(Ljava/lang/Class;Ljava/util/function/Function;)Ljava/util/Map;"))
-    private static Map redirectMakeEnumMap(Class keyType, Function function) {
+    private Map redirectMakeEnumMap(Class keyType, Function function) {
         // Return an empty EnumMap to completely bypass creating UberGpuBuffers
         return new java.util.EnumMap<>(keyType);
     }
