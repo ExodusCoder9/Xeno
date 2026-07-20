@@ -6,6 +6,7 @@ import com.xeno.client.renderer.memory.XenoBufferPool;
 import com.xeno.client.renderer.sorting.TranslucentSorter;
 import com.xeno.client.renderer.util.XenoMeshExtension;
 import com.mojang.blaze3d.vertex.VertexSorting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
@@ -78,7 +79,8 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
         this.compiler = compiler;
         this.onSectionMeshUpdate = onSectionMeshUpdate;
 
-        int coreCount = Math.max(1, Runtime.getRuntime().availableProcessors() - 2);
+        // Clamp background compile threads to 1-3 to prevent CPU starvation
+        int coreCount = Math.clamp(Runtime.getRuntime().availableProcessors() - 2, 1, 3);
         for (int i = 0; i < coreCount; i++) {
             Thread thread = new Thread(this::workerLoop, "Xeno-ChunkCompiler-" + i);
             thread.setDaemon(true);
@@ -140,16 +142,20 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
         XenoWorldRenderer.tickFrame();
 
         UploadTask task;
-        int uploadsThisFrame = 0;
-        int maxUploadsPerFrame = 8; // limit GPU uploads per frame to prevent stutters
+        long start = System.nanoTime();
+        long budgetNanos = 1_500_000L; // 1.5 millisecond budget per frame
 
-        while (uploadsThisFrame < maxUploadsPerFrame && (task = this.uploadQueue.poll()) != null) {
+        while ((task = this.uploadQueue.poll()) != null) {
             XenoWorldRenderer.uploadToGpu(task.section, task.results);
             if (this.onSectionMeshUpdate != null) {
                 this.onSectionMeshUpdate.accept(task.section);
             }
             this.releasePack(task.builders);
-            uploadsThisFrame++;
+
+            // Break if we exceed our frame budget to maintain smooth frame times
+            if (System.nanoTime() - start > budgetNanos) {
+                break;
+            }
         }
     }
 
@@ -249,7 +255,16 @@ public class XenoSectionRenderer implements IXenoSectionRenderer {
             // Silently absorb exceptions during reload
         } finally {
             if (results != null) {
-                this.queueUpload(section, results, builders);
+                // If compiling on the main thread, upload immediately to bypass the queue
+                if (Minecraft.getInstance().isSameThread()) {
+                    XenoWorldRenderer.uploadToGpu(section, results);
+                    if (this.onSectionMeshUpdate != null) {
+                        this.onSectionMeshUpdate.accept(section);
+                    }
+                    this.releasePack(builders);
+                } else {
+                    this.queueUpload(section, results, builders);
+                }
             } else {
                 this.releasePack(builders);
             }
