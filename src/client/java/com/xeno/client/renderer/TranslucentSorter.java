@@ -3,7 +3,7 @@ package com.xeno.client.renderer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import net.minecraft.client.Minecraft;
 import com.xeno.client.XenoClient;
-import com.xeno.client.util.XenoMeshExtension;
+import com.xeno.client.renderer.util.XenoMeshExtension;
 import net.minecraft.util.Util;
 import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
 import net.minecraft.client.renderer.chunk.TranslucencyPointOfView;

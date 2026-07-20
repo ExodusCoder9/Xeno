@@ -1,8 +1,8 @@
 package com.xeno.client;
 
 import com.mojang.logging.LogUtils;
-import com.xeno.client.culling.CullingOutput;
-import com.xeno.client.culling.CullingThread;
+import com.xeno.client.renderer.culling.CullingOutput;
+import com.xeno.client.renderer.culling.CullingThread;
 import com.xeno.client.renderer.XenoWorldRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.renderer.ViewArea;

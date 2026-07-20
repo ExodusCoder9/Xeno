@@ -1,6 +1,6 @@
 package com.xeno.client.renderer;
 
-import com.xeno.client.util.XenoMeshExtension;
+import com.xeno.client.renderer.util.XenoMeshExtension;
 import net.minecraft.TracingExecutor;
 import net.minecraft.client.renderer.RenderBuffers;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;

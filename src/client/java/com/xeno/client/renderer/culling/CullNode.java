@@ -1,4 +1,4 @@
-package com.xeno.client.culling;
+package com.xeno.client.renderer.culling;
 
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.core.Direction;

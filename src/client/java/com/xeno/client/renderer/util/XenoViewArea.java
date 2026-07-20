@@ -1,4 +1,4 @@
-package com.xeno.client.util;
+package com.xeno.client.renderer.util;
 
 import net.minecraft.client.renderer.SectionOcclusionGraph;
 import net.minecraft.client.renderer.ViewArea;

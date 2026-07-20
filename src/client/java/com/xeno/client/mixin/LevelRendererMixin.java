@@ -2,8 +2,8 @@ package com.xeno.client.mixin;
 
 import com.xeno.client.renderer.XenoWorldRenderer;
 import com.xeno.client.renderer.XenoSectionRenderDispatcher;
-import com.xeno.client.util.XenoViewArea;
-import com.xeno.client.util.XenoRendererExtension;
+import com.xeno.client.renderer.util.XenoViewArea;
+import com.xeno.client.renderer.util.XenoRendererExtension;
 import net.minecraft.client.Options;
 import net.minecraft.client.Camera;
 import net.minecraft.client.color.block.BlockColors;

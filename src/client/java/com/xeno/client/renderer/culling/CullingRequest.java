@@ -1,4 +1,4 @@
-package com.xeno.client.culling;
+package com.xeno.client.renderer.culling;
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.util.ArrayList;

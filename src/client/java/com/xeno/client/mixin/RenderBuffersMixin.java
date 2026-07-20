@@ -1,6 +1,6 @@
 package com.xeno.client.mixin;
 
-import com.xeno.client.util.NonStoringBuilderPool;
+import com.xeno.client.renderer.util.NonStoringBuilderPool;
 import net.minecraft.client.renderer.RenderBuffers;
 import net.minecraft.client.renderer.SectionBufferBuilderPool;
 import org.spongepowered.asm.mixin.Mixin;

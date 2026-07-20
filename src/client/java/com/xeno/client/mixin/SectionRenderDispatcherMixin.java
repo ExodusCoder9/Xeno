@@ -5,6 +5,8 @@ import com.xeno.client.renderer.XenoSectionRenderDispatcher;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+
+import com.xeno.client.renderer.util.XenoMeshExtension;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
@@ -95,7 +97,7 @@ public abstract class SectionRenderDispatcherMixin {
         ci.cancel();
 
         SectionMesh mesh = this.sectionMesh.get();
-        if (mesh instanceof CompiledSectionMesh compiled && mesh instanceof com.xeno.client.util.XenoMeshExtension ext) {
+        if (mesh instanceof CompiledSectionMesh compiled && mesh instanceof XenoMeshExtension ext) {
             com.xeno.client.renderer.XenoBufferPool.Allocation indexAlloc = ext.xeno$getIndexAllocation(net.minecraft.client.renderer.chunk.ChunkSectionLayer.TRANSLUCENT);
             com.xeno.client.renderer.TranslucentSorter.resort(compiled, ext, this.getSectionNode(), this.getRenderOrigin(), indexAlloc);
         }

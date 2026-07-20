@@ -1,4 +1,4 @@
-package com.xeno.client.culling;
+package com.xeno.client.renderer.culling;
 
 import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap;

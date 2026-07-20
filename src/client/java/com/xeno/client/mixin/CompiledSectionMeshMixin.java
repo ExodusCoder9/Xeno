@@ -2,7 +2,7 @@ package com.xeno.client.mixin;
 
 import com.xeno.client.renderer.XenoBufferPool;
 import com.xeno.client.renderer.XenoWorldRenderer;
-import com.xeno.client.util.XenoMeshExtension;
+import com.xeno.client.renderer.util.XenoMeshExtension;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
 import org.spongepowered.asm.mixin.Mixin;

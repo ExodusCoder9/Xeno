@@ -1,4 +1,4 @@
-package com.xeno.client.meshing;
+package com.xeno.client.renderer.meshing;
 
 public final class FrustumFaceCulling {
     private static final float REMESH_BENEFIT_THRESHOLD = 0.5f;

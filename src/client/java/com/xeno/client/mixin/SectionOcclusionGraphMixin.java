@@ -1,10 +1,10 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.XenoClient;
-import com.xeno.client.culling.CullingOutput;
-import com.xeno.client.culling.CullingRequest;
-import com.xeno.client.culling.CullingThread;
-import com.xeno.client.culling.XenoVisibility;
+import com.xeno.client.renderer.culling.CullingOutput;
+import com.xeno.client.renderer.culling.CullingRequest;
+import com.xeno.client.renderer.culling.CullingThread;
+import com.xeno.client.renderer.culling.XenoVisibility;
 import it.unimi.dsi.fastutil.longs.LongCollection;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSets;

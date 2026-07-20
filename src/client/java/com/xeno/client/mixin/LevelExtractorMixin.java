@@ -2,7 +2,7 @@ package com.xeno.client.mixin;
 
 import com.xeno.client.XenoClient;
 import com.xeno.client.renderer.XenoWorldRenderer;
-import com.xeno.client.util.XenoRendererExtension;
+import com.xeno.client.renderer.util.XenoRendererExtension;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;

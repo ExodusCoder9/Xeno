@@ -1,4 +1,4 @@
-package com.xeno.client.util;
+package com.xeno.client.renderer.util;
 
 import java.util.List;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;

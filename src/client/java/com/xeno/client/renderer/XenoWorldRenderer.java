@@ -5,7 +5,7 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.logging.LogUtils;
 import com.xeno.client.XenoClient;
-import com.xeno.client.util.XenoMeshExtension;
+import com.xeno.client.renderer.util.XenoMeshExtension;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
 import net.minecraft.client.renderer.chunk.SectionMesh;

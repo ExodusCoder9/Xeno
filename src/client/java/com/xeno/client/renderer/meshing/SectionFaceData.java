@@ -1,4 +1,4 @@
-package com.xeno.client.meshing;
+package com.xeno.client.renderer.meshing;
 
 import net.minecraft.core.Direction;
 
