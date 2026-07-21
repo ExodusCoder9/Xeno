@@ -1,15 +1,5 @@
 package com.xeno.client.renderer.memory;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.systems.RenderSystem;
-
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-
 /**
  * Two-Level Segregated Fit (TLSF) memory arena for O(1) time-bounded allocations
  * and immediate boundary-tag coalescing in Old Generation VRAM/Off-Heap memory.

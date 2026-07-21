@@ -1,7 +1,6 @@
 package com.xeno.client.renderer.memory;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import net.minecraft.util.Util;
 
 import java.lang.foreign.Arena;
