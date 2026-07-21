@@ -28,6 +28,8 @@ public final class XenoWorldRenderer {
 
     private static XGenerationalMultiBufferAllocator vertexBufferPool;
     private static XGenerationalMultiBufferAllocator indexBufferPool;
+    private static XGenerationalMultiBufferAllocator uniformBufferPool;
+    private static XGenerationalMultiBufferAllocator offHeapBuildingPool;
 
     private static int currentFrame = 0;
 
@@ -66,7 +68,6 @@ public final class XenoWorldRenderer {
 
     public static void initPools() {
         if (vertexBufferPool == null) {
-            // Allocate XGenerational Vertex Pool (32MB Young Arenas, 128MB Old Arenas)
             vertexBufferPool = new XGenerationalMultiBufferAllocator(
                     "XenoVertexPool",
                     GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE,
@@ -75,12 +76,26 @@ public final class XenoWorldRenderer {
             );
         }
         if (indexBufferPool == null) {
-            // Allocate XGenerational Index Pool (8MB Young Arenas, 32MB Old Arenas)
             indexBufferPool = new XGenerationalMultiBufferAllocator(
                     "XenoIndexPool",
                     GpuBuffer.USAGE_INDEX | GpuBuffer.USAGE_MAP_WRITE,
                     8 * 1024 * 1024L,
                     32 * 1024 * 1024L
+            );
+        }
+        if (uniformBufferPool == null) {
+            uniformBufferPool = new XGenerationalMultiBufferAllocator(
+                    "XenoUniformPool",
+                    GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_MAP_WRITE,
+                    4 * 1024 * 1024L,
+                    16 * 1024 * 1024L
+            );
+        }
+        if (offHeapBuildingPool == null) {
+            offHeapBuildingPool = XGenerationalMultiBufferAllocator.createCpuOffHeapFFM(
+                    "XenoOffHeapBuildingPool",
+                    16 * 1024 * 1024L,
+                    64 * 1024 * 1024L
             );
         }
     }
@@ -95,6 +110,42 @@ public final class XenoWorldRenderer {
             indexBufferPool.close();
             indexBufferPool = null;
         }
+        if (uniformBufferPool != null) {
+            uniformBufferPool.close();
+            uniformBufferPool = null;
+        }
+        if (offHeapBuildingPool != null) {
+            offHeapBuildingPool.close();
+            offHeapBuildingPool = null;
+        }
+    }
+
+    public static XGenerationalMultiBufferAllocator getVertexBufferPool() {
+        initPools();
+        return vertexBufferPool;
+    }
+
+    public static XGenerationalMultiBufferAllocator getIndexBufferPool() {
+        initPools();
+        return indexBufferPool;
+    }
+
+    public static XGenerationalMultiBufferAllocator getUniformBufferPool() {
+        initPools();
+        return uniformBufferPool;
+    }
+
+    public static XGenerationalMultiBufferAllocator getOffHeapBuildingPool() {
+        initPools();
+        return offHeapBuildingPool;
+    }
+
+    public static XGenerationalMultiBufferAllocator.AllocationHandle allocateUniformBuffer(long size, Object ownerTag) {
+        return getUniformBufferPool().allocate(size, ownerTag);
+    }
+
+    public static XGenerationalMultiBufferAllocator.AllocationHandle allocateOffHeapBuffer(long size, Object ownerTag) {
+        return getOffHeapBuildingPool().allocate(size, ownerTag);
     }
 
     public static synchronized void tickFrame() {
