@@ -39,12 +39,27 @@ public class XenoDrawListManager implements IXenoDrawListManager {
 
     private static final ThreadLocal<List<DynamicUniforms.ChunkSectionInfo>> SECTION_INFOS = ThreadLocal.withInitial(ArrayList::new);
 
+    private static final ThreadLocal<EnumMap<ChunkSectionLayer, XenoMdiCommandBuffer>> MDI_BUFFERS = ThreadLocal.withInitial(() -> {
+        EnumMap<ChunkSectionLayer, XenoMdiCommandBuffer> map = new EnumMap<>(ChunkSectionLayer.class);
+        for (ChunkSectionLayer layer : ChunkSectionLayer.values()) {
+            map.put(layer, new XenoMdiCommandBuffer());
+        }
+        return map;
+    });
+
+    public static XenoMdiCommandBuffer getMdiBuffer(ChunkSectionLayer layer) {
+        return MDI_BUFFERS.get().get(layer);
+    }
+
     private static void clearGroups(EnumMap<ChunkSectionLayer, Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>>> groups) {
         for (Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> map : groups.values()) {
             for (List<RenderPass.Draw<GpuBufferSlice[]>> list : map.values()) {
                 list.clear();
             }
             map.clear();
+        }
+        for (XenoMdiCommandBuffer mdiBuffer : MDI_BUFFERS.get().values()) {
+            mdiBuffer.beginFrame();
         }
     }
 
@@ -137,6 +152,19 @@ public class XenoDrawListManager implements IXenoDrawListManager {
                             map.put(combinedHash, list);
                         }
                         list.add(cachedDraw);
+
+                        // Pack into 20-byte MDI Command Buffer (BaseVertex = offset / 28)
+                        XGenerationalMultiBufferAllocator.AllocationHandle vertexAlloc = ext.xeno$getVertexAllocation(layer);
+                        XGenerationalMultiBufferAllocator.AllocationHandle indexAlloc = ext.xeno$getIndexAllocation(layer);
+                        if (vertexAlloc != null) {
+                            int baseVertex = (int) (vertexAlloc.offset / 28L);
+                            int firstIndex = 0;
+                            if (indexAlloc != null && cachedDraw.indexType() != null && cachedDraw.indexType().bytes > 0) {
+                                firstIndex = (int) (indexAlloc.offset / cachedDraw.indexType().bytes);
+                            }
+                            XenoMdiCommandBuffer mdiBuffer = getMdiBuffer(layer);
+                            mdiBuffer.writeCommand(draw.indexCount(), firstIndex, baseVertex, uboIndex);
+                        }
                     }
                 }
             } finally {

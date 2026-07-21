@@ -1,0 +1,82 @@
+package com.xeno.client.renderer.draw;
+
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.xeno.client.renderer.XenoWorldRenderer;
+import com.xeno.client.renderer.memory.MemoryIntrinsics;
+import com.xeno.client.renderer.memory.XGenerationalMultiBufferAllocator;
+
+import java.nio.ByteBuffer;
+
+/**
+ * Manages off-heap mapping and GPU VRAM upload of 20-byte MDI structs for Single-Call Indirect Drawing.
+ * Hardware Layout per Command:
+ * - uint count         (4 bytes): Index Count
+ * - uint instanceCount  (4 bytes): Always 1
+ * - uint firstIndex     (4 bytes): Index offset into Index Buffer
+ * - int  baseVertex     (4 bytes): Vertex offset / 28 (DefaultVertexFormat.BLOCK)
+ * - uint baseInstance   (4 bytes): Dynamic UBO Section Index for gl_BaseInstance
+ */
+public class XenoMdiCommandBuffer {
+
+    public static final int COMMAND_STRIDE_BYTES = 20;
+    private static final int INITIAL_COMMAND_CAPACITY = 8192; // Up to 8,192 visible sections per frame
+
+    private XGenerationalMultiBufferAllocator.AllocationHandle currentAllocation;
+    private int commandCount = 0;
+
+    public void beginFrame() {
+        this.commandCount = 0;
+        this.currentAllocation = XenoWorldRenderer.getOffHeapBuildingPool().allocate(
+                (long) INITIAL_COMMAND_CAPACITY * COMMAND_STRIDE_BYTES,
+                "MdiCommandBuffer"
+        );
+    }
+
+    public void writeCommand(int indexCount, int firstIndex, int baseVertex, int uboIndex) {
+        if (this.currentAllocation == null) {
+            beginFrame();
+        }
+
+        long byteOffset = (long) this.commandCount * COMMAND_STRIDE_BYTES;
+        if (byteOffset + COMMAND_STRIDE_BYTES > this.currentAllocation.size) {
+            // Expand allocation if needed
+            long newSize = this.currentAllocation.size * 2;
+            XGenerationalMultiBufferAllocator.AllocationHandle newAlloc = XenoWorldRenderer.getOffHeapBuildingPool().allocate(newSize, "MdiCommandBuffer");
+            if (this.currentAllocation.getMemorySegment() != null && newAlloc.getMemorySegment() != null) {
+                newAlloc.getMemorySegment().copyFrom(this.currentAllocation.getMemorySegment().asSlice(0, byteOffset));
+            }
+            this.currentAllocation = newAlloc;
+        }
+
+        long address = this.currentAllocation.offset + byteOffset;
+        MemoryIntrinsics.putInt(address, indexCount);
+        MemoryIntrinsics.putInt(address + 4L, 1); // instanceCount = 1
+        MemoryIntrinsics.putInt(address + 8L, firstIndex);
+        MemoryIntrinsics.putInt(address + 12L, baseVertex); // vertexOffset / 28
+        MemoryIntrinsics.putInt(address + 16L, uboIndex); // gl_BaseInstance
+
+        this.commandCount++;
+    }
+
+    public int getCommandCount() {
+        return this.commandCount;
+    }
+
+    public GpuBufferSlice uploadToGpuSlice() {
+        if (this.commandCount == 0 || this.currentAllocation == null) return null;
+        long totalBytes = (long) this.commandCount * COMMAND_STRIDE_BYTES;
+        XGenerationalMultiBufferAllocator.AllocationHandle gpuAlloc = XenoWorldRenderer.getIndirectBufferPool().allocate(totalBytes, "MdiGpuBuffer");
+        if (gpuAlloc != null && gpuAlloc.getBuffer() != null && this.currentAllocation.getMemorySegment() != null) {
+            try (GpuBufferSlice.MappedView view = gpuAlloc.getBuffer().map(gpuAlloc.offset, totalBytes, false, true)) {
+                MemoryIntrinsics.copy(this.currentAllocation.getMemorySegment().asByteBuffer(), view.data(), totalBytes);
+            }
+            return gpuAlloc.getBuffer().slice(gpuAlloc.offset, totalBytes);
+        }
+        return null;
+    }
+
+    public void endFrame() {
+        this.commandCount = 0;
+    }
+}

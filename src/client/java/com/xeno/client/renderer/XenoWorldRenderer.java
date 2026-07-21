@@ -31,6 +31,7 @@ public final class XenoWorldRenderer {
     private static XGenerationalMultiBufferAllocator indexBufferPool;
     private static XGenerationalMultiBufferAllocator uniformBufferPool;
     private static XGenerationalMultiBufferAllocator offHeapBuildingPool;
+    private static XGenerationalMultiBufferAllocator indirectBufferPool;
 
     private static int currentFrame = 0;
 
@@ -99,6 +100,14 @@ public final class XenoWorldRenderer {
                     64 * 1024 * 1024L
             );
         }
+        if (indirectBufferPool == null) {
+            indirectBufferPool = new XGenerationalMultiBufferAllocator(
+                    "XenoIndirectPool",
+                    512 | GpuBuffer.USAGE_MAP_WRITE, // 512 = GpuBuffer.USAGE_INDIRECT_PARAMETERS
+                    2 * 1024 * 1024L,
+                    8 * 1024 * 1024L
+            );
+        }
     }
 
     public static void destroyPools() {
@@ -118,6 +127,10 @@ public final class XenoWorldRenderer {
         if (offHeapBuildingPool != null) {
             offHeapBuildingPool.close();
             offHeapBuildingPool = null;
+        }
+        if (indirectBufferPool != null) {
+            indirectBufferPool.close();
+            indirectBufferPool = null;
         }
     }
 
@@ -139,6 +152,11 @@ public final class XenoWorldRenderer {
     public static XGenerationalMultiBufferAllocator getOffHeapBuildingPool() {
         initPools();
         return offHeapBuildingPool;
+    }
+
+    public static XGenerationalMultiBufferAllocator getIndirectBufferPool() {
+        initPools();
+        return indirectBufferPool;
     }
 
     public static XGenerationalMultiBufferAllocator.AllocationHandle allocateUniformBuffer(long size, Object ownerTag) {
