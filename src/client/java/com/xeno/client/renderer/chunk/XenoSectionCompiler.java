@@ -21,8 +21,6 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexSorting;
-import com.xeno.client.renderer.XenoWorldRenderer;
-import com.xeno.client.renderer.memory.XGenerationalMultiBufferAllocator;
 
 import java.util.EnumMap;
 import java.util.Map;
