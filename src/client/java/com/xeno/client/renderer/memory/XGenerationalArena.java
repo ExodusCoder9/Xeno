@@ -27,8 +27,8 @@ public class XGenerationalArena {
     public final MemorySegment memorySegment;
     public final ByteBuffer directBuffer;
 
-    public long bumpOffset = 0L;
-    public long activeBytes = 0L;
+    public final java.util.concurrent.atomic.AtomicLong bumpOffset = new java.util.concurrent.atomic.AtomicLong(0L);
+    public final java.util.concurrent.atomic.AtomicLong activeBytes = new java.util.concurrent.atomic.AtomicLong(0L);
 
     public XGenerationalArena(
             int arenaId,
@@ -61,7 +61,7 @@ public class XGenerationalArena {
     }
 
     public boolean canBumpAllocate(long alignedSize) {
-        return this.bumpOffset + alignedSize <= this.capacity;
+        return this.bumpOffset.get() + alignedSize <= this.capacity;
     }
 
     public XGenerationalMultiBufferAllocator.AllocationHandle bumpAllocate(
@@ -70,37 +70,49 @@ public class XGenerationalArena {
             long allocId,
             long nowMs
     ) {
-        long offset = this.bumpOffset;
-        this.bumpOffset += alignedSize;
-        this.activeBytes += alignedSize;
+        long offset = this.bumpOffset.getAndAdd(alignedSize);
+        if (offset + alignedSize > this.capacity) {
+            this.bumpOffset.getAndAdd(-alignedSize);
+            return null;
+        }
+        this.activeBytes.addAndGet(alignedSize);
 
         XGenerationalMultiBufferAllocator.AllocationHandle handle =
                 new XGenerationalMultiBufferAllocator.AllocationHandle(allocId, this, offset, alignedSize, ownerTag, nowMs);
-        handle.indexInArena = this.allocations.size();
-        this.allocations.add(handle);
+        handle.packedHandle = XenoHandle.pack(this.arenaId, offset, alignedSize);
+        synchronized (this.allocations) {
+            handle.indexInArena = this.allocations.size();
+            this.allocations.add(handle);
+        }
         return handle;
     }
 
     public void removeAllocation(XGenerationalMultiBufferAllocator.AllocationHandle handle) {
-        int idx = handle.indexInArena;
-        int lastIdx = this.allocations.size() - 1;
+        synchronized (this.allocations) {
+            int idx = handle.indexInArena;
+            int lastIdx = this.allocations.size() - 1;
 
-        if (idx >= 0 && idx <= lastIdx && this.allocations.get(idx) == handle) {
-            if (idx != lastIdx) {
-                XGenerationalMultiBufferAllocator.AllocationHandle lastHandle = this.allocations.get(lastIdx);
-                this.allocations.set(idx, lastHandle);
-                lastHandle.indexInArena = idx;
+            if (idx >= 0 && idx <= lastIdx && this.allocations.get(idx) == handle) {
+                if (idx != lastIdx) {
+                    XGenerationalMultiBufferAllocator.AllocationHandle lastHandle = this.allocations.get(lastIdx);
+                    this.allocations.set(idx, lastHandle);
+                    lastHandle.indexInArena = idx;
+                }
+                this.allocations.remove(lastIdx);
+                this.activeBytes.addAndGet(-handle.size);
+                handle.indexInArena = -1;
             }
-            this.allocations.remove(lastIdx);
-            this.activeBytes -= handle.size;
-            handle.indexInArena = -1;
         }
 
         // Reset bump offset when all active allocations in the arena are released
-        if (this.activeBytes <= 0) {
-            this.allocations.clear();
-            this.bumpOffset = 0L;
-            this.activeBytes = 0L;
+        if (this.activeBytes.get() <= 0) {
+            synchronized (this.allocations) {
+                if (this.activeBytes.get() <= 0) {
+                    this.allocations.clear();
+                    this.bumpOffset.set(0L);
+                    this.activeBytes.set(0L);
+                }
+            }
         }
     }
 
