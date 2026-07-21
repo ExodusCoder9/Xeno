@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -270,28 +271,39 @@ public final class XenoWorldRenderer {
                     }
                 }
 
-                ((XenoMeshExtension) compiled).xeno$setAllocations(layer, vertexAlloc, indexAlloc);
+                if ((Object) compiled instanceof XenoMeshExtension ext) {
+                    ext.xeno$setAllocations(layer, vertexAlloc, indexAlloc);
+                }
 
                 com.xeno.client.renderer.draw.XenoUniformBinder binder = new com.xeno.client.renderer.draw.XenoUniformBinder();
-                int baseVertex = (int)(vertexAlloc.offset / layer.pipeline().getVertexFormatBinding(0).getVertexSize());
+                int vertexSizeBinding = 28;
+                if (layer.pipeline() != null && layer.pipeline().getVertexFormatBinding(0) != null) {
+                    vertexSizeBinding = Objects.requireNonNull(layer.pipeline().getVertexFormatBinding(0)).getVertexSize();
+                }
+                int baseVertex = (int) (vertexAlloc.offset / vertexSizeBinding);
+
                 net.minecraft.client.renderer.chunk.SectionMesh.SectionDraw sectionDraw = compiled.getSectionDraw(layer);
-                int indexCount = sectionDraw.indexCount();
-                
+                int indexCount = sectionDraw != null ? sectionDraw.indexCount() : 0;
+
                 GpuBuffer indexBuffer = null;
                 com.mojang.blaze3d.IndexType indexType = null;
                 int firstIndex = 0;
-                if (indexAlloc != null) {
+                if (indexAlloc != null && sectionDraw != null) {
                     indexBuffer = indexAlloc.getBuffer();
                     indexType = sectionDraw.indexType();
-                    firstIndex = (int)(indexAlloc.offset / indexType.bytes);
+                    if (indexType != null && indexType.bytes > 0) {
+                        firstIndex = (int) (indexAlloc.offset / indexType.bytes);
+                    }
                 }
-                
+
                 com.mojang.blaze3d.systems.RenderPass.Draw<GpuBufferSlice[]> cachedDraw = new com.mojang.blaze3d.systems.RenderPass.Draw<>(
-                    0, vertexAlloc.getBuffer(), indexBuffer, indexType, firstIndex, indexCount, baseVertex, binder
+                        0, vertexAlloc.getBuffer(), indexBuffer, indexType, firstIndex, indexCount, baseVertex, binder
                 );
-                
-                ((XenoMeshExtension) compiled).xeno$setCachedDraw(layer, cachedDraw);
-                ((XenoMeshExtension) compiled).xeno$setUniformBinder(layer, binder);
+
+                if ((Object) compiled instanceof XenoMeshExtension ext) {
+                    ext.xeno$setCachedDraw(layer, cachedDraw);
+                    ext.xeno$setUniformBinder(layer, binder);
+                }
 
                 if (layer == ChunkSectionLayer.TRANSLUCENT) {
                     quadCount = vertexSize / (4 * 28);
@@ -326,8 +338,8 @@ public final class XenoWorldRenderer {
             }
         }
 
-        if (quadCenters != null) {
-            ((XenoMeshExtension) compiled).xeno$setTranslucentData(quadCenters, quadCount);
+        if (quadCenters != null && (Object) compiled instanceof XenoMeshExtension ext) {
+            ext.xeno$setTranslucentData(quadCenters, quadCount);
         }
 
         SectionMesh oldMesh = section.sectionMesh.getAndSet(compiled);
