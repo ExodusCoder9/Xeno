@@ -181,6 +181,14 @@ public class XGenerationalMultiBufferAllocator implements IXenoArenaAllocator {
         this.handleTableSegment.set(ValueLayout.JAVA_LONG, base + 8L, rawAddress);
     }
 
+    public AllocationHandle getHandle(int handleId) {
+        return this.handleMap.get(handleId);
+    }
+
+    public AllocationHandle getHandle(MemoryHandle handle) {
+        return handle != null ? getHandle(handle.id()) : null;
+    }
+
     public boolean containsBuffer(GpuBuffer buffer) {
         if (buffer == null || this.memoryKind != XenoMemoryKind.GPU_VRAM) return false;
         for (XGenerationalArena arena : this.youngArenas) {
@@ -244,7 +252,7 @@ public class XGenerationalMultiBufferAllocator implements IXenoArenaAllocator {
             this.addNewArena(generation, getDefaultCapacity(generation));
         }
 
-        XGenerationalArena activeArena = targetArenas.get(targetArenas.size() - 1);
+        XGenerationalArena activeArena = targetArenas.getLast();
         if (activeArena.canBumpAllocate(alignedSize)) {
             AllocationHandle handle = activeArena.bumpAllocate(alignedSize, ownerTag, this.allocIdCounter.getAndIncrement(), nowMs);
             if (handle != null) {

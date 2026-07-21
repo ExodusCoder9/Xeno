@@ -17,7 +17,7 @@ public final class XenoHandle {
     private XenoHandle() {}
 
     public static long pack(int arenaId, long offset, long size) {
-        return ((long) (arenaId & ARENA_MASK) << 52)
+        return (((long) arenaId & ARENA_MASK) << 52)
                 | ((size & SIZE_MASK) << 36)
                 | (offset & OFFSET_MASK);
     }
