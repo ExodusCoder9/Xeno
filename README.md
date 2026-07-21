@@ -1,34 +1,32 @@
-# Xeno (26.2 Alpha 4)
+# Xeno (26.2 Alpha 6)
 
-Xeno is a rendering optimization mod for Minecraft 26.2. It replaces the slow vanilla rendering loops with a streamlined, API-agnostic graphics pipeline designed to play nice with Vulkan and OpenGL backends.
-
----
-
-## Core Architecture
-
-* **Asynchronous Occlusion & Culling:** A dedicated background thread runs macro-occlusion graphs, bounding box checks, and frustum culling, keeping the main render thread from stalling on geometry checks. Uncompiled meshes are handled transparently to prevent chunk loading locks.
-* **Consolidated Buffer Pools:** Merges thousands of individual chunk allocations into single, massive GPU memory pools (128MB VBO / 32MB IBO) to eliminate VRAM allocation stutters and driver state overhead.
-* **Single-Binding Batch Draw:** Intercepts batch rendering at the render pass level. Binds the unified VBO/IBO pools once per pass, then loops to execute draws using simple UBO matrix offset updates. This cuts CPU-to-GPU binding changes by over 95%.
+Xeno is a low-overhead graphics optimization mod for Minecraft 26.2. It replaces vanilla rendering loops with a streamlined, API-agnostic pipeline built for Vulkan and OpenGL backends.
 
 ---
 
-## Key Features & Changes (Up to Alpha 4)
+## Architecture Highlights
 
-* **Tabbed Video Settings Screen:** A fully custom video settings GUI built from scratch. It splits options into *General*, *Quality*, *Performance*, and *Advanced* tabs. Features smooth scrolling, performance impact tags (Low/Medium/High), and a pending changes system that handles reloads and notifies you if a restart is needed for backend changes.
-* **Xeno Rendering & Shader API (XRA):** An extensible API allowing other mods to register custom shaders, OpenGL+Vulkan compute shaders (with macOS/compatibility fallback checks), materials (custom blend modes, depth testing, backface culling, and uniform bindings), custom render passes (injected at stages like `BEFORE_WORLD` or `AFTER_WORLD`), and async meshing hooks.
-* **Threaded Translucent Sorting:** Sorts translucent quad indices in the background via `Util.backgroundExecutor()`. Once sorted relative to the camera, it uploads the results directly to GPU buffer slices on the main thread, keeping the render thread smooth.
-* **Unified GPU Memory Allocation:** Dynamic sub-allocations in the pre-allocated GPU pool using a custom thread-safe, coalescing free-list allocator.
-* **Deferred Allocation Freeing:** Puts discarded memory allocations in a 3-frame deferred queue to prevent the GPU from reading overwritten memory, fixing chunk flashing and water flickering.
-* **Zero-Allocation Memory Copies:** Uses Java's Foreign Function & Memory (FFM) API (`MemorySegment` copies) to copy compiled chunk data directly to persistently mapped GPU memory slices, bypassing JVM heap allocations.
-* **Leak-Safe Async Compiler:** Wraps background compilation in try-catch-finally blocks to guarantee builder packs are returned to the pool even if compilation fails during world reloads.
-* **Silent Builder Resets:** Clears unbuilt vertex batches silently with `discardAll()`, stopping console spam and associated render thread freezes.
-* **Resource Reload Safety:** Keeps memory pools intact across resource reloads and mipmap changes, avoiding crashes from closed buffers.
+* **Multi-Draw Indirect (MDI) Engine:** Single-call hardware indirect drawing (`GL43C` / Vulkan `vkCmdDrawIndexedIndirect`). Packs 20-byte indirect commands with hardware `gl_BaseInstance` matrix indexing in off-heap FFM memory.
+* **Generational Arena Allocator:** Multi-buffer generational memory (`XGenerationMultiBufferAllocator`) combining lock-free `AtomicLong` Young/Survivor bump arenas with $O(1)$ TLSF coalescing for Old generation chunk memory. Uses bit-packed 64-bit `XenoHandle` primitive handles.
+* **Flat 1D Section Compiler (`XenoSectionCompiler`):** Replaces vanilla's 4,096 `BlockPos` loop with a flat index bit-wise traversal, eliminating heap allocations during section meshing.
+* **Asynchronous Occlusion & Culling:** Background thread occlusion graphs, bounding box checks, and frustum culling to prevent main-thread geometry stalls.
+* **Unified GPU Memory Pools:** Consolidates chunk allocations into massive GPU memory pools (128MB VBO / 32MB IBO) to reduce driver state switches and allocation stutter.
 
 ---
 
-## Environment Requirements
+## Core Systems & Features
 
-* **Minecraft Version:** 26.2
+* **Tabbed Video Settings GUI:** Modern video settings interface split into *General*, *Quality*, *Performance*, and *Advanced* tabs with pending change notifications.
+* **Xeno Rendering & Shader API (XRA):** Extensible API supporting custom shaders, compute shaders (OpenGL/Vulkan with fallback checks), custom materials, and pipeline pass injections.
+* **Threaded Translucent Quad Sorting:** Background translucent quad sorting on `Util.backgroundExecutor()`, uploading directly to GPU buffer slices.
+* **3-Frame Deferred Free Queue:** Prevents GPU read-after-free corruption during chunk re-meshing.
+* **Off-Heap FFM Transfers:** Java 25 Foreign Function & Memory (`MemorySegment`) zero-copy data transfer to mapped VRAM.
+
+---
+
+## Requirements
+
+* **Minecraft:** 26.2
 * **Fabric Loader:** >= 0.19.3
-* **Java Environment:** Java 25 or higher
-* **Environment:** Client-side only
+* **Java:** Java 25 or higher
+* **Environment:** Client-side
