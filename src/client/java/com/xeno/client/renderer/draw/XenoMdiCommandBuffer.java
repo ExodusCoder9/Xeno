@@ -6,6 +6,7 @@ import com.xeno.client.renderer.XenoWorldRenderer;
 import com.xeno.client.renderer.memory.MemoryIntrinsics;
 import com.xeno.client.renderer.memory.XGenerationalMultiBufferAllocator;
 
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 
 /**
@@ -49,12 +50,14 @@ public class XenoMdiCommandBuffer {
             this.currentAllocation = newAlloc;
         }
 
-        long address = this.currentAllocation.offset + byteOffset;
-        MemoryIntrinsics.putInt(address, indexCount);
-        MemoryIntrinsics.putInt(address + 4L, 1); // instanceCount = 1
-        MemoryIntrinsics.putInt(address + 8L, firstIndex);
-        MemoryIntrinsics.putInt(address + 12L, baseVertex); // vertexOffset / 28
-        MemoryIntrinsics.putInt(address + 16L, uboIndex); // gl_BaseInstance
+        MemorySegment segment = this.currentAllocation.getMemorySegment();
+        if (segment != null) {
+            segment.set(java.lang.foreign.ValueLayout.JAVA_INT, byteOffset, indexCount);
+            segment.set(java.lang.foreign.ValueLayout.JAVA_INT, byteOffset + 4L, 1); // instanceCount = 1
+            segment.set(java.lang.foreign.ValueLayout.JAVA_INT, byteOffset + 8L, firstIndex);
+            segment.set(java.lang.foreign.ValueLayout.JAVA_INT, byteOffset + 12L, baseVertex); // vertexOffset / 28
+            segment.set(java.lang.foreign.ValueLayout.JAVA_INT, byteOffset + 16L, uboIndex); // gl_BaseInstance
+        }
 
         this.commandCount++;
     }
@@ -69,7 +72,7 @@ public class XenoMdiCommandBuffer {
         XGenerationalMultiBufferAllocator.AllocationHandle gpuAlloc = XenoWorldRenderer.getIndirectBufferPool().allocate(totalBytes, "MdiGpuBuffer");
         if (gpuAlloc != null && gpuAlloc.getBuffer() != null && this.currentAllocation.getMemorySegment() != null) {
             try (GpuBufferSlice.MappedView view = gpuAlloc.getBuffer().map(gpuAlloc.offset, totalBytes, false, true)) {
-                MemoryIntrinsics.copy(this.currentAllocation.getMemorySegment().asByteBuffer(), view.data(), totalBytes);
+                MemorySegment.copy(this.currentAllocation.getMemorySegment(), 0L, java.lang.foreign.MemorySegment.ofBuffer(view.data()), 0L, totalBytes);
             }
             return gpuAlloc.getBuffer().slice(gpuAlloc.offset, totalBytes);
         }
