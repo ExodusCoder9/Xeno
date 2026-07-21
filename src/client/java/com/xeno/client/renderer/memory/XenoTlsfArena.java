@@ -136,14 +136,14 @@ public class XenoTlsfArena extends XGenerationalArena {
             insertFreeBlock(splitBlock);
         }
 
-        this.activeBytes += block.size;
+        this.activeBytes.addAndGet(block.size);
         return block;
     }
 
     public synchronized void freeTlsf(BlockHeader block) {
         if (block == null || block.free) return;
 
-        this.activeBytes -= block.size;
+        this.activeBytes.addAndGet(-block.size);
 
         // Immediate coalescing with right physical neighbor
         if (block.nextPhysical != null && block.nextPhysical.free) {

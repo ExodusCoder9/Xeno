@@ -57,6 +57,10 @@ public class XGenerationalMultiBufferAllocator implements IXenoArenaAllocator {
             }
         }
 
+        public AllocationHandle(long id, XGenerationalArena arena, long offset, long size, Object ownerTag, long creationTimeMs) {
+            this(id, (int) (id & 0x7FFFFFFF), arena, offset, size, ownerTag, creationTimeMs, (byte) (arena != null && arena.generation == XenoGeneration.OLD ? 2 : (arena != null && arena.generation == XenoGeneration.SURVIVOR ? 1 : 0)));
+        }
+
         public GpuBuffer getBuffer() {
             return this.arena != null ? this.arena.gpuBuffer : null;
         }

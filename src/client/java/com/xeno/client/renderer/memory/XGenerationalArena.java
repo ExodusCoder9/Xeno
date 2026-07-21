@@ -117,9 +117,10 @@ public class XGenerationalArena {
     }
 
     public double getFragmentationRatio() {
-        if (this.bumpOffset == 0) return 0.0;
-        long holeBytes = this.bumpOffset - this.activeBytes;
-        return (double) holeBytes / (double) this.bumpOffset;
+        long currentBump = this.bumpOffset.get();
+        if (currentBump == 0) return 0.0;
+        long holeBytes = currentBump - this.activeBytes.get();
+        return (double) holeBytes / (double) currentBump;
     }
 
     public void close() {
@@ -130,7 +131,7 @@ public class XGenerationalArena {
             this.ffmArena.close();
         }
         this.allocations.clear();
-        this.bumpOffset = 0L;
-        this.activeBytes = 0L;
+        this.bumpOffset.set(0L);
+        this.activeBytes.set(0L);
     }
 }
