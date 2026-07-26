@@ -42,10 +42,11 @@ public class XenoLevelSlice {
                     mutPos.set(wx, wy, wz);
 
                     BlockState state = region != null ? region.getBlockState(mutPos) : AIR;
+                    if (state == null) state = AIR;
                     int index = (dx * 48 + dy) * 48 + dz;
-                    this.blockStates[index] = state != null ? state : AIR;
+                    this.blockStates[index] = state;
 
-                    if (state != null && state.hasBlockEntity() && region != null) {
+                    if (state.hasBlockEntity() && region != null) {
                         BlockEntity entity = region.getBlockEntity(mutPos);
                         if (entity != null) {
                             this.blockEntities.put(mutPos.immutable(), entity);

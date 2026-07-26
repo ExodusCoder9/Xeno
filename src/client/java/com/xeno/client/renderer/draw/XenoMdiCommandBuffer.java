@@ -1,13 +1,10 @@
 package com.xeno.client.renderer.draw;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.xeno.client.renderer.XenoWorldRenderer;
-import com.xeno.client.renderer.memory.MemoryIntrinsics;
 import com.xeno.client.renderer.memory.XGenerationalMultiBufferAllocator;
 
 import java.lang.foreign.MemorySegment;
-import java.nio.ByteBuffer;
 
 /**
  * Manages off-heap mapping and GPU VRAM upload of 20-byte MDI structs for Single-Call Indirect Drawing.
@@ -28,15 +25,7 @@ public class XenoMdiCommandBuffer {
     private int commandCount = 0;
 
     public void beginFrame() {
-        if (this.currentAllocation != null) {
-            XenoWorldRenderer.getOffHeapBuildingPool().free(this.currentAllocation);
-            this.currentAllocation = null;
-        }
-        if (this.currentGpuAllocation != null) {
-            XenoWorldRenderer.getIndirectBufferPool().free(this.currentGpuAllocation);
-            this.currentGpuAllocation = null;
-        }
-        this.commandCount = 0;
+        endFrame();
         this.currentAllocation = XenoWorldRenderer.getOffHeapBuildingPool().allocate(
                 (long) INITIAL_COMMAND_CAPACITY * COMMAND_STRIDE_BYTES,
                 "MdiCommandBuffer"

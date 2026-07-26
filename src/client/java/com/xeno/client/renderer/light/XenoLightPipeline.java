@@ -37,8 +37,6 @@ public class XenoLightPipeline {
         boolean n1 = isOpaque(slice, fx + 1, fy, fz);
         boolean n2 = isOpaque(slice, fx, fy - 1, fz);
         boolean n3 = isOpaque(slice, fx, fy + 1, fz);
-        boolean n4 = isOpaque(slice, fx, fy, fz - 1);
-        boolean n5 = isOpaque(slice, fx, fy, fz + 1);
 
         int occ0 = (n0 ? 1 : 0) + (n2 ? 1 : 0);
         int occ1 = (n1 ? 1 : 0) + (n2 ? 1 : 0);

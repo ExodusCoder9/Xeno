@@ -1,7 +1,6 @@
 package com.xeno.client.renderer.biome;
 
 import com.xeno.client.renderer.world.XenoLevelSlice;
-import net.minecraft.core.BlockPos;
 
 /**
  * Fast Biome Color Blender.
@@ -24,7 +23,7 @@ public class XenoBiomeBlender {
             int radius,
             ColorResolver resolver
     ) {
-        if (radius <= 0) {
+        if (radius <= 0 || slice == null) {
             return resolver.getColor(null, x, z);
         }
 

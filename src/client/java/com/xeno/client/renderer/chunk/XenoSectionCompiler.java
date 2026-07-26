@@ -72,16 +72,18 @@ public class XenoSectionCompiler {
         Map<ChunkSectionLayer, BufferBuilder> startedLayers = new EnumMap<>(ChunkSectionLayer.class);
         net.minecraft.client.renderer.block.BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> {
             BufferBuilder builder = getOrBeginLayer(startedLayers, builders, quad.materialInfo().layer());
-            builder.putBlockBakedQuad(x, y, z, quad, instance);
+            com.xeno.client.renderer.frapi.XenoFrapiMesh.emitQuad(builder, quad, x, y, z, instance);
         };
         net.minecraft.client.renderer.block.BlockQuadOutput opaqueQuadOutput = (x, y, z, quad, instance) -> {
             BufferBuilder builder = getOrBeginLayer(startedLayers, builders, ChunkSectionLayer.SOLID);
-            builder.putBlockBakedQuad(x, y, z, quad, instance);
+            com.xeno.client.renderer.frapi.XenoFrapiMesh.emitQuad(builder, quad, x, y, z, instance);
         };
         FluidRenderer.Output fluidOutput = layer -> getOrBeginLayer(startedLayers, builders, layer);
 
         XenoLevelSlice slice = new XenoLevelSlice(sectionPos, region);
         BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
+
+        float[] lightAo = new float[4];
 
         // 1D Flat Index Loop (0..4095) eliminating BlockPos iterator allocations
         for (int index = 0; index < 4096; index++) {
@@ -96,6 +98,13 @@ public class XenoSectionCompiler {
 
             BlockState blockState = slice.getBlockState(worldX, worldY, worldZ);
             if (blockState.isAir()) continue;
+
+            if (this.ambientOcclusion) {
+                com.xeno.client.renderer.light.XenoSmoothLightPipeline.calculateSmoothLighting(slice, worldX, worldY, worldZ, net.minecraft.core.Direction.UP, lightAo);
+            } else {
+                com.xeno.client.renderer.light.XenoFlatLightPipeline.calculateFlatLighting(slice, worldX, worldY, worldZ, net.minecraft.core.Direction.UP, lightAo);
+            }
+            int biomeColor = com.xeno.client.renderer.biome.XenoBiomeBlender.blendColor(slice, worldX, worldY, worldZ, 1, (biome, bx, bz) -> 0xFFFFFFFF);
 
             if (blockState.isSolidRender()) {
                 visGraph.setOpaque(mutablePos);

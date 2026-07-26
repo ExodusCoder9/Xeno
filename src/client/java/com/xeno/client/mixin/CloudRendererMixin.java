@@ -18,4 +18,9 @@ public class CloudRendererMixin {
     private void xenoOnCloudRebuild(CallbackInfo ci) {
         XenoCloudRenderer.getInstance().markForRebuild();
     }
+
+    @Inject(method = "buildMesh", at = @At("HEAD"))
+    private void xenoOnCloudMeshBuild(CallbackInfo ci) {
+        XenoCloudRenderer.getInstance().buildCloudMesh(0.0, 0.0, 64);
+    }
 }

@@ -21,7 +21,8 @@
 		"RenderSectionRegionAccessor",
 		"CloudRendererMixin",
 		"ParticleEngineMixin",
-		"QuadParticleFeatureRendererMixin"
+		"QuadParticleFeatureRendererMixin",
+		"ClientChunkCacheMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
