@@ -18,7 +18,9 @@
 		"SectionRenderDispatcherMixin",
 		"SectionRenderDispatcherOuterMixin",
 		"RenderPassMixin",
-		"RenderSectionRegionAccessor"
+		"RenderSectionRegionAccessor",
+		"CloudRendererMixin",
+		"ParticleEngineMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

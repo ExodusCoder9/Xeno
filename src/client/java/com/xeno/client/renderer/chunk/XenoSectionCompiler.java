@@ -21,6 +21,7 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexSorting;
+import com.xeno.client.renderer.world.XenoLevelSlice;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -79,6 +80,7 @@ public class XenoSectionCompiler {
         };
         FluidRenderer.Output fluidOutput = layer -> getOrBeginLayer(startedLayers, builders, layer);
 
+        XenoLevelSlice slice = new XenoLevelSlice(sectionPos, region);
         BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
 
         // 1D Flat Index Loop (0..4095) eliminating BlockPos iterator allocations
@@ -92,7 +94,7 @@ public class XenoSectionCompiler {
             int worldZ = originZ + localZ;
             mutablePos.set(worldX, worldY, worldZ);
 
-            BlockState blockState = region.getBlockState(mutablePos);
+            BlockState blockState = slice.getBlockState(worldX, worldY, worldZ);
             if (blockState.isAir()) continue;
 
             if (blockState.isSolidRender()) {
@@ -100,7 +102,7 @@ public class XenoSectionCompiler {
             }
 
             if (blockState.hasBlockEntity()) {
-                BlockEntity blockEntity = region.getBlockEntity(mutablePos);
+                BlockEntity blockEntity = slice.getBlockEntity(mutablePos);
                 if (blockEntity != null) {
                     results.blockEntities.add(blockEntity);
                 }

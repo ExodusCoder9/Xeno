@@ -1,0 +1,90 @@
+{
+  "xeno.options.title": "Xeno Settings",
+  "xeno.options.tab.general": "General",
+  "xeno.options.tab.quality": "Quality",
+  "xeno.options.tab.performance": "Performance",
+  "xeno.options.tab.advanced": "Advanced",
+
+  "xeno.options.apply": "Apply Options",
+  "xeno.options.restart_required": "Game restart required to apply graphics backend changes.",
+  "xeno.options.performance_impact": "Performance Impact: ",
+
+  "xeno.options.impact.low": "Low",
+  "xeno.options.impact.medium": "Medium",
+  "xeno.options.impact.high": "High",
+
+  "xeno.options.graphics_api": "Graphics API",
+  "xeno.options.graphics_api.desc": "Chooses the preferred graphics rendering API. Default relies on native platforms; Vulkan offers modern hardware optimizations.",
+
+  "xeno.options.gui_scale": "GUI Scale",
+  "xeno.options.gui_scale.desc": "Adjusts the size of the user interface.",
+
+  "xeno.options.render_distance": "Render Distance",
+  "xeno.options.render_distance.desc": "Determines how far chunks are rendered around the player. Higher values increase visibility but cost more performance.",
+
+  "xeno.options.simulation_distance": "Simulation Distance",
+  "xeno.options.simulation_distance.desc": "Controls how far entity simulations and block ticks occur. Lower values reduce CPU load.",
+
+  "xeno.options.fps_limit": "FPS Limit",
+  "xeno.options.fps_limit.desc": "Caps the maximum frames per second. Lower values reduce GPU load and power consumption.",
+
+  "xeno.options.vsync": "VSync",
+  "xeno.options.vsync.desc": "Synchronizes frame output with monitor refresh rate. Reduces screen tearing but may add input lag.",
+
+  "xeno.options.fullscreen": "Fullscreen",
+  "xeno.options.fullscreen.desc": "Toggles between windowed and fullscreen display modes.",
+
+  "xeno.options.exclusive_fullscreen": "Exclusive Fullscreen",
+  "xeno.options.exclusive_fullscreen.desc": "Enables exclusive control over the monitor display when running in fullscreen.",
+
+  "xeno.options.attack_indicator": "Attack Indicator",
+  "xeno.options.attack_indicator.desc": "Sets the display style and position for the combat crosshair attack indicator.",
+
+  "xeno.options.autosave_indicator": "Autosave Indicator",
+  "xeno.options.autosave_indicator.desc": "Enables a subtle disk indicator in the corner of the screen when the game performs an autosave.",
+
+  "xeno.options.graphics_preset": "Graphics",
+  "xeno.options.graphics_preset.desc": "Controls visual graphics preset. Fast disables extra lighting effects; Fabulous enables advanced layers.",
+
+  "xeno.options.ambient_occlusion": "Smooth Lighting",
+  "xeno.options.ambient_occlusion.desc": "Applies ambient shadows between blocks to present smooth, atmospheric surface illumination.",
+
+  "xeno.options.clouds": "Clouds",
+  "xeno.options.clouds.desc": "Adjusts cloud styling. Fancy renders volumetric clouds; OFF disables cloud layers completely.",
+
+  "xeno.options.cloud_distance": "Cloud Distance",
+  "xeno.options.cloud_distance.desc": "Specifies the maximum distance (in chunks) cloud models are rendered.",
+
+  "xeno.options.biome_blend": "Biome Blend",
+  "xeno.options.biome_blend.desc": "Determines blending radius for neighboring biome colors. OFF yields sharp boundaries; higher values blend smoothly.",
+
+  "xeno.options.particles": "Particles",
+  "xeno.options.particles.desc": "Specifies density of environmental, combat, and command-driven particles.",
+
+  "xeno.options.mipmap": "Mipmap",
+  "xeno.options.mipmap.desc": "Sharpens distant textures using multi-resolution texture maps. Lower levels can improve performance.",
+
+  "xeno.options.entity_shadows": "Entity Shadows",
+  "xeno.options.entity_shadows.desc": "Enables circular shadow silhouettes beneath living entity entities and items.",
+
+  "xeno.options.cutout_leaves": "See-Through Leaves",
+  "xeno.options.cutout_leaves.desc": "Controls leaf block transparency. Solid opaque leaves bypass translucency checks and render faster.",
+
+  "xeno.options.weather_radius": "Weather Effect Radius",
+  "xeno.options.weather_radius.desc": "Defines block radius for weather rendering and audio sources centered on the player.",
+
+  "xeno.options.vignette": "Show Vignette",
+  "xeno.options.vignette.desc": "Applies a cinematic darkening overlay around the borders of the screen.",
+
+  "xeno.options.chunk_fade_time": "Chunk Fade Time",
+  "xeno.options.chunk_fade_time.desc": "Applies smooth fade-in animations to newly loaded chunk sections.",
+
+  "xeno.options.entity_distance": "Entity Distance",
+  "xeno.options.entity_distance.desc": "Adjusts the distance threshold for rendering entity models. Lower scaling values save significant GPU time.",
+
+  "xeno.options.texture_filtering": "Texture Filtering",
+  "xeno.options.texture_filtering.desc": "Applies texture sampling methods. RGSS or Anisotropic filtering keep oblique angles sharp.",
+
+  "xeno.options.anisotropic_value": "Anisotropic Value",
+  "xeno.options.anisotropic_value.desc": "Specifies level of anisotropic filtering. Higher values retain fine textures on steep slopes."
+}
