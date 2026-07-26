@@ -2,8 +2,6 @@ package com.xeno.client.renderer.particle;
 
 import com.xeno.client.renderer.XenoWorldRenderer;
 import com.xeno.client.renderer.memory.XGenerationalMultiBufferAllocator;
-import com.mojang.logging.LogUtils;
-import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
