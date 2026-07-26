@@ -98,7 +98,7 @@ public class XenoEntityCuller implements IXenoEntityCuller {
         if (distSq < 0.1) return false;
         double dist = Math.sqrt(distSq);
 
-        double steps = Math.ceil(dist * 2.0); // Sample every 0.5 blocks
+        double steps = Math.min(32.0, Math.ceil(dist * 2.0)); // Sample every 0.5 blocks, max 32 steps
         double stepX = dx / steps;
         double stepY = dy / steps;
         double stepZ = dz / steps;
@@ -107,7 +107,7 @@ public class XenoEntityCuller implements IXenoEntityCuller {
         double currY = start.y;
         double currZ = start.z;
 
-        for (int i = 0; i < steps; i++) {
+        for (int i = 0; i < (int) steps; i++) {
             currX += stepX;
             currY += stepY;
             currZ += stepZ;
@@ -121,7 +121,7 @@ public class XenoEntityCuller implements IXenoEntityCuller {
             try {
                 if (!level.hasChunkAt(mutPos)) continue;
                 BlockState state = level.getBlockState(mutPos);
-                if (state.isSolidRender()) {
+                if (state != null && state.isSolidRender()) {
                     return true;
                 }
             } catch (Throwable t) {
@@ -206,7 +206,10 @@ public class XenoEntityCuller implements IXenoEntityCuller {
 
     @Override
     public void tickFrame() {
-        // Reserved for frame cleanup if needed
+        if (this.visibilityMap.size() > 1024) {
+            this.visibilityMap.clear();
+            this.occlusionFrames.clear();
+        }
     }
 
     @Override

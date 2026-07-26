@@ -55,6 +55,7 @@ public class XenoMdiEngine {
     }
 
     public static int dispatchLayerMdi(ChunkSectionLayer layer, RenderPass pass) {
+        if (pass == null) return 0;
         XenoMdiCommandBuffer mdiBuffer = XenoDrawListManager.getMdiBuffer(layer);
         int commandCount = mdiBuffer.getCommandCount();
         if (commandCount == 0) return 0;
@@ -62,51 +63,12 @@ public class XenoMdiEngine {
         GpuBufferSlice commandsSlice = mdiBuffer.uploadToGpuSlice();
         if (commandsSlice == null) return 0;
 
-        BackendType backend = getBackendType();
-
-        if (backend == BackendType.VULKAN && pass != null) {
-            // Direct Native Vulkan MDI (Blaze3D maps drawIndexedIndirect directly to vkCmdDrawIndexedIndirect)
-            try {
-                pass.drawIndexedIndirect(commandsSlice, commandCount);
-                return commandCount;
-            } catch (Throwable ignored) {
-            }
-        } else if (backend == BackendType.OPENGL) {
-            XGenerationalMultiBufferAllocator.AllocationHandle vertexAlloc = XenoWorldRenderer.getVertexBufferPool().allocate(1L, "Check");
-            XGenerationalMultiBufferAllocator.AllocationHandle indexAlloc = XenoWorldRenderer.getIndexBufferPool().allocate(1L, "Check");
-
-            if (vertexAlloc != null && indexAlloc != null) {
-                int indirectBufferId = getGpuBufferHandle(commandsSlice.buffer());
-                int vertexBufferId = getGpuBufferHandle(vertexAlloc.getBuffer());
-                int indexBufferId = getGpuBufferHandle(indexAlloc.getBuffer());
-
-                if (indirectBufferId > 0 && vertexBufferId > 0 && indexBufferId > 0) {
-                    GL15C.glBindBuffer(GL15C.GL_ARRAY_BUFFER, vertexBufferId);
-                    GL15C.glBindBuffer(GL15C.GL_ELEMENT_ARRAY_BUFFER, indexBufferId);
-                    GL15C.glBindBuffer(GL40C.GL_DRAW_INDIRECT_BUFFER, indirectBufferId);
-
-                    GL43C.glMultiDrawElementsIndirect(
-                            GL11C.GL_TRIANGLES,
-                            GL11C.GL_UNSIGNED_SHORT,
-                            commandsSlice.offset(),
-                            commandCount,
-                            XenoMdiCommandBuffer.COMMAND_STRIDE_BYTES
-                    );
-
-                    GL15C.glBindBuffer(GL40C.GL_DRAW_INDIRECT_BUFFER, 0);
-                    return commandCount;
-                }
-            }
+        try {
+            pass.drawIndexedIndirect(commandsSlice, commandCount);
+            return commandCount;
+        } catch (Throwable ignored) {
+            return 0;
         }
-
-        // Universal Fallback Pass
-        if (pass != null) {
-            try {
-                pass.drawIndexedIndirect(commandsSlice, commandCount);
-            } catch (Throwable ignored) {
-            }
-        }
-        return commandCount;
     }
 
     private static int getGpuBufferHandle(GpuBuffer buffer) {

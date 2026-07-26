@@ -48,16 +48,17 @@ public class XenoBufferPool {
         this.name = name;
         this.usage = usage;
         this.bufferSize = bufferSize;
-        this.createNewBuffer();
+        this.createNewBuffer(this.bufferSize);
     }
 
-    private void createNewBuffer() {
+    private void createNewBuffer(long minCapacity) {
+        long actualSize = Math.max(this.bufferSize, minCapacity);
         GpuBuffer buffer = RenderSystem.getDevice().createBuffer(
                 () -> this.name + "-" + this.blocks.size(),
                 this.usage,
-                this.bufferSize
+                actualSize
         );
-        this.blocks.add(new BufferBlock(buffer, this.bufferSize));
+        this.blocks.add(new BufferBlock(buffer, actualSize));
     }
 
     public synchronized boolean containsBuffer(GpuBuffer buffer) {
@@ -91,12 +92,16 @@ public class XenoBufferPool {
         }
 
         // All existing blocks are full, allocate a new block
-        this.createNewBuffer();
+        this.createNewBuffer(alignedSize);
         BufferBlock newBlock = this.blocks.get(this.blocks.size() - 1);
         FreeBlock fb = newBlock.freeBlocks.get(0);
         long offset = fb.offset;
-        fb.offset += alignedSize;
-        fb.size -= alignedSize;
+        if (fb.size == alignedSize) {
+            newBlock.freeBlocks.clear();
+        } else {
+            fb.offset += alignedSize;
+            fb.size -= alignedSize;
+        }
         return new Allocation(newBlock.buffer, offset, alignedSize);
     }
 

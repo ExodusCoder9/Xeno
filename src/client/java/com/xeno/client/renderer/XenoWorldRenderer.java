@@ -324,6 +324,7 @@ public final class XenoWorldRenderer {
                 }
 
                 if (layer == ChunkSectionLayer.TRANSLUCENT) {
+                    vertexBuf.order(java.nio.ByteOrder.nativeOrder());
                     quadCount = vertexSize / (4 * 28);
                     quadCenters = new float[quadCount * 3];
                     for (int i = 0; i < quadCount; i++) {

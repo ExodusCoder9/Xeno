@@ -316,40 +316,13 @@ public class XGenerationalMultiBufferAllocator implements IXenoArenaAllocator {
         long promotionAgeThresholdMs = 5000L; // 5 seconds in Young nursery
         int promotedCount = 0;
 
-        boolean isStressed = availableNanos < 2_000_000L; // < 2ms remaining frame time
-
         for (XGenerationalArena youngArena : this.youngArenas) {
             synchronized (youngArena.allocations) {
                 for (AllocationHandle handle : youngArena.allocations) {
                     if (handle.valid && handle.generationTag == 0 && (nowMs - handle.creationTimeMs > promotionAgeThresholdMs)) {
-
-                        if (isStressed) {
-                            // Approach A (Logical Tagging): $O(1)$ enum tag flip without memory movement
-                            handle.generationTag = 1; // Mark as Survivor
-                            updateHandleTable(handle.handleId, (byte) 1, (int) handle.size, handle.offset);
-                            promotedCount++;
-                        } else {
-                            // Approach B (Physical Segregation): Copy payload using MemorySegment or Direct Mapping
-                            if (this.memoryKind == XenoMemoryKind.CPU_OFFHEAP_FFM && youngArena.memorySegment != null) {
-                                AllocationHandle survivorHandle = this.allocate(handle.size, handle.ownerTag, XenoGeneration.SURVIVOR);
-                                if (survivorHandle != null && survivorHandle.arena != null && survivorHandle.arena.memorySegment != null) {
-                                    MemorySegment src = youngArena.memorySegment.asSlice(handle.offset, handle.size);
-                                    MemorySegment dest = survivorHandle.arena.memorySegment.asSlice(survivorHandle.offset, survivorHandle.size);
-                                    dest.copyFrom(src);
-
-                                    handle.generationTag = 1;
-                                    handle.offset = survivorHandle.offset;
-                                    handle.arena = survivorHandle.arena;
-                                    updateHandleTable(handle.handleId, (byte) 1, (int) handle.size, survivorHandle.offset);
-                                    promotedCount++;
-                                }
-                            } else {
-                                // Fallback to logical tagging for GPU VRAM if frame time limit exceeded
-                                handle.generationTag = 1;
-                                updateHandleTable(handle.handleId, (byte) 1, (int) handle.size, handle.offset);
-                                promotedCount++;
-                            }
-                        }
+                        handle.generationTag = 1; // Mark as Survivor logically (O(1) tag update)
+                        updateHandleTable(handle.handleId, (byte) 1, (int) handle.size, handle.offset);
+                        promotedCount++;
                     }
                 }
             }

@@ -50,11 +50,13 @@ public class XenoTlsfArena extends XGenerationalArena {
 
     private static int getFlIndex(long size) {
         if (size < MIN_BLOCK_SIZE) size = MIN_BLOCK_SIZE;
-        return 63 - Long.numberOfLeadingZeros(size);
+        int fl = 63 - Long.numberOfLeadingZeros(size);
+        return Math.min(fl, MAX_FL_INDEX - 1);
     }
 
     private static int getSlIndex(long size, int fl) {
-        return (int) ((size ^ (1L << fl)) >>> (fl - SL_SHIFT));
+        if (fl < SL_SHIFT) return 0;
+        return (int) ((size ^ (1L << fl)) >>> (fl - SL_SHIFT)) & (SL_INDEX_COUNT - 1);
     }
 
     private synchronized void insertFreeBlock(BlockHeader block) {

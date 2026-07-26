@@ -387,50 +387,54 @@ public class CullingThread extends Thread {
                     double dirX = camX - checkX;
                     double dirY = camY - checkY;
                     double dirZ = camZ - checkZ;
+                    double lenSq = dirX * dirX + dirY * dirY + dirZ * dirZ;
 
-                    double invLen = 1.0 / Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
-                    dirX *= invLen * 28.0;
-                    dirY *= invLen * 28.0;
-                    dirZ *= invLen * 28.0;
+                    if (lenSq > 0.0001) {
+                        double invLen = 1.0 / Math.sqrt(lenSq);
+                        dirX *= invLen * 28.0;
+                        dirY *= invLen * 28.0;
+                        dirZ *= invLen * 28.0;
 
-                    boolean visible = true;
+                        boolean visible = true;
+                        int stepCount = 0;
 
-                    while (true) {
-                        double dX = camX - checkX;
-                        double dY = camY - checkY;
-                        double dZ = camZ - checkZ;
+                        while (stepCount++ < 16) {
+                            double dX = camX - checkX;
+                            double dY = camY - checkY;
+                            double dZ = camZ - checkZ;
 
-                        if (dX * dX + dY * dY + dZ * dZ <= 3600.0) {
-                            break;
+                            if (dX * dX + dY * dY + dZ * dZ <= 3600.0) {
+                                break;
+                            }
+
+                            checkX += dirX;
+                            checkY += dirY;
+                            checkZ += dirZ;
+
+                            if (Double.isNaN(checkX) || Double.isNaN(checkY) || Double.isNaN(checkZ) || checkY > 320.0 || checkY < -64.0) {
+                                break;
+                            }
+
+                            int checkSecX = SectionPos.blockToSectionCoord(checkX);
+                            int checkSecY = SectionPos.blockToSectionCoord(checkY);
+                            int checkSecZ = SectionPos.blockToSectionCoord(checkZ);
+
+                            SectionRenderDispatcher.RenderSection checkSection = this.getRelativeAt(
+                                    cameraSectionX, cameraSectionY, cameraSectionZ,
+                                    checkSecX, checkSecY, checkSecZ,
+                                    viewDistance, minY, maxY, sizeY, sizeXZ,
+                                    sectionArray
+                            );
+
+                            if (checkSection == null || !this.visited[checkSection.index]) {
+                                visible = false;
+                                break;
+                            }
                         }
 
-                        checkX += dirX;
-                        checkY += dirY;
-                        checkZ += dirZ;
-
-                        if (checkY > 320.0 || checkY < -64.0) {
-                            break;
+                        if (!visible) {
+                            continue;
                         }
-
-                        int checkSecX = SectionPos.blockToSectionCoord(checkX);
-                        int checkSecY = SectionPos.blockToSectionCoord(checkY);
-                        int checkSecZ = SectionPos.blockToSectionCoord(checkZ);
-
-                        SectionRenderDispatcher.RenderSection checkSection = this.getRelativeAt(
-                                cameraSectionX, cameraSectionY, cameraSectionZ,
-                                checkSecX, checkSecY, checkSecZ,
-                                viewDistance, minY, maxY, sizeY, sizeXZ,
-                                sectionArray
-                        );
-
-                        if (checkSection == null || !this.visited[checkSection.index]) {
-                            visible = false;
-                            break;
-                        }
-                    }
-
-                    if (!visible) {
-                        continue;
                     }
                 }
 

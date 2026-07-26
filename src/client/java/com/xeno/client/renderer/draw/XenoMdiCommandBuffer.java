@@ -24,9 +24,18 @@ public class XenoMdiCommandBuffer {
     private static final int INITIAL_COMMAND_CAPACITY = 8192; // Up to 8,192 visible sections per frame
 
     private XGenerationalMultiBufferAllocator.AllocationHandle currentAllocation;
+    private XGenerationalMultiBufferAllocator.AllocationHandle currentGpuAllocation;
     private int commandCount = 0;
 
     public void beginFrame() {
+        if (this.currentAllocation != null) {
+            XenoWorldRenderer.getOffHeapBuildingPool().free(this.currentAllocation);
+            this.currentAllocation = null;
+        }
+        if (this.currentGpuAllocation != null) {
+            XenoWorldRenderer.getIndirectBufferPool().free(this.currentGpuAllocation);
+            this.currentGpuAllocation = null;
+        }
         this.commandCount = 0;
         this.currentAllocation = XenoWorldRenderer.getOffHeapBuildingPool().allocate(
                 (long) INITIAL_COMMAND_CAPACITY * COMMAND_STRIDE_BYTES,
@@ -47,6 +56,7 @@ public class XenoMdiCommandBuffer {
             if (this.currentAllocation.getMemorySegment() != null && newAlloc.getMemorySegment() != null) {
                 newAlloc.getMemorySegment().copyFrom(this.currentAllocation.getMemorySegment().asSlice(0, byteOffset));
             }
+            XenoWorldRenderer.getOffHeapBuildingPool().free(this.currentAllocation);
             this.currentAllocation = newAlloc;
         }
 
@@ -68,12 +78,17 @@ public class XenoMdiCommandBuffer {
 
     public GpuBufferSlice uploadToGpuSlice() {
         if (this.commandCount == 0 || this.currentAllocation == null) return null;
+        if (this.currentGpuAllocation != null) {
+            XenoWorldRenderer.getIndirectBufferPool().free(this.currentGpuAllocation);
+            this.currentGpuAllocation = null;
+        }
         long totalBytes = (long) this.commandCount * COMMAND_STRIDE_BYTES;
         XGenerationalMultiBufferAllocator.AllocationHandle gpuAlloc = XenoWorldRenderer.getIndirectBufferPool().allocate(totalBytes, "MdiGpuBuffer");
         if (gpuAlloc != null && gpuAlloc.getBuffer() != null && this.currentAllocation.getMemorySegment() != null) {
             try (GpuBufferSlice.MappedView view = gpuAlloc.getBuffer().map(gpuAlloc.offset, totalBytes, false, true)) {
                 MemorySegment.copy(this.currentAllocation.getMemorySegment(), 0L, java.lang.foreign.MemorySegment.ofBuffer(view.data()), 0L, totalBytes);
             }
+            this.currentGpuAllocation = gpuAlloc;
             return gpuAlloc.getBuffer().slice(gpuAlloc.offset, totalBytes);
         }
         return null;
@@ -81,5 +96,13 @@ public class XenoMdiCommandBuffer {
 
     public void endFrame() {
         this.commandCount = 0;
+        if (this.currentAllocation != null) {
+            XenoWorldRenderer.getOffHeapBuildingPool().free(this.currentAllocation);
+            this.currentAllocation = null;
+        }
+        if (this.currentGpuAllocation != null) {
+            XenoWorldRenderer.getIndirectBufferPool().free(this.currentGpuAllocation);
+            this.currentGpuAllocation = null;
+        }
     }
 }

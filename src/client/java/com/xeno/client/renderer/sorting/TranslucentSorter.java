@@ -73,7 +73,7 @@ public final class TranslucentSorter {
                 indexBuf.flip();
 
                 Minecraft.getInstance().execute(() -> {
-                    if (indexAlloc.getBuffer() != null && !indexAlloc.getBuffer().isClosed()) {
+                    if (indexAlloc.valid && indexAlloc.getBuffer() != null && !indexAlloc.getBuffer().isClosed()) {
                         try (GpuBufferSlice.MappedView view = indexAlloc.getBuffer().map(indexAlloc.offset, (long) quadCount * 6 * 2, false, true)) {
                             MemoryIntrinsics.copy(indexBuf, view.data(), (long) quadCount * 6 * 2);
                         }
