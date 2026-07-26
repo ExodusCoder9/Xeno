@@ -4,7 +4,7 @@
 
 ---
 
-## 🚀 Architecture Highlights
+##  Architecture Highlights
 
 * **Multi-Draw Indirect (MDI) Engine:** Single-call hardware indirect drawing (`GL43C` / Vulkan `vkCmdDrawIndexedIndirect`). Packs 20-byte indirect commands with hardware `gl_BaseInstance` matrix indexing in off-heap FFM memory.
 * **Cloned 3D World Snapshots (`XenoLevelSlice`):** Captures $3 \times 3 \times 3$ section neighborhoods into flat 1D primitive arrays, enabling $100\%$ thread-safe background chunk meshing with zero main-thread lock contention.
@@ -16,7 +16,7 @@
 
 ---
 
-## ⚡ Core Systems & Features
+##  Core Systems & Features
 
 * **Dual Lighting Pipelines:**
   * **`XenoFlatLightPipeline`:** Fast single-sample directional face shading ($1.0$ UP, $0.5$ DOWN, $0.8$ N/S, $0.6$ E/W) when AO is disabled, skipping AO sampling for maximum FPS.
