@@ -14,9 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(CloudRenderer.class)
 public class CloudRendererMixin {
 
-    @Inject(method = "markForRebuild", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "markForRebuild", at = @At("HEAD"))
     private void xenoOnCloudRebuild(CallbackInfo ci) {
-        ci.cancel();
         XenoCloudRenderer.getInstance().markForRebuild();
     }
 }

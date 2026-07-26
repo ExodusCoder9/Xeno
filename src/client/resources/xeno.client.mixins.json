@@ -20,7 +20,8 @@
 		"RenderPassMixin",
 		"RenderSectionRegionAccessor",
 		"CloudRendererMixin",
-		"ParticleEngineMixin"
+		"ParticleEngineMixin",
+		"QuadParticleFeatureRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -14,9 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ParticleEngine.class)
 public class ParticleEngineMixin {
 
-    @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "tick", at = @At("HEAD"))
     private void xenoOnParticleTick(CallbackInfo ci) {
-        ci.cancel();
         XenoParticleRenderer.getInstance().tick();
     }
 }
