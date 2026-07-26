@@ -9,6 +9,7 @@ import net.minecraft.client.resources.model.geometry.BakedQuad;
  * Allows custom modded block models (Create, TechReborn, AE2) to stream quad geometry
  * directly into Xeno's high-performance vertex buffers.
  */
+@SuppressWarnings("unused")
 public class XenoFrapiMesh {
 
     public static void emitQuad(BufferBuilder builder, BakedQuad quad, float x, float y, float z, QuadInstance instance) {

@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * and adaptive multi-strategy promotion (Logical $O(1)$ vs Physical SIMD copy).
  * Zero preview or incubating dependencies.
  */
+@SuppressWarnings("unused")
 public class XGenerationalMultiBufferAllocator implements IXenoArenaAllocator {
 
     public record MemoryHandle(int id) {

@@ -13,6 +13,7 @@ import java.lang.foreign.ValueLayout;
  * Builds single-pass, instanced 3D cloud meshes into persistent GPU buffers via XGenerationalMultiBufferAllocator,
  * completely bypassing Vanilla's heavy CPU quad generation loops.
  */
+@SuppressWarnings("unused")
 public class XenoCloudRenderer {
 
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -53,7 +54,7 @@ public class XenoCloudRenderer {
             this.cloudMeshAlloc = null;
         }
 
-        int gridRadius = Math.min(128, Math.max(16, cloudRange));
+        int gridRadius = Math.clamp(cloudRange, 16, 128);
         int gridWidth = gridRadius * 2;
         int maxQuads = gridWidth * gridWidth * 6; // 6 faces per cloud block
         long totalBytes = (long) maxQuads * 4 * 28; // 28 bytes per vertex, 4 vertices per quad
@@ -77,10 +78,10 @@ public class XenoCloudRenderer {
                 float pz = startZ + z;
 
                 // Write 4 vertices for top face of cloud block
-                offset = writeCloudVertex(segment, offset, px, py + 4.0F, pz, 0.9F, 0.9F, 0.9F);
-                offset = writeCloudVertex(segment, offset, px + 12.0F, py + 4.0F, pz, 0.9F, 0.9F, 0.9F);
-                offset = writeCloudVertex(segment, offset, px + 12.0F, py + 4.0F, pz + 12.0F, 0.9F, 0.9F, 0.9F);
-                offset = writeCloudVertex(segment, offset, px, py + 4.0F, pz + 12.0F, 0.9F, 0.9F, 0.9F);
+                offset = writeCloudVertex(segment, offset, px, py + 4.0F, pz);
+                offset = writeCloudVertex(segment, offset, px + 12.0F, py + 4.0F, pz);
+                offset = writeCloudVertex(segment, offset, px + 12.0F, py + 4.0F, pz + 12.0F);
+                offset = writeCloudVertex(segment, offset, px, py + 4.0F, pz + 12.0F);
 
                 count++;
             }
@@ -90,11 +91,11 @@ public class XenoCloudRenderer {
         LOGGER.debug("[Xeno] Cloud mesh built with {} quads", this.quadCount);
     }
 
-    private static long writeCloudVertex(MemorySegment segment, long offset, float x, float y, float z, float r, float g, float b) {
+    private static long writeCloudVertex(MemorySegment segment, long offset, float x, float y, float z) {
         segment.set(ValueLayout.JAVA_FLOAT, offset, x);
         segment.set(ValueLayout.JAVA_FLOAT, offset + 4L, y);
         segment.set(ValueLayout.JAVA_FLOAT, offset + 8L, z);
-        segment.set(ValueLayout.JAVA_INT, offset + 12L, (0xFF << 24) | ((int)(b * 255) << 16) | ((int)(g * 255) << 8) | (int)(r * 255));
+        segment.set(ValueLayout.JAVA_INT, offset + 12L, 0xFFE5E5E5); // 0.9F RGBA color
         segment.set(ValueLayout.JAVA_FLOAT, offset + 16L, 0.0F); // U
         segment.set(ValueLayout.JAVA_FLOAT, offset + 20L, 0.0F); // V
         segment.set(ValueLayout.JAVA_INT, offset + 24L, 0x00F000F0); // Full brightness lightmap

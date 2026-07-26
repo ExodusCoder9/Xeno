@@ -119,9 +119,9 @@ public class XenoEntityCuller implements IXenoEntityCuller {
             mutPos.set(bx, by, bz);
 
             try {
-                if (!level.hasChunkAt(mutPos)) continue;
+                if (!level.hasChunk(net.minecraft.core.SectionPos.blockToSectionCoord(bx), net.minecraft.core.SectionPos.blockToSectionCoord(bz))) continue;
                 BlockState state = level.getBlockState(mutPos);
-                if (state != null && state.isSolidRender()) {
+                if (state.isSolidRender()) {
                     return true;
                 }
             } catch (Throwable t) {

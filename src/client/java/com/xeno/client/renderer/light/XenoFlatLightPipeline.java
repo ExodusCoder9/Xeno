@@ -1,6 +1,5 @@
 package com.xeno.client.renderer.light;
 
-import com.xeno.client.renderer.world.XenoLevelSlice;
 import net.minecraft.core.Direction;
 
 /**
@@ -26,8 +25,6 @@ public class XenoFlatLightPipeline {
      * Calculates flat 4-vertex brightness values for a face when AO is disabled.
      */
     public static void calculateFlatLighting(
-            XenoLevelSlice slice,
-            int x, int y, int z,
             Direction face,
             float[] outBrightness
     ) {

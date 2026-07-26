@@ -14,6 +14,7 @@ import java.util.Map;
  * Mojang's ViewArea modulo array wrapping. Releases GPU VRAM allocations instantly
  * on chunk unload without waiting for Java Garbage Collection.
  */
+@SuppressWarnings("unused")
 public class XenoSectionStorage {
 
     private static final Logger LOGGER = LogUtils.getLogger();

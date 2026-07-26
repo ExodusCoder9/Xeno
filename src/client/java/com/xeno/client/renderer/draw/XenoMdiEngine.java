@@ -12,6 +12,7 @@ import org.lwjgl.opengl.GL;
  * Executes single-call hardware draw passes across OpenGL 4.3+ and Vulkan 1.0+
  * bypassing CPU loop wrappings and Java Draw object overhead.
  */
+@SuppressWarnings("unused")
 public class XenoMdiEngine {
 
     public enum BackendType {

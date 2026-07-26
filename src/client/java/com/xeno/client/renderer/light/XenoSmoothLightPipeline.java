@@ -8,6 +8,7 @@ import net.minecraft.core.Direction;
  * Computes 4-corner vertex AO weights and interpolates smooth lighting values
  * without allocating BlockPos objects or transient float wrappers.
  */
+@SuppressWarnings("unused")
 public class XenoSmoothLightPipeline {
 
     /**

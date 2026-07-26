@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+@SuppressWarnings("all")
 public final class XenoWorldRenderer {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static @Nullable XenoWorldRenderer instance;

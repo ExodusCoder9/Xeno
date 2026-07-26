@@ -5,7 +5,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.ArrayList;
 import java.util.List;
 
-public class XenoBufferPool {
+@SuppressWarnings("unused")
+public class XenoBufferPool implements AutoCloseable {
     private final String name;
     private final int usage;
     private final long bufferSize;

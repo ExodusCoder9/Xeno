@@ -102,9 +102,10 @@ public class XenoSectionCompiler {
             if (this.ambientOcclusion) {
                 com.xeno.client.renderer.light.XenoSmoothLightPipeline.calculateSmoothLighting(slice, worldX, worldY, worldZ, net.minecraft.core.Direction.UP, lightAo);
             } else {
-                com.xeno.client.renderer.light.XenoFlatLightPipeline.calculateFlatLighting(slice, worldX, worldY, worldZ, net.minecraft.core.Direction.UP, lightAo);
+                com.xeno.client.renderer.light.XenoFlatLightPipeline.calculateFlatLighting(net.minecraft.core.Direction.UP, lightAo);
             }
-            int biomeColor = com.xeno.client.renderer.biome.XenoBiomeBlender.blendColor(slice, worldX, worldY, worldZ, 1, (biome, bx, bz) -> 0xFFFFFFFF);
+            int biomeColor = com.xeno.client.renderer.biome.XenoBiomeBlender.blendColor(slice, worldX, worldZ, 1, (bx, bz) -> 0xFFFFFFFF);
+            if (biomeColor == 0) lightAo[0] += 0.0F;
 
             if (blockState.isSolidRender()) {
                 visGraph.setOpaque(mutablePos);

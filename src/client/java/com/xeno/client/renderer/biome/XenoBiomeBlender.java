@@ -11,7 +11,7 @@ public class XenoBiomeBlender {
 
     @FunctionalInterface
     public interface ColorResolver {
-        int getColor(Object biome, double x, double z);
+        int getColor(double x, double z);
     }
 
     /**
@@ -19,12 +19,12 @@ public class XenoBiomeBlender {
      */
     public static int blendColor(
             XenoLevelSlice slice,
-            int x, int y, int z,
+            int x, int z,
             int radius,
             ColorResolver resolver
     ) {
         if (radius <= 0 || slice == null) {
-            return resolver.getColor(null, x, z);
+            return resolver.getColor(x, z);
         }
 
         int rSum = 0;
@@ -34,7 +34,7 @@ public class XenoBiomeBlender {
 
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dz = -radius; dz <= radius; dz++) {
-                int color = resolver.getColor(null, x + dx, z + dz);
+                int color = resolver.getColor(x + dx, z + dz);
                 rSum += (color >> 16) & 0xFF;
                 gSum += (color >> 8) & 0xFF;
                 bSum += color & 0xFF;

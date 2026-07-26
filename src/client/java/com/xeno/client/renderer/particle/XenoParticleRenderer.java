@@ -13,9 +13,9 @@ import java.util.List;
  * Manages particle simulation queues and batches particle quads directly into off-heap FFM buffers
  * using XGenerationalMultiBufferAllocator to execute dynamic instanced particle rendering passes.
  */
+@SuppressWarnings("unused")
 public class XenoParticleRenderer {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
     private static final XenoParticleRenderer INSTANCE = new XenoParticleRenderer();
 
     private final List<Object> activeParticles = new ArrayList<>();
