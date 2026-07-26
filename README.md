@@ -37,5 +37,5 @@
 
 * **Minecraft:** 26.2
 * **Fabric Loader:** >= 0.19.3
-* **Java:** Java 25 or higher
+* **Java:** Java 25 or higher versions
 * **Environment:** Client-side
