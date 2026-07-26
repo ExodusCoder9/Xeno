@@ -26,7 +26,7 @@ public class XenoSectionStorage {
         return INSTANCE;
     }
 
-    public static record XenoSectionNode(
+    public record XenoSectionNode(
             int sectionX,
             int sectionY,
             int sectionZ,

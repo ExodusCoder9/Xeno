@@ -3,15 +3,9 @@ package com.xeno.client.renderer.draw;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.RenderPass;
-import com.xeno.client.renderer.XenoWorldRenderer;
-import com.xeno.client.renderer.memory.XGenerationalMultiBufferAllocator;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 
 import org.lwjgl.opengl.GL;
-import org.lwjgl.opengl.GL11C;
-import org.lwjgl.opengl.GL15C;
-import org.lwjgl.opengl.GL40C;
-import org.lwjgl.opengl.GL43C;
 
 /**
  * Native Hardware Multi-Draw Indirect (MDI) Dispatch Engine.
