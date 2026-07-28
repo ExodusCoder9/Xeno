@@ -1,0 +1,90 @@
+{
+  "xeno.options.title": "Настройки Xeno",
+  "xeno.options.tab.general": "Общее",
+  "xeno.options.tab.quality": "Качество",
+  "xeno.options.tab.performance": "Производительность",
+  "xeno.options.tab.advanced": "Расширенные",
+
+  "xeno.options.apply": "Применить изменения",
+  "xeno.options.restart_required": "Требуется перезапуск игры, чтобы применить изменения графического бэкенда",
+  "xeno.options.performance_impact": "Влияние на производительность: ",
+
+  "xeno.options.impact.low": "Слабое",
+  "xeno.options.impact.medium": "Среднее",
+  "xeno.options.impact.high": "Высокое",
+
+  "xeno.options.graphics_api": "Графический API",
+  "xeno.options.graphics_api.desc": "Выбирает предпочтительный API для рендеринга графики. По умолчанию используются нативные платформы; Vulkan предлагает оптимизацию для современного оборудования",
+
+  "xeno.options.gui_scale": "Масштаб интерфейса",
+  "xeno.options.gui_scale.desc": "Устанавливает масштаб для интерфейса",
+
+  "xeno.options.render_distance": "Прорисовка",
+  "xeno.options.render_distance.desc": "Определяет как далеко отображаются чанки вокруг игрока. Высокие значения увеличивают видимость, но уменьшают производительность",
+
+  "xeno.options.simulation_distance": "Симуляция",
+  "xeno.options.simulation_distance.desc": "Определяет как далеко происходят симуляция сущностей и обработка тиков блоков. Низкие значения снижают нагрузку на процессор",
+
+  "xeno.options.fps_limit": "Ограничение кадров",
+  "xeno.options.fps_limit.desc": "Ограничивает максимальное количество кадров в секунду. Более низкие значения снижают нагрузку на видеокарту и энергопотребление",
+
+  "xeno.options.vsync": "VSync",
+  "xeno.options.vsync.desc": "Синхронизирует вывод кадров с герцовкой монитора. Уменьшает разрывы экрана, но может привести к задержке ввода",
+
+  "xeno.options.fullscreen": "Полноэкранный режим",
+  "xeno.options.fullscreen.desc": "Переключение между оконным и полноэкранным режимами отображения",
+
+  "xeno.options.exclusive_fullscreen": "Исключительный полноэкранный режим",
+  "xeno.options.exclusive_fullscreen.desc": "Обеспечивает исключительный контроль над отображением на мониторе при работе в полноэкранном режиме",
+
+  "xeno.options.attack_indicator": "Индикатор атаки",
+  "xeno.options.attack_indicator.desc": "Устанавливает стиль отображения и позицию для индикатора атаки прицела во время боя",
+
+  "xeno.options.autosave_indicator": "Индикатор автосохранения",
+  "xeno.options.autosave_indicator.desc": "Включает едва заметный индикатор диска в углу экрана, когда игра выполняет автосохранение",
+
+  "xeno.options.graphics_preset": "Профили графики",
+  "xeno.options.graphics_preset.desc": "Управляет профилями визуальной графики. Быстрое отключение дополнительных эффектов освещения; Fabulous включает расширенные слои",
+
+  "xeno.options.ambient_occlusion": "Мягкое освещение",
+  "xeno.options.ambient_occlusion.desc": "Применяет рассеянные тени между блоками для создания ровного, атмосферного освещения поверхности",
+
+  "xeno.options.clouds": "Облака",
+  "xeno.options.clouds.desc": "Настраивает стиль облаков. Fancy — объемные облака; OFF полностью отключает облака",
+
+  "xeno.options.cloud_distance": "Дальность облаков",
+  "xeno.options.cloud_distance.desc": "Определяет максимальное расстояние (в чанках) на котором отображаются модели облаков",
+
+  "xeno.options.biome_blend": "Смешение биомов",
+  "xeno.options.biome_blend.desc": "Определяет радиус смешивания цветов соседних биомов. Если выключено, границы будут четкими, при высоких значениях цвета будут плавно смешиваться",
+
+  "xeno.options.particles": "Частицы",
+  "xeno.options.particles.desc": "Определяет плотность частиц окружения, боевых частиц и частиц, управляемых командами",
+
+  "xeno.options.mipmap": "Mip-карта",
+  "xeno.options.mipmap.desc": "Повышает резкость текстур вдалеке с помощью карт текстурн с разным разрешением. Более низкие уровни могут повысить производительность",
+
+  "xeno.options.entity_shadows": "Тени сущностей",
+  "xeno.options.entity_shadows.desc": "Включает круговые теневые силуэты под живыми существами и предметами",
+
+  "xeno.options.cutout_leaves": "Прозрачные листья",
+  "xeno.options.cutout_leaves.desc": "Управляет прозрачностью блоков листьев. Сплошные непрозрачные листы позволяют обойти проверку прозрачности и ускорить рендеринг",
+
+  "xeno.options.weather_radius": "Радиус отображения эффектов погодных",
+  "xeno.options.weather_radius.desc": "Определяет радиус блока для рендеринга погоды и источников звука, направленных на игрока",
+
+  "xeno.options.vignette": "Виньетирование",
+  "xeno.options.vignette.desc": "Применяет кинематографическое затемняющее наложение по краям экрана",
+
+  "xeno.options.chunk_fade_time": "Время проявления чанков",
+  "xeno.options.chunk_fade_time.desc": "Применяет плавную анимацию затухания к загруженным снова фрагментам чанков",
+
+  "xeno.options.entity_distance": "Расстояние до сущности",
+  "xeno.options.entity_distance.desc": "Устанавливает пороговое расстояние для рендеринга моделей сущностей. Низкие значения масштабирования значительно экономят время работы видеокарты",
+
+  "xeno.options.texture_filtering": "Фильтрация текстур",
+  "xeno.options.texture_filtering.desc": "Применяет методы отбора проб текстуры. RGSS или анизотропная фильтрация сохраняют наклонные углы острыми",
+
+  "xeno.options.anisotropic_value": "Значение анизотропной фильтрации",
+  "xeno.options.anisotropic_value.desc": "Определяет уровень анизотропной фильтрации. Высокие значения сохраняют тонкую текстуру на крутых склонах"
+}
