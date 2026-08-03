@@ -67,7 +67,7 @@ public class XenoSectionCompiler {
         VisGraph visGraph = new VisGraph();
         BlockModelLighter.enableCaching();
         ModelBlockRenderer blockRenderer = new ModelBlockRenderer(this.ambientOcclusion, true, this.blockColors);
-        FluidRenderer fluidRenderer = new FluidRenderer(this.fluidModelSet);
+        com.xeno.client.renderer.fluid.XenoFluidRenderer fluidRenderer = new com.xeno.client.renderer.fluid.XenoFluidRenderer(this.fluidModelSet, this.ambientOcclusion);
 
         Map<ChunkSectionLayer, BufferBuilder> startedLayers = new EnumMap<>(ChunkSectionLayer.class);
         net.minecraft.client.renderer.block.BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> {

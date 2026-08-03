@@ -11,13 +11,14 @@
 * **Spatial Chunk Grid & Instant VRAM Cleanup (`XenoSectionStorage`):** Replaces `ViewArea` modulo coordinate wrapping with a 1D spatial hash grid. Automatically releases GPU VRAM allocations in `XGenerationalMultiBufferAllocator` on chunk unload (`ClientChunkCache.drop`) without waiting for Java Garbage Collection.
 * **Generational Arena Allocator:** Multi-buffer generational memory (`XGenerationalMultiBufferAllocator`) combining lock-free `AtomicLong` Young/Survivor bump arenas with $O(1)$ TLSF coalescing for Old generation chunk memory. Uses bit-packed 64-bit `XenoHandle` primitive handles.
 * **Flat 1D Section Compiler (`XenoSectionCompiler`):** Replaces vanilla's 4,096 `BlockPos` loop with flat index bit-wise traversal, eliminating heap allocations during section meshing.
-* **Asynchronous Occlusion & Culling:** Background thread occlusion graphs, bounding box checks, and frustum culling to prevent main-thread geometry stalls.
+* **Asynchronous Path-Traced Entity Culler (`XenoEntityCuller`):** Dedicated background thread casting DDA voxel rays against 9 points on entity bounding boxes (center + 8 inset corners) to aggressively cull entities hidden behind opaque terrain walls (like pillars or slabs) with zero main-thread overhead while perfectly preserving partial visibility.
 * **Unified GPU Memory Pools:** Consolidates chunk allocations into massive GPU memory pools (128MB VBO / 32MB IBO) to reduce driver state switches and allocation stutter.
 
 ---
 
 ##  Core Systems & Features
 
+* **Custom Fluid Rendering Pipeline (`XenoFluidRenderer`):** Complete rewrite of vanilla fluid rendering. Features dynamic DFS `checkFloodedCave` heuristics for culling underwater faces, 4-corner neighbor-aware fluid smooth lighting, fix for horizontal UV stretching on side quads, seamless edge-case handling for overlapping falling streams, and inward quad emissions for flawless underwater visuals.
 * **Dual Lighting Pipelines:**
   * **`XenoFlatLightPipeline`:** Fast single-sample directional face shading ($1.0$ UP, $0.5$ DOWN, $0.8$ N/S, $0.6$ E/W) when AO is disabled, skipping AO sampling for maximum FPS.
   * **`XenoSmoothLightPipeline`:** 4-corner vertex AO weight calculation and smooth lighting interpolation without `BlockPos` allocations.

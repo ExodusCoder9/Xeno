@@ -64,14 +64,36 @@ public class XenoEntityCuller implements IXenoEntityCuller {
                 AABB aabb = task.aabb;
 
                 Vec3 center = aabb.getCenter();
-                Vec3 top = new Vec3(center.x, aabb.maxY - 0.1, center.z);
-                Vec3 bottom = new Vec3(center.x, aabb.minY + 0.1, center.z);
+                double dx = (aabb.maxX - aabb.minX) * 0.05;
+                double dy = (aabb.maxY - aabb.minY) * 0.05;
+                double dz = (aabb.maxZ - aabb.minZ) * 0.05;
 
-                boolean centerBlocked = isRayBlocked(level, camPos, center, mutPos);
-                boolean topBlocked = isRayBlocked(level, camPos, top, mutPos);
-                boolean bottomBlocked = isRayBlocked(level, camPos, bottom, mutPos);
+                double minX = aabb.minX + dx;
+                double minY = aabb.minY + dy;
+                double minZ = aabb.minZ + dz;
+                double maxX = aabb.maxX - dx;
+                double maxY = aabb.maxY - dy;
+                double maxZ = aabb.maxZ - dz;
 
-                boolean fullyOccluded = centerBlocked && topBlocked && bottomBlocked;
+                Vec3[] points = new Vec3[] {
+                    center,
+                    new Vec3(minX, minY, minZ),
+                    new Vec3(minX, minY, maxZ),
+                    new Vec3(maxX, minY, minZ),
+                    new Vec3(maxX, minY, maxZ),
+                    new Vec3(minX, maxY, minZ),
+                    new Vec3(minX, maxY, maxZ),
+                    new Vec3(maxX, maxY, minZ),
+                    new Vec3(maxX, maxY, maxZ)
+                };
+
+                boolean fullyOccluded = true;
+                for (Vec3 p : points) {
+                    if (!isRayBlocked(level, camPos, p, mutPos)) {
+                        fullyOccluded = false;
+                        break;
+                    }
+                }
 
                 if (fullyOccluded) {
                     int frames = this.occlusionFrames.merge(id, 1, Integer::sum);

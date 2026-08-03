@@ -7,11 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Fast Particle Engine Renderer.
+ * Particle Engine Renderer.
  * Manages particle simulation queues and batches particle quads directly into off-heap FFM buffers
  * using XGenerationalMultiBufferAllocator to execute dynamic instanced particle rendering passes.
  */
-@SuppressWarnings("unused")
 public class XenoParticleRenderer {
 
     private static final XenoParticleRenderer INSTANCE = new XenoParticleRenderer();
@@ -25,7 +24,6 @@ public class XenoParticleRenderer {
     }
 
     public synchronized void tick() {
-        // Fast particle simulation tick pass
         if (this.particleCount > 0) {
             this.particleCount = Math.max(0, this.particleCount - 1);
         }
