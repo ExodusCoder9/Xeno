@@ -38,6 +38,4 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
-.aider*
-Minecraft 26.2 Client Source Code Decompiled
-/Mc26.2ClientSourceCodeDecompiled/
+/mc26.2clientdecompiled/
