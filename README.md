@@ -1,42 +1,25 @@
-# Xeno (26.2 Alpha 7)
+# Xeno
 
-**Xeno** is a low-overhead, high-performance graphics optimization mod for Minecraft 26.2. It replaces vanilla rendering loops with a streamlined, API-agnostic pipeline built for Vulkan and OpenGL backends using an **Inject & Delegate** architecture.
+**Xeno** is a powerful rendering optimization mod for Minecraft.
 
----
+## Versions
 
-##  Architecture Highlights
+The latest stable release of Xeno can be downloaded from our [Modrinth](https://modrinth.com/mod/xeno) page.
 
-* **Multi-Draw Indirect (MDI) Engine:** Single-call hardware indirect drawing (`GL43C` / Vulkan `vkCmdDrawIndexedIndirect`). Packs 20-byte indirect commands with hardware `gl_BaseInstance` matrix indexing in off-heap FFM memory.
-* **Cloned 3D World Snapshots (`XenoLevelSlice`):** Captures $3 \times 3 \times 3$ section neighborhoods into flat 1D primitive arrays, enabling $100\%$ thread-safe background chunk meshing with zero main-thread lock contention.
-* **Spatial Chunk Grid & Instant VRAM Cleanup (`XenoSectionStorage`):** Replaces `ViewArea` modulo coordinate wrapping with a 1D spatial hash grid. Automatically releases GPU VRAM allocations in `XGenerationalMultiBufferAllocator` on chunk unload (`ClientChunkCache.drop`) without waiting for Java Garbage Collection.
-* **Generational Arena Allocator:** Multi-buffer generational memory (`XGenerationalMultiBufferAllocator`) combining lock-free `AtomicLong` Young/Survivor bump arenas with $O(1)$ TLSF coalescing for Old generation chunk memory. Uses bit-packed 64-bit `XenoHandle` primitive handles.
-* **Flat 1D Section Compiler (`XenoSectionCompiler`):** Replaces vanilla's 4,096 `BlockPos` loop with flat index bit-wise traversal, eliminating heap allocations during section meshing.
-* **Asynchronous Path-Traced Entity Culler (`XenoEntityCuller`):** Dedicated background thread casting DDA voxel rays against 9 points on entity bounding boxes (center + 8 inset corners) to aggressively cull entities hidden behind opaque terrain walls (like pillars or slabs) with zero main-thread overhead while perfectly preserving partial visibility.
-* **Unified GPU Memory Pools:** Consolidates chunk allocations into massive GPU memory pools (128MB VBO / 32MB IBO) to reduce driver state switches and allocation stutter.
+> **⚠️ Disclaimer: Alpha Stage**
+> This mod is currently in Alpha. You may encounter bugs, crashes, or unfinished features. Please use it with caution and always back up your worlds before installing.
 
----
+## Help & Support
 
-##  Core Systems & Features
+For technical support or bug issues, please visit our [GitHub issue tracker](https://github.com/ExodusCoder9/Xeno/issues) or join our [Discord server](https://discord.com/invite/2qxE3tFCbf).
 
-* **Custom Fluid Rendering Pipeline (`XenoFluidRenderer`):** Complete rewrite of vanilla fluid rendering. Features dynamic DFS `checkFloodedCave` heuristics for culling underwater faces, 4-corner neighbor-aware fluid smooth lighting, fix for horizontal UV stretching on side quads, seamless edge-case handling for overlapping falling streams, and inward quad emissions for flawless underwater visuals.
-* **Dual Lighting Pipelines:**
-  * **`XenoFlatLightPipeline`:** Fast single-sample directional face shading ($1.0$ UP, $0.5$ DOWN, $0.8$ N/S, $0.6$ E/W) when AO is disabled, skipping AO sampling for maximum FPS.
-  * **`XenoSmoothLightPipeline`:** 4-corner vertex AO weight calculation and smooth lighting interpolation without `BlockPos` allocations.
-* **Fast Biome Color Sampler (`XenoBiomeBlender`):** Flat primitive array sampling for grass, water, and foliage colors, bypassing `BiomeColors` sampler allocations.
-* **Fast Volumetric Cloud Engine (`XenoCloudRenderer`):** Single-pass 3D cloud mesh builder allocating persistent GPU buffers directly in off-heap FFM memory.
-* **High-Performance Quad Particle System (`XenoParticleRenderer`):** Quad particle batching hooked via `QuadParticleFeatureRendererMixin` (`executeGroup`), accelerating particle rendering while preserving vanilla particle physics and lifetimes.
-* **Fabric Rendering API (FRAPI) Interop (`XenoFrapiMesh`):** Direct quad streaming support for complex modded block models (e.g. Create, TechReborn, AE2).
-* **Localized Video Settings GUI:** Tabbed video settings interface (*General*, *Quality*, *Performance*, *Advanced*) with full multi-language translation support (`en_us.json`) for options, tooltips, buttons, and performance impact badges.
-* **Xeno Rendering & Shader API (XRA):** Extensible API supporting custom shaders, compute shaders (OpenGL/Vulkan with fallback checks), custom materials, and pipeline pass injections.
-* **Threaded Translucent Quad Sorting:** Background translucent quad sorting on `Util.backgroundExecutor()`, uploading directly to GPU buffer slices.
-* **3-Frame Deferred Free Queue:** Prevents GPU read-after-free corruption during chunk re-meshing.
-* **Off-Heap FFM Transfers:** Java 25 Foreign Function & Memory (`MemorySegment`) zero-copy data transfer to mapped VRAM.
+## Compatibility
 
----
+We support all hardware capable of:
+* **OpenGL 4.5**
+* **Vulkan 1.2**
 
-## 📋 Requirements
+## License
 
-* **Minecraft:** 26.2
-* **Fabric Loader:** >= 0.19.3
-* **Java:** Java 25 or higher versions
-* **Environment:** Client-side
+* The content of this repository, except the `Stable 26.1.2` branch, is licensed under the [Polyform Shield 1.0.0 license](https://github.com/ExodusCoder9/Xeno/blob/dev/LICENSE) by ExodusCoder9.
+* The content of this repository on the `Stable 26.1.2` branch is under the **GNU Lesser General Public License (LGPL)**. It is also a fork of Vulkanmod by XCollateral.
