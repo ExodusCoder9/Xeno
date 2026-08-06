@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class DebugScreenEntriesMixin {
     @Inject(method = "<clinit>", at = @At("RETURN"))
     private static void xeno_registerEntries(CallbackInfo ci) {
-        DebugScreenEntries.register(Identifier.withDefaultNamespace("xeno_renderer"), new DebugEntryNoop(true));
-        DebugScreenEntries.register(Identifier.withDefaultNamespace("xeno_culling_stats"), new DebugEntryNoop(true));
-        DebugScreenEntries.register(Identifier.withDefaultNamespace("xeno_entity_stats"), new DebugEntryNoop(true));
+        DebugScreenEntries.register("xeno_renderer", new DebugEntryNoop(true));
+        DebugScreenEntries.register("xeno_culling_stats", new DebugEntryNoop(true));
+        DebugScreenEntries.register("xeno_entity_stats", new DebugEntryNoop(true));
     }
 }
