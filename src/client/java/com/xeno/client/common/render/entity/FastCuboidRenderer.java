@@ -57,19 +57,15 @@ public class FastCuboidRenderer {
         float vyx = dy * m10, vyy = dy * m11, vyz = dy * m12;
         float vzx = dz * m20, vzy = dz * m21, vzz = dz * m22;
 
-        float[] tx = new float[8];
-        float[] ty = new float[8];
-        float[] tz = new float[8];
-
-        tx[0] = x0; ty[0] = y0; tz[0] = z0;
-        tx[1] = x0 + vxx; ty[1] = y0 + vxy; tz[1] = z0 + vxz;
-        tx[2] = tx[1] + vyx; ty[2] = ty[1] + vyy; tz[2] = tz[1] + vyz;
-        tx[3] = x0 + vyx; ty[3] = y0 + vyy; tz[3] = z0 + vyz;
+        float tx0 = x0, ty0 = y0, tz0 = z0;
+        float tx1 = x0 + vxx, ty1 = y0 + vxy, tz1 = z0 + vxz;
+        float tx2 = tx1 + vyx, ty2 = ty1 + vyy, tz2 = tz1 + vyz;
+        float tx3 = x0 + vyx, ty3 = y0 + vyy, tz3 = z0 + vyz;
         
-        tx[4] = x0 + vzx; ty[4] = y0 + vzy; tz[4] = z0 + vzz;
-        tx[5] = tx[1] + vzx; ty[5] = ty[1] + vzy; tz[5] = tz[1] + vzz;
-        tx[6] = tx[2] + vzx; ty[6] = ty[2] + vzy; tz[6] = tz[2] + vzz;
-        tx[7] = tx[3] + vzx; ty[7] = ty[3] + vzy; tz[7] = tz[3] + vzz;
+        float tx4 = x0 + vzx, ty4 = y0 + vzy, tz4 = z0 + vzz;
+        float tx5 = tx1 + vzx, ty5 = ty1 + vzy, tz5 = tz1 + vzz;
+        float tx6 = tx2 + vzx, ty6 = ty2 + vzy, tz6 = tz2 + vzz;
+        float tx7 = tx3 + vzx, ty7 = ty3 + vzy, tz7 = tz3 + vzz;
 
         ModelPart.Polygon[] polygons = cube.polygons;
         int vIdx = 0;
@@ -92,10 +88,21 @@ public class FastCuboidRenderer {
                 
                 for (ModelPart.Vertex v : poly.vertices()) {
                     int cIdx = indices[vIdx++];
+                    float vx = 0, vy = 0, vz = 0;
+                    switch (cIdx) {
+                        case 0: vx = tx0; vy = ty0; vz = tz0; break;
+                        case 1: vx = tx1; vy = ty1; vz = tz1; break;
+                        case 2: vx = tx2; vy = ty2; vz = tz2; break;
+                        case 3: vx = tx3; vy = ty3; vz = tz3; break;
+                        case 4: vx = tx4; vy = ty4; vz = tz4; break;
+                        case 5: vx = tx5; vy = ty5; vz = tz5; break;
+                        case 6: vx = tx6; vy = ty6; vz = tz6; break;
+                        case 7: vx = tx7; vy = ty7; vz = tz7; break;
+                    }
                     
-                    MemoryAccess.putFloat(ptr + 0L, tx[cIdx]);
-                    MemoryAccess.putFloat(ptr + 4L, ty[cIdx]);
-                    MemoryAccess.putFloat(ptr + 8L, tz[cIdx]);
+                    MemoryAccess.putFloat(ptr + 0L, vx);
+                    MemoryAccess.putFloat(ptr + 4L, vy);
+                    MemoryAccess.putFloat(ptr + 8L, vz);
                     MemoryAccess.putInt(ptr + 12L, packedColor);
                     
                     if (IS_LITTLE_ENDIAN) {
@@ -119,7 +126,18 @@ public class FastCuboidRenderer {
                 Vector3f normal = pose.transformNormal(poly.normal(), SCRATCH_NORMAL);
                 for (ModelPart.Vertex v : poly.vertices()) {
                     int cIdx = indices[vIdx++];
-                    builder.addVertex(tx[cIdx], ty[cIdx], tz[cIdx], color, v.u(), v.v(), overlay, light, normal.x(), normal.y(), normal.z());
+                    float vx = 0, vy = 0, vz = 0;
+                    switch (cIdx) {
+                        case 0: vx = tx0; vy = ty0; vz = tz0; break;
+                        case 1: vx = tx1; vy = ty1; vz = tz1; break;
+                        case 2: vx = tx2; vy = ty2; vz = tz2; break;
+                        case 3: vx = tx3; vy = ty3; vz = tz3; break;
+                        case 4: vx = tx4; vy = ty4; vz = tz4; break;
+                        case 5: vx = tx5; vy = ty5; vz = tz5; break;
+                        case 6: vx = tx6; vy = ty6; vz = tz6; break;
+                        case 7: vx = tx7; vy = ty7; vz = tz7; break;
+                    }
+                    builder.addVertex(vx, vy, vz, color, v.u(), v.v(), overlay, light, normal.x(), normal.y(), normal.z());
                 }
             }
         }

@@ -92,7 +92,7 @@ public class CubeMixin implements FastCube {
     private int xeno$findCorner(float vx, float vy, float vz) {
         for (int i = 0; i < 8; i++) {
             Vector3f c = this.xeno$corners[i];
-            if (Math.abs(c.x() - vx) < 0.0001f && Math.abs(c.y() - vy) < 0.0001f && Math.abs(c.z() - vz) < 0.0001f) {
+            if (Math.abs(c.x() - vx) < 0.05f && Math.abs(c.y() - vy) < 0.05f && Math.abs(c.z() - vz) < 0.05f) {
                 return i;
             }
         }
