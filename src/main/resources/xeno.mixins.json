@@ -3,7 +3,8 @@
 	"package": "com.xeno.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"CubeMixin"
+		"CubeMixin",
+		"BufferBuilderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

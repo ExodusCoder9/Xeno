@@ -9,7 +9,9 @@
 		"XenoCloudRendererMixin",
 		"XenoBufferBuilderMixin",
 		"XenoChunkSectionsToRenderMixin",
-		"OptionsScreenMixin"
+		"OptionsScreenMixin",
+		"CubeMixin",
+		"BufferBuilderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
