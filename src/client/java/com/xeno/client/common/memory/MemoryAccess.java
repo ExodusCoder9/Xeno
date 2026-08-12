@@ -24,8 +24,8 @@ import java.lang.reflect.Field;
  * Utility class
  * <p>
  * This class and its underlying implementation based on {@link sun.misc.Unsafe}
- * are explicitly marked as <b>DEPRECATED</b> by both our internal systems and
- * the upstream Java platform (via OpenJDK JEP 471/498).
+ * are explicitly marked as Deprecated by both us and
+ * the Java platform (via OpenJDK JEP 471/498).
  *
  * <p>Despite this deprecation status, we will continue using it
  * across our mod due to its performance capabilities. We will not migrate to alternative
