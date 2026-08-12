@@ -1,0 +1,20 @@
+{
+	"required": true,
+	"package": "com.xeno.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"XenoSectionCompilerMixin",
+		"XenoSectionRenderDispatcherMixin",
+		"XenoChunkExecutorMixin",
+		"XenoCloudRendererMixin",
+		"XenoBufferBuilderMixin",
+		"XenoChunkSectionsToRenderMixin",
+		"OptionsScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
