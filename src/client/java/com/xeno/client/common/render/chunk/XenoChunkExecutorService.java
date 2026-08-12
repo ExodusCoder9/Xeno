@@ -58,15 +58,6 @@ import java.util.concurrent.locks.LockSupport;
 public final class XenoChunkExecutorService extends AbstractExecutorService {
 	private static final Logger LOGGER = LogManager.getLogger("XenoChunkExecutor");
 
-	/** Length of one pacing window. */
-	private static final long FRAME_NS = 16_666_667L;
-
-	/** Maximum total compile time allowed per pacing window across all workers. */
-	private static final long MAX_COMPILE_TIME_PER_FRAME_NS = 10_000_000L;
-
-	/** Saturation cap for the per-window accumulator */
-	private static final long BUDGET_SATURATION_NS = 4_000_000_000L;
-
 	public static final TracingExecutor INSTANCE = new TracingExecutor(new XenoChunkExecutorService());
 
 	private final ConcurrentLinkedDeque<Runnable> tasks = new ConcurrentLinkedDeque<>();
@@ -97,15 +88,11 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 				continue;
 			}
 
-			this.parkIfBudgetExhausted();
-
-			long start = System.nanoTime();
 			try {
 				task.run();
 			} catch (Throwable t) {
 				LOGGER.error("Task on chunk builder executor threw an exception", t);
 			}
-			this.paceCompileTime(System.nanoTime() - start);
 		}
 
 		this.terminatedThreads.incrementAndGet();
@@ -123,55 +110,6 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 		}
 
 		return this.tasks.poll();
-	}
-
-	/**
-	 * Records how long a job took and, once the current window's budget is exhausted, parks the
-	 * worker until the next window starts so the chunk builders never use the CPU for more
-	 * than the budgeted share of a frame.
-	 */
-	private void paceCompileTime(long compileTime) {
-		if (this.recordCompileTime(compileTime)) {
-			this.parkUntilNextEpoch();
-		}
-	}
-
-	private void parkIfBudgetExhausted() {
-		if (this.isBudgetExhausted()) {
-			this.parkUntilNextEpoch();
-		}
-	}
-
-	private void parkUntilNextEpoch() {
-		long now = System.nanoTime();
-		long remaining = (now / FRAME_NS + 1L) * FRAME_NS - now;
-		if (remaining > 0L) {
-			LockSupport.parkNanos(remaining);
-		}
-	}
-
-	/**
-	 * Accumulates a measured compile duration into the current window, resetting the accumulator
-	 * when the window rolls over eventually. Returns whether the window budget is now exhausted. The lock is
-	 * held for only a few nanoseconds per job, so contention between workers is negligible.
-	 */
-	private boolean recordCompileTime(long compileTime) {
-		synchronized (this.budgetLock) {
-			long epoch = System.nanoTime() / FRAME_NS;
-			if (epoch != this.budgetEpoch) {
-				this.budgetEpoch = epoch;
-				this.budgetSpent = 0L;
-			}
-			this.budgetSpent = Math.min(this.budgetSpent + compileTime, BUDGET_SATURATION_NS);
-			return this.budgetSpent >= MAX_COMPILE_TIME_PER_FRAME_NS;
-		}
-	}
-
-	private boolean isBudgetExhausted() {
-		synchronized (this.budgetLock) {
-			long epoch = System.nanoTime() / FRAME_NS;
-			return epoch == this.budgetEpoch && this.budgetSpent >= MAX_COMPILE_TIME_PER_FRAME_NS;
-		}
 	}
 
 	@Override
@@ -236,7 +174,6 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 	}
 
 	private static int optimalThreadCount() {
-		int maxThreads = Runtime.getRuntime().availableProcessors();
-		return Mth.clamp(Math.max(maxThreads / 3, maxThreads - 6), 1, 10);
+		return Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
 	}
 }

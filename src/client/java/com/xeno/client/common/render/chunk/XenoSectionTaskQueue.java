@@ -107,40 +107,37 @@ public class XenoSectionTaskQueue extends SectionTaskDynamicQueue {
 			return;
 		}
 
-		List<SectionRenderDispatcher.RenderSection.SectionTask> work = new ArrayList<>(this.pending.size());
-		for (SectionRenderDispatcher.RenderSection.SectionTask task : this.pending) {
+		int size = this.pending.size();
+		SectionRenderDispatcher.RenderSection.SectionTask[] important = new SectionRenderDispatcher.RenderSection.SectionTask[size];
+		SectionRenderDispatcher.RenderSection.SectionTask[] background = new SectionRenderDispatcher.RenderSection.SectionTask[size];
+		int impCount = 0;
+		int bgCount = 0;
+
+		for (int i = 0; i < size; i++) {
+			SectionRenderDispatcher.RenderSection.SectionTask task = this.pending.get(i);
 			if (!task.isCancelled.get()) {
-				work.add(task);
+				if (isImportant(task, cameraPos)) {
+					important[impCount++] = task;
+				} else {
+					background[bgCount++] = task;
+				}
 			}
 		}
+
 		this.pending.clear();
-
-		List<SectionRenderDispatcher.RenderSection.SectionTask> important = new ArrayList<>();
-		List<SectionRenderDispatcher.RenderSection.SectionTask> background = new ArrayList<>();
-		for (SectionRenderDispatcher.RenderSection.SectionTask task : work) {
-			if (isImportant(task, cameraPos)) {
-				important.add(task);
-			} else {
-				background.add(task);
-			}
-		}
-
 		Comparator<SectionRenderDispatcher.RenderSection.SectionTask> byDistance = byDistanceTo(cameraPos);
-		important.sort(byDistance);
-		background.sort(byDistance);
+		
+		java.util.Arrays.sort(important, 0, impCount, byDistance);
+		java.util.Arrays.sort(background, 0, bgCount, byDistance);
 
-		SectionRenderDispatcher.RenderSection.SectionTask[] rebuilt = new SectionRenderDispatcher.RenderSection.SectionTask[important.size() + background.size()];
-		int out = 0;
-		for (SectionRenderDispatcher.RenderSection.SectionTask task : important) {
-			rebuilt[out++] = task;
-		}
-		for (SectionRenderDispatcher.RenderSection.SectionTask task : background) {
-			rebuilt[out++] = task;
-		}
+		SectionRenderDispatcher.RenderSection.SectionTask[] rebuilt = new SectionRenderDispatcher.RenderSection.SectionTask[impCount + bgCount];
+		System.arraycopy(important, 0, rebuilt, 0, impCount);
+		System.arraycopy(background, 0, rebuilt, impCount, bgCount);
 
-		for (int i = 0; i < out; i++) {
+		for (int i = 0; i < rebuilt.length; i++) {
 			this.pending.add(rebuilt[i]);
 		}
+		
 		this.order = rebuilt;
 		this.cursor = 0;
 		this.cachedCameraSection = cameraSectionKey(cameraPos);
