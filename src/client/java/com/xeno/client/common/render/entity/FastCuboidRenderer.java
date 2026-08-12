@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://gnu.org>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 package com.xeno.client.common.render.entity;
@@ -31,10 +31,6 @@ public class FastCuboidRenderer {
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
     public static void renderCube(ModelPart.Cube cube, PoseStack.Pose pose, VertexConsumer builder, int light, int overlay, int color) {
-        FastCube fastCube = (FastCube) cube;
-        Vector3f[] localCorners = fastCube.getCorners();
-        int[] indices = fastCube.getVertexIndices();
-
         Matrix4f matrix = pose.pose();
         
         float m00 = matrix.m00(), m01 = matrix.m01(), m02 = matrix.m02(), m03 = matrix.m03();
@@ -42,33 +38,7 @@ public class FastCuboidRenderer {
         float m20 = matrix.m20(), m21 = matrix.m21(), m22 = matrix.m22(), m23 = matrix.m23();
         float m30 = matrix.m30(), m31 = matrix.m31(), m32 = matrix.m32(), m33 = matrix.m33();
 
-        Vector3f min = localCorners[0];
-        Vector3f max = localCorners[6];
-
-        float dx = max.x() - min.x();
-        float dy = max.y() - min.y();
-        float dz = max.z() - min.z();
-
-        float x0 = min.x() * m00 + min.y() * m10 + min.z() * m20 + m30;
-        float y0 = min.x() * m01 + min.y() * m11 + min.z() * m21 + m31;
-        float z0 = min.x() * m02 + min.y() * m12 + min.z() * m22 + m32;
-
-        float vxx = dx * m00, vxy = dx * m01, vxz = dx * m02;
-        float vyx = dy * m10, vyy = dy * m11, vyz = dy * m12;
-        float vzx = dz * m20, vzy = dz * m21, vzz = dz * m22;
-
-        float tx0 = x0, ty0 = y0, tz0 = z0;
-        float tx1 = x0 + vxx, ty1 = y0 + vxy, tz1 = z0 + vxz;
-        float tx2 = tx1 + vyx, ty2 = ty1 + vyy, tz2 = tz1 + vyz;
-        float tx3 = x0 + vyx, ty3 = y0 + vyy, tz3 = z0 + vyz;
-        
-        float tx4 = x0 + vzx, ty4 = y0 + vzy, tz4 = z0 + vzz;
-        float tx5 = tx1 + vzx, ty5 = ty1 + vzy, tz5 = tz1 + vzz;
-        float tx6 = tx2 + vzx, ty6 = ty2 + vzy, tz6 = tz2 + vzz;
-        float tx7 = tx3 + vzx, ty7 = ty3 + vzy, tz7 = tz3 + vzz;
-
         ModelPart.Polygon[] polygons = cube.polygons;
-        int vIdx = 0;
         
         if (builder instanceof XenoBufferWriter xbw && xbw.xeno$isEntityFormat()) {
             int totalVerts = 0;
@@ -87,18 +57,13 @@ public class FastCuboidRenderer {
                 int packedNormal = (nx & 0xFF) | ((ny & 0xFF) << 8) | ((nz & 0xFF) << 16);
                 
                 for (ModelPart.Vertex v : poly.vertices()) {
-                    int cIdx = indices[vIdx++];
-                    float vx = 0, vy = 0, vz = 0;
-                    switch (cIdx) {
-                        case 0: vx = tx0; vy = ty0; vz = tz0; break;
-                        case 1: vx = tx1; vy = ty1; vz = tz1; break;
-                        case 2: vx = tx2; vy = ty2; vz = tz2; break;
-                        case 3: vx = tx3; vy = ty3; vz = tz3; break;
-                        case 4: vx = tx4; vy = ty4; vz = tz4; break;
-                        case 5: vx = tx5; vy = ty5; vz = tz5; break;
-                        case 6: vx = tx6; vy = ty6; vz = tz6; break;
-                        case 7: vx = tx7; vy = ty7; vz = tz7; break;
-                    }
+                    float x = v.worldX();
+                    float y = v.worldY();
+                    float z = v.worldZ();
+                    
+                    float vx = m00 * x + m10 * y + m20 * z + m30;
+                    float vy = m01 * x + m11 * y + m21 * z + m31;
+                    float vz = m02 * x + m12 * y + m22 * z + m32;
                     
                     MemoryAccess.putFloat(ptr + 0L, vx);
                     MemoryAccess.putFloat(ptr + 4L, vy);
@@ -125,18 +90,12 @@ public class FastCuboidRenderer {
             for (ModelPart.Polygon poly : polygons) {
                 Vector3f normal = pose.transformNormal(poly.normal(), SCRATCH_NORMAL);
                 for (ModelPart.Vertex v : poly.vertices()) {
-                    int cIdx = indices[vIdx++];
-                    float vx = 0, vy = 0, vz = 0;
-                    switch (cIdx) {
-                        case 0: vx = tx0; vy = ty0; vz = tz0; break;
-                        case 1: vx = tx1; vy = ty1; vz = tz1; break;
-                        case 2: vx = tx2; vy = ty2; vz = tz2; break;
-                        case 3: vx = tx3; vy = ty3; vz = tz3; break;
-                        case 4: vx = tx4; vy = ty4; vz = tz4; break;
-                        case 5: vx = tx5; vy = ty5; vz = tz5; break;
-                        case 6: vx = tx6; vy = ty6; vz = tz6; break;
-                        case 7: vx = tx7; vy = ty7; vz = tz7; break;
-                    }
+                    float x = v.worldX();
+                    float y = v.worldY();
+                    float z = v.worldZ();
+                    float vx = m00 * x + m10 * y + m20 * z + m30;
+                    float vy = m01 * x + m11 * y + m21 * z + m31;
+                    float vz = m02 * x + m12 * y + m22 * z + m32;
                     builder.addVertex(vx, vy, vz, color, v.u(), v.v(), overlay, light, normal.x(), normal.y(), normal.z());
                 }
             }
