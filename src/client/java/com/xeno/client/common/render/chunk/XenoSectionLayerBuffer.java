@@ -154,12 +154,9 @@ public class XenoSectionLayerBuffer implements VertexConsumer {
     }
 
     private void writeVertex(long ptr, float px, float py, float pz, int color, float u, float v, int light) {
-        MemoryAccess.putFloat(ptr + 0L, px);
-        MemoryAccess.putFloat(ptr + 4L, py);
-        MemoryAccess.putFloat(ptr + 8L, pz);
-        MemoryAccess.putInt(ptr + 12L, ARGB.toABGR(color));
-        MemoryAccess.putFloat(ptr + 16L, u);
-        MemoryAccess.putFloat(ptr + 20L, v);
+        MemoryAccess.putLong(ptr, MemoryAccess.packFloats(px, py));
+        MemoryAccess.putLong(ptr + 8L, MemoryAccess.packInts(Float.floatToRawIntBits(pz), ARGB.toABGR(color)));
+        MemoryAccess.putLong(ptr + 16L, MemoryAccess.packFloats(u, v));
         MemoryAccess.putInt(ptr + 24L, light);
     }
 

@@ -69,43 +69,28 @@ public abstract class XenoBufferBuilderMixin implements VertexConsumer {
     ) {
         if (this.blockFormat || this.xeno$positionColorTexLightmapFormat) {
             long ptr = this.beginVertex();
-            MemoryAccess.putFloat(ptr, x);
-            MemoryAccess.putFloat(ptr + 4L, y);
-            MemoryAccess.putFloat(ptr + 8L, z);
-            xeno$putRgba(ptr + 12L, color);
-            MemoryAccess.putFloat(ptr + 16L, u);
-            MemoryAccess.putFloat(ptr + 20L, v);
+            MemoryAccess.putLong(ptr, MemoryAccess.packFloats(x, y));
+            MemoryAccess.putLong(ptr + 8L, MemoryAccess.packInts(Float.floatToRawIntBits(z), ARGB.toABGR(color)));
+            MemoryAccess.putLong(ptr + 16L, MemoryAccess.packFloats(u, v));
             xeno$putPackedUv(ptr + 24L, lightCoords);
         } else if (this.entityFormat) {
             long ptr = this.beginVertex();
-            MemoryAccess.putFloat(ptr, x);
-            MemoryAccess.putFloat(ptr + 4L, y);
-            MemoryAccess.putFloat(ptr + 8L, z);
-            xeno$putRgba(ptr + 12L, color);
-            MemoryAccess.putFloat(ptr + 16L, u);
-            MemoryAccess.putFloat(ptr + 20L, v);
+            MemoryAccess.putLong(ptr, MemoryAccess.packFloats(x, y));
+            MemoryAccess.putLong(ptr + 8L, MemoryAccess.packInts(Float.floatToRawIntBits(z), ARGB.toABGR(color)));
+            MemoryAccess.putLong(ptr + 16L, MemoryAccess.packFloats(u, v));
             xeno$putPackedUv(ptr + 24L, overlayCoords);
             xeno$putPackedUv(ptr + 28L, lightCoords);
             xeno$putNormals(ptr + 32L, nx, ny, nz);
         } else if (this.xeno$particleFormat) {
             long ptr = this.beginVertex();
-            MemoryAccess.putFloat(ptr, x);
-            MemoryAccess.putFloat(ptr + 4L, y);
-            MemoryAccess.putFloat(ptr + 8L, z);
-            MemoryAccess.putFloat(ptr + 12L, u);
-            MemoryAccess.putFloat(ptr + 16L, v);
-            xeno$putRgba(ptr + 20L, color);
+            MemoryAccess.putLong(ptr, MemoryAccess.packFloats(x, y));
+            MemoryAccess.putLong(ptr + 8L, MemoryAccess.packInts(Float.floatToRawIntBits(z), Float.floatToRawIntBits(u)));
+            MemoryAccess.putLong(ptr + 16L, MemoryAccess.packInts(Float.floatToRawIntBits(v), ARGB.toABGR(color)));
             xeno$putPackedUv(ptr + 24L, lightCoords);
         } else {
             // Emulate VertexConsumer.super.addVertex manually to avoid Mixin resolution issues
             this.addVertex(x, y, z).setColor(color).setUv(u, v).setOverlay(overlayCoords).setLight(lightCoords).setNormal(nx, ny, nz);
         }
-    }
-
-    @Unique
-    private static void xeno$putRgba(long pointer, int argb) {
-        int abgr = ARGB.toABGR(argb);
-        MemoryAccess.putInt(pointer, IS_LITTLE_ENDIAN ? abgr : Integer.reverseBytes(abgr));
     }
 
     @Unique

@@ -29,6 +29,7 @@ import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -43,11 +44,13 @@ import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
  * Owns the actual GPU draw-call submission for terrain.
  *<p>
  *
-* This class opens the render pass itself, binds its own textures/samplers and pipelines, and issues each section draw directly
- * via {@code setIndexBuffer}/{@code setVertexBuffer}/{@code drawIndexed}.
+ * This class opens the render pass itself, binds its own textures/samplers and pipelines, and submits the section draws in
+ * one {@code drawMultipleIndexed} batch per layer.
  */
 public final class XenoChunkRenderer {
 	public static final XenoChunkRenderer INSTANCE = new XenoChunkRenderer();
+
+	private static final List<String> DYNAMIC_CHUNK_SECTION_UNIFORMS = List.of("ChunkSection");
 
 	private XenoChunkRenderer() {
 	}
@@ -94,8 +97,15 @@ public final class XenoChunkRenderer {
 			for (ChunkSectionLayer layer : layers) {
 				renderPass.setPipeline(wireframe ? RenderPipelines.WIREFRAME : layer.pipeline());
 				Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> drawGroup = chunkRenders.drawGroupsPerLayer().get(layer);
-				ObjectIterator<List<RenderPass.Draw<GpuBufferSlice[]>>> iterator = drawGroup.values().iterator();
+				if (drawGroup == null) {
+					continue;
+				}
 
+				// Collect every draw of the layer into a single batch. drawMultipleIndexed runs the encoder's
+				// pipeline/uniform/draw-buffer setup once per call (vanilla issues one call per vertex-buffer
+				// group), so batching the whole layer avoids re-running that setup per buffer.
+				ObjectIterator<List<RenderPass.Draw<GpuBufferSlice[]>>> iterator = drawGroup.values().iterator();
+				List<RenderPass.Draw<GpuBufferSlice[]>> layerDraws = null;
 				while (iterator.hasNext()) {
 					List<RenderPass.Draw<GpuBufferSlice[]>> draws = iterator.next();
 					if (draws.isEmpty()) {
@@ -107,31 +117,16 @@ public final class XenoChunkRenderer {
 						draws = draws.reversed();
 					}
 
-					for (RenderPass.Draw<GpuBufferSlice[]> draw : draws) {
-						this.drawSection(renderPass, chunkSectionInfos, defaultIndexBuffer, defaultIndexType, draw);
+					if (layerDraws == null) {
+						layerDraws = new ArrayList<>();
 					}
+					layerDraws.addAll(draws);
+				}
+
+				if (layerDraws != null) {
+					renderPass.drawMultipleIndexed(layerDraws, defaultIndexBuffer, defaultIndexType, DYNAMIC_CHUNK_SECTION_UNIFORMS, chunkSectionInfos);
 				}
 			}
 		}
-	}
-
-	private void drawSection(
-		RenderPass renderPass,
-		GpuBufferSlice[] chunkSectionInfos,
-		GpuBuffer defaultIndexBuffer,
-		IndexType defaultIndexType,
-		RenderPass.Draw<GpuBufferSlice[]> draw
-	) {
-		IndexType indexType = draw.indexType() == null ? defaultIndexType : draw.indexType();
-		GpuBuffer indexBuffer = draw.indexBuffer() == null ? defaultIndexBuffer : draw.indexBuffer();
-
-		renderPass.setIndexBuffer(indexBuffer, indexType);
-		renderPass.setVertexBuffer(draw.slot(), draw.vertexBuffer().slice());
-
-		if (draw.uniformUploaderConsumer() != null) {
-			draw.uniformUploaderConsumer().accept(chunkSectionInfos, renderPass::setUniform);
-		}
-
-		renderPass.drawIndexed(draw.indexCount(), 1, draw.firstIndex(), draw.baseVertex(), 0);
 	}
 }

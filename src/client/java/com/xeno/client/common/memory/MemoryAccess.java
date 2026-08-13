@@ -19,6 +19,7 @@ package com.xeno.client.common.memory;
 
 import sun.misc.Unsafe;
 import java.lang.reflect.Field;
+import java.nio.ByteOrder;
 
 /**
  * Utility class.
@@ -41,6 +42,8 @@ import java.lang.reflect.Field;
 public class MemoryAccess {
     @Deprecated
     private static final Unsafe UNSAFE;
+    @Deprecated
+    private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
     static {
         try {
             Field field = Unsafe.class.getDeclaredField("theUnsafe");
@@ -105,5 +108,39 @@ public class MemoryAccess {
     @Deprecated
     public static void putByte(long address, byte value) {
         UNSAFE.putByte(null, address, value);
+    }
+
+    /**
+     * Bulk-copies {@code length} bytes between off-heap addresses.
+     * <p>
+     * No bounds checking is performed so an invalid address will crash the JVM.
+     */
+    @Deprecated
+    public static void copyMemory(long src, long dst, long length) {
+        UNSAFE.copyMemory(src, dst, length);
+    }
+
+    /**
+     * Packs two floats into a single long so that {@code first} occupies the lower address
+     * ({@code address}..{@code address + 3}) and {@code second} the upper one, independent of the
+     * platform byte order. Writing the result with {@link #putLong(long, long)} replaces two
+     * individual {@code putFloat} calls.
+     */
+    @Deprecated
+    public static long packFloats(float first, float second) {
+        long packed = ((long) Float.floatToRawIntBits(second) << 32) | (Float.floatToRawIntBits(first) & 0xFFFFFFFFL);
+        return IS_LITTLE_ENDIAN ? packed : Long.reverseBytes(((long) Float.floatToRawIntBits(first) << 32) | (Float.floatToRawIntBits(second) & 0xFFFFFFFFL));
+    }
+
+    /**
+     * Packs two ints into a single long so that {@code first} occupies the lower address
+     * ({@code address}..{@code address + 3}) and {@code second} the upper one, independent of the
+     * platform byte order. Writing the result with {@link #putLong(long, long)} replaces two
+     * individual {@code putInt} calls.
+     */
+    @Deprecated
+    public static long packInts(int first, int second) {
+        long packed = ((long) second << 32) | (first & 0xFFFFFFFFL);
+        return IS_LITTLE_ENDIAN ? packed : Long.reverseBytes(((long) first << 32) | (second & 0xFFFFFFFFL));
     }
 }

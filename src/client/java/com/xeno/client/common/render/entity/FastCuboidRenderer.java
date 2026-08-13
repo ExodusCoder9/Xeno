@@ -65,17 +65,16 @@ public class FastCuboidRenderer {
                     float vy = m01 * x + m11 * y + m21 * z + m31;
                     float vz = m02 * x + m12 * y + m22 * z + m32;
                     
-                    MemoryAccess.putFloat(ptr + 0L, vx);
-                    MemoryAccess.putFloat(ptr + 4L, vy);
-                    MemoryAccess.putFloat(ptr + 8L, vz);
-                    MemoryAccess.putInt(ptr + 12L, packedColor);
-                    
                     if (IS_LITTLE_ENDIAN) {
-                        long packedUV = ((long) Float.floatToRawIntBits(v.u()) & 0xFFFFFFFFL) | 
-                                        (((long) Float.floatToRawIntBits(v.v()) & 0xFFFFFFFFL) << 32);
-                        MemoryAccess.putLong(ptr + 16L, packedUV);
+                        MemoryAccess.putLong(ptr, MemoryAccess.packFloats(vx, vy));
+                        MemoryAccess.putLong(ptr + 8L, MemoryAccess.packInts(Float.floatToRawIntBits(vz), packedColor));
+                        MemoryAccess.putLong(ptr + 16L, MemoryAccess.packFloats(v.u(), v.v()));
                         MemoryAccess.putLong(ptr + 24L, packedOverlayLight);
                     } else {
+                        MemoryAccess.putFloat(ptr + 0L, vx);
+                        MemoryAccess.putFloat(ptr + 4L, vy);
+                        MemoryAccess.putFloat(ptr + 8L, vz);
+                        MemoryAccess.putInt(ptr + 12L, packedColor);
                         MemoryAccess.putFloat(ptr + 16L, v.u());
                         MemoryAccess.putFloat(ptr + 20L, v.v());
                         MemoryAccess.putInt(ptr + 24L, overlay);
