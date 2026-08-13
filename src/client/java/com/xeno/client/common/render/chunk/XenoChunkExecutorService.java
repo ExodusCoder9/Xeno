@@ -65,9 +65,9 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 	private static final long FRAME_NANOS = 16_700_000L;
 
 	/** Total compile CPU the workers may collectively spend per budget window. */
-	private static final long COMPILE_BUDGET_NANOS = FRAME_NANOS / 5;
+	private static final long COMPILE_BUDGET_NANOS = FRAME_NANOS / 2;
 
-	/** Lower bound on a reservation so a single worker never spins on a trivially empty budget. */
+	/** Reservation floor and admission threshold, so a window always admits at least one task. */
 	private static final long MIN_RESERVATION_NANOS = 100_000L;
 
 	/** EWMA smoothing factor applied to measured task durations. */
@@ -84,7 +84,7 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 	private final Object budgetLock = new Object();
 	private long budgetEpoch = Long.MIN_VALUE;
 	private long budgetRemaining;
-	private double estimatedTaskNanos = COMPILE_BUDGET_NANOS / 4.0;
+	private double estimatedTaskNanos = COMPILE_BUDGET_NANOS / 8.0;
 
 	private XenoChunkExecutorService() {
 		int count = optimalThreadCount();
@@ -135,11 +135,17 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 	 * Reserves a slice of the current window's compile budget, parking until the next window if the
 	 * budget is already spent. The reservation scales with the estimated task duration, so expensive
 	 * compiles consume the budget faster and far fewer of them start concurrently.
+	 * <p>
+	 * The reservation is capped at the window budget and admission only requires a small remaining
+	 * floor rather than the full reservation, so a window always admits at least one task no matter
+	 * how expensive a single compilation gets. This is what keeps the pipeline alive while loading:
+	 * without the cap, a heavy section could push the running estimate past the whole window budget
+	 * and starve every worker forever.
 	 *
 	 * @return the number of nanoseconds reserved
 	 */
 	private long acquireBudget() {
-		long reserve = Math.max(MIN_RESERVATION_NANOS, (long) this.estimatedTaskNanos);
+		long reserve = Math.clamp((long) this.estimatedTaskNanos, MIN_RESERVATION_NANOS, COMPILE_BUDGET_NANOS);
 		synchronized (this.budgetLock) {
 			while (true) {
 				long epoch = System.nanoTime() / FRAME_NANOS;
@@ -148,7 +154,8 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 					this.budgetRemaining = COMPILE_BUDGET_NANOS;
 				}
 
-				if (this.budgetRemaining >= reserve) {
+				if (this.budgetRemaining >= MIN_RESERVATION_NANOS) {
+					reserve = Math.min(reserve, this.budgetRemaining);
 					this.budgetRemaining -= reserve;
 					return reserve;
 				}
@@ -181,7 +188,8 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 			if (this.budgetRemaining > COMPILE_BUDGET_NANOS) {
 				this.budgetRemaining = COMPILE_BUDGET_NANOS;
 			}
-			this.estimatedTaskNanos = this.estimatedTaskNanos * (1.0 - ESTIMATE_SMOOTHING) + elapsedNanos * ESTIMATE_SMOOTHING;
+			this.estimatedTaskNanos = Math.clamp(this.estimatedTaskNanos * (1.0 - ESTIMATE_SMOOTHING) + elapsedNanos * ESTIMATE_SMOOTHING, MIN_RESERVATION_NANOS,
+                    COMPILE_BUDGET_NANOS);
 			this.budgetLock.notifyAll();
 		}
 	}
