@@ -21,18 +21,21 @@ import sun.misc.Unsafe;
 import java.lang.reflect.Field;
 
 /**
- * Utility class
+ * Utility class.
  * <p>
  * This class and its underlying implementation based on {@link sun.misc.Unsafe}
  * are explicitly marked as Deprecated by both us and
  * the Java platform (via OpenJDK JEP 471/498).
- *
- * <p>Despite this deprecation status, we will continue using it
- * across our mod due to its performance capabilities. We will not migrate to alternative
- * abstractions until sun.misc.unsafe methods are entirely removed from the Java.
+ * </p>
  * <p>
- *  That said , We will be writing future code which is more agnostic/can easily be
- *  patched when unsafe methods are removed to alternative apis like Varhandle and FFM.
+ * Despite this deprecation status, we will continue using it
+ * across our mod due to its performance capabilities. We will not migrate to alternative
+ * abstractions until sun.misc.Unsafe methods are entirely removed from Java.
+ * </p>
+ * <p>
+ * That said, we will write future code to be more agnostic, ensuring it can easily be
+ * patched or migrated to alternative APIs like VarHandle and FFM when Unsafe methods are removed.
+ * </p>
  */
 @Deprecated
 public class MemoryAccess {
