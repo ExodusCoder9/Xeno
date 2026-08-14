@@ -21,5 +21,4 @@ We support all hardware capable of:
 
 ## License
 
-* The content of this repository, except the `Stable 26.1.2` branch, is licensed under the GPL 3.0 License by ExodusCoder9.
-* The content of this repository on the `Stable 26.1.2` branch is under the **GNU Lesser General Public License (LGPL)**. It is also a fork of Vulkanmod by XCollateral.
+* The content of this repository is licensed under the GPL 3.0 License by ExodusCoder9.
