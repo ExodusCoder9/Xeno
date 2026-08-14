@@ -25,7 +25,6 @@ import java.util.List;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
-import net.minecraft.client.renderer.block.BlockModelLighter;
 import net.minecraft.client.renderer.block.BlockQuadOutput;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
@@ -41,7 +40,7 @@ import net.minecraft.world.phys.Vec3;
 public class XenoModelRenderer {
     private static final Direction[] DIRECTIONS = Direction.values();
 
-    private final BlockModelLighter lighter;
+    private final XenoQuadLighter lighter;
     private final boolean ambientOcclusion;
     private final boolean cull;
     private final BlockColors blockColors;
@@ -55,8 +54,8 @@ public class XenoModelRenderer {
     private final List<BlockTintSource> tintSources = new ObjectArrayList<>();
     private final IntList computedTintValues = new IntArrayList();
 
-    public XenoModelRenderer(boolean ambientOcclusion, boolean cull, BlockColors blockColors) {
-        this.lighter = new BlockModelLighter();
+    public XenoModelRenderer(boolean ambientOcclusion, boolean cull, BlockColors blockColors, XenoLightDataCache lightDataCache) {
+        this.lighter = new XenoQuadLighter(lightDataCache);
         this.ambientOcclusion = ambientOcclusion;
         this.cull = cull;
         this.blockColors = blockColors;

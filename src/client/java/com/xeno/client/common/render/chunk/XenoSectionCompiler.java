@@ -26,9 +26,9 @@ import net.minecraft.CrashReportCategory;
 import net.minecraft.ReportedException;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;
+import com.xeno.client.common.render.block.XenoLightDataCache;
 import com.xeno.client.common.render.block.XenoModelRenderer;
 import com.xeno.client.common.render.block.XenoFluidRenderer;
-import net.minecraft.client.renderer.block.BlockModelLighter;
 import net.minecraft.client.renderer.block.BlockQuadOutput;
 import net.minecraft.client.renderer.block.BlockStateModelSet;
 import net.minecraft.client.renderer.block.FluidStateModelSet;
@@ -85,8 +85,8 @@ public class XenoSectionCompiler extends SectionCompiler {
         int minY = minPos.getY();
         int minZ = minPos.getZ();
         VisGraph visGraph = new VisGraph();
-        BlockModelLighter.enableCaching();
-        XenoModelRenderer blockRenderer = new XenoModelRenderer(this.ambientOcclusion, true, this.blockColors);
+        XenoLightDataCache lightDataCache = XenoLightDataCache.get().reset(sectionPos);
+        XenoModelRenderer blockRenderer = new XenoModelRenderer(this.ambientOcclusion, true, this.blockColors, lightDataCache);
         XenoFluidRenderer fluidRenderer = new XenoFluidRenderer(this.fluidModelSet);
         XenoSectionLayerBuffer[] sinks = new XenoSectionLayerBuffer[ChunkSectionLayer.values().length];
         BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> {
@@ -158,7 +158,6 @@ public class XenoSectionCompiler extends SectionCompiler {
             }
         }
 
-        BlockModelLighter.clearCache();
         results.visibilitySet = visGraph.resolve();
         return results;
     }
