@@ -20,6 +20,8 @@ package com.xeno.client.mixin;
 import com.xeno.client.common.render.chunk.XenoChunkExecutorService;
 import net.minecraft.TracingExecutor;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.chunk.RenderSectionRegion;
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -32,5 +34,16 @@ public abstract class XenoChunkExecutorMixin {
     )
     private static TracingExecutor xeno$useXenoChunkExecutor() {
         return XenoChunkExecutorService.INSTANCE;
+    }
+
+    @Redirect(
+        method = "compileSections",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/renderer/chunk/SectionRenderDispatcher$RenderSection;compileSync(Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;)V"
+        )
+    )
+    private static void xeno$compileSectionAsync(SectionRenderDispatcher.RenderSection section, RenderSectionRegion region) {
+        section.compileAsync(region);
     }
 }

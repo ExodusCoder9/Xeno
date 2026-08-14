@@ -65,7 +65,7 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 	private static final long FRAME_NANOS = 16_700_000L;
 
 	/** Total compile CPU the workers may collectively spend per budget window. */
-	private static final long COMPILE_BUDGET_NANOS = FRAME_NANOS / 2;
+	private static final long COMPILE_BUDGET_NANOS = FRAME_NANOS * 3 / 4;
 
 	/** Reservation floor and admission threshold, so a window always admits at least one task. */
 	private static final long MIN_RESERVATION_NANOS = 100_000L;
