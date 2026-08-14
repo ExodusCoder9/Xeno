@@ -71,6 +71,11 @@ public class MemoryAccess {
     }
 
     @Deprecated
+    public static float getFloat(long address) {
+        return UNSAFE.getFloat(null, address);
+    }
+
+    @Deprecated
     public static int getInt(long address) {
         return UNSAFE.getInt(null, address);
     }

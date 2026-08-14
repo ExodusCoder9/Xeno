@@ -13,7 +13,8 @@
 		"XenoChunkSectionsToRenderMixin",
 		"OptionsScreenMixin",
 		"CubeMixin",
-		"BufferBuilderMixin"
+		"BufferBuilderMixin",
+		"XenoMeshDataMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
