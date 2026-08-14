@@ -29,6 +29,8 @@ import net.minecraft.client.renderer.SectionBufferBuilderPack;
 import com.xeno.client.common.render.block.XenoLightDataCache;
 import com.xeno.client.common.render.block.XenoModelRenderer;
 import com.xeno.client.common.render.block.XenoFluidRenderer;
+import com.xeno.client.mixin.RenderSectionRegionAccessor;
+import com.xeno.client.mixin.SectionCopyAccessor;
 import net.minecraft.client.renderer.block.BlockQuadOutput;
 import net.minecraft.client.renderer.block.BlockStateModelSet;
 import net.minecraft.client.renderer.block.FluidStateModelSet;
@@ -36,6 +38,7 @@ import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
+import net.minecraft.client.renderer.chunk.SectionCopy;
 import net.minecraft.client.renderer.chunk.VisGraph;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -79,25 +82,29 @@ public class XenoSectionCompiler extends SectionCompiler {
         }
 
         Results results = new Results();
-        int chunkRegionId = ((sectionPos.x() & 7) << 5) | ((sectionPos.y() & 3) << 0) | ((sectionPos.z() & 7) << 2);
         BlockPos minPos = sectionPos.origin();
         int minX = minPos.getX();
         int minY = minPos.getY();
         int minZ = minPos.getZ();
         VisGraph visGraph = new VisGraph();
+        SectionCopy sectionCopy = ((RenderSectionRegionAccessor) region).xeno$getSection(sectionPos.x(), sectionPos.y(), sectionPos.z());
+        if (((SectionCopyAccessor) sectionCopy).xeno$getSection() == null) {
+            results.visibilitySet = visGraph.resolve();
+            return results;
+        }
         XenoLightDataCache lightDataCache = XenoLightDataCache.get().reset(sectionPos);
         XenoModelRenderer blockRenderer = new XenoModelRenderer(this.ambientOcclusion, true, this.blockColors, lightDataCache);
         XenoFluidRenderer fluidRenderer = new XenoFluidRenderer(this.fluidModelSet);
         XenoSectionLayerBuffer[] sinks = new XenoSectionLayerBuffer[ChunkSectionLayer.values().length];
         BlockQuadOutput quadOutput = (x, y, z, quad, instance) -> {
-            XenoSectionLayerBuffer sink = this.sink(sinks, builders, quad.materialInfo().layer(), chunkRegionId);
+            XenoSectionLayerBuffer sink = this.sink(sinks, builders, quad.materialInfo().layer());
             sink.writeBlockQuad(x, y, z, quad, instance);
         };
         BlockQuadOutput opaqueQuadOutput = (x, y, z, quad, instance) -> {
-            XenoSectionLayerBuffer sink = this.sink(sinks, builders, ChunkSectionLayer.SOLID, chunkRegionId);
+            XenoSectionLayerBuffer sink = this.sink(sinks, builders, ChunkSectionLayer.SOLID);
             sink.writeBlockQuad(x, y, z, quad, instance);
         };
-        XenoFluidRenderer.Output fluidOutput = layer -> this.sink(sinks, builders, layer, chunkRegionId);
+        XenoFluidRenderer.Output fluidOutput = layer -> this.sink(sinks, builders, layer);
 
         BlockPos.MutableBlockPos currentPos = new BlockPos.MutableBlockPos();
         for (int y = minY; y <= minY + SECTION_MAX; y++) {
@@ -162,11 +169,11 @@ public class XenoSectionCompiler extends SectionCompiler {
         return results;
     }
 
-    private XenoSectionLayerBuffer sink(XenoSectionLayerBuffer[] sinks, SectionBufferBuilderPack builders, ChunkSectionLayer layer, int chunkRegionId) {
+    private XenoSectionLayerBuffer sink(XenoSectionLayerBuffer[] sinks, SectionBufferBuilderPack builders, ChunkSectionLayer layer) {
         int ordinal = layer.ordinal();
         XenoSectionLayerBuffer sink = sinks[ordinal];
         if (sink == null) {
-            sink = new XenoSectionLayerBuffer(builders.buffer(layer), layer.vertexFormat(), layer, chunkRegionId);
+            sink = new XenoSectionLayerBuffer(builders.buffer(layer), layer.vertexFormat(), layer);
             sinks[ordinal] = sink;
         }
         return sink;

@@ -5,6 +5,8 @@
 	"client": [
 		"XenoSectionCompilerMixin",
 		"XenoSectionRenderDispatcherMixin",
+		"RenderSectionRegionAccessor",
+		"SectionCopyAccessor",
 		"XenoChunkExecutorMixin",
 		"XenoCloudRendererMixin",
 		"XenoBufferBuilderMixin",

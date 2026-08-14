@@ -51,7 +51,7 @@ public class XenoSectionLayerBuffer implements VertexConsumer {
     private int vertexCount;
     private long vertexPointer;
 
-    public XenoSectionLayerBuffer(ByteBufferBuilder buffer, VertexFormat format, ChunkSectionLayer layer, int chunkRegionId) {
+    public XenoSectionLayerBuffer(ByteBufferBuilder buffer, VertexFormat format, ChunkSectionLayer layer) {
         this.buffer = buffer;
         this.format = format;
         this.layer = layer;
