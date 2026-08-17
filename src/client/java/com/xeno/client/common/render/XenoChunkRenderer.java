@@ -45,7 +45,7 @@ import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
  *<p>
  *
  * This class opens the render pass itself, binds its own textures/samplers and pipelines, and submits the section draws in
- * one {@code drawMultipleIndexed} batch per layer.
+ * one drawMultipleIndexed batch per layer.
  */
 public final class XenoChunkRenderer {
 	public static final XenoChunkRenderer INSTANCE = new XenoChunkRenderer();
@@ -56,9 +56,8 @@ public final class XenoChunkRenderer {
 	}
 
 	/**
-	 * Submits every draw in {@code chunkRenders} for the given layer group directly to the GPU.
-	 *
-	 * <p>Must be called on the render thread. We get the render target  from the layer group the
+	 * Submits every draw in chunkRenders for the given layer group directly to the GPU.
+	 * Must be called on the render thread. We get the render target  from the layer group the
 	 * same way vanilla does (main framebuffer for opaque layers, the translucent target otherwise),
 	 * so the depth/color attachments already contain everything the pass needs.
 	 */
@@ -101,9 +100,6 @@ public final class XenoChunkRenderer {
 					continue;
 				}
 
-				// Collect every draw of the layer into a single batch. drawMultipleIndexed runs the encoder's
-				// pipeline/uniform/draw-buffer setup once per call (vanilla issues one call per vertex-buffer
-				// group), so batching the whole layer avoids re-running that setup per buffer.
 				ObjectIterator<List<RenderPass.Draw<GpuBufferSlice[]>>> iterator = drawGroup.values().iterator();
 				List<RenderPass.Draw<GpuBufferSlice[]>> layerDraws = null;
 				while (iterator.hasNext()) {
@@ -112,7 +108,6 @@ public final class XenoChunkRenderer {
 						continue;
 					}
 
-					// Translucent geometry must render back to front.
 					if (layer == ChunkSectionLayer.TRANSLUCENT) {
 						draws = draws.reversed();
 					}

@@ -32,31 +32,27 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-//Please read fully before editing
 /**
- * Owned worker-thread executor that replaces {@code Util.backgroundExecutor()}
- * for section mesh compilation.
+ * Owned worker-thread executor for section mesh compilation.
  * <p>
  * This executor instead owns a fixed
  * pool of dedicated worker threads that block on a counting semaphore while idle and consume tasks
  * from a lock-free deque.
  *
  * <p>The worker count follows the following heuristic: {@code clamp(max(cores/3, cores-6), 1, 10)}.
- * Each task consumed from the deque is a full {@code runTask()} cycle, which in turn polls the
+ * Each task consumed from the deque is a full  runTask cycle, which in turn polls the
  * priority-ordered {@link XenoSectionTaskQueue}, so chunk priority is preserved.
  *
  * <p>A frame-aligned compile budget bounds how much CPU the chunk builders may collectively spend in
- * each ~16.7 ms window, in the spirit of Sodium's chunk-builder budget. The render thread is never
- * blocked: instead each worker reserves a slice of the shared per-window budget before starting a
- * task, and repays (or overspends) it once the task finishes. The reservation tracks a decaying
- * average of recent task durations, so it adapts to how expensive section compilation actually is.
- * Once the budget for a window is spent, workers park until the next window. This caps the total
- * compile CPU per frame and spreads finished meshes across frames, so the GPU upload on the render
+ * each ~16.7 ms window,  The render thread is never blocked: instead each worker reserves a slice
+ * of the shared per-window budget before starting a task, and repays (or overspends) it once the task finishes.
+ * The reservation tracks a decaying average of recent task durations, so it adapts to how expensive
+ * section compilation actually is. Once the budget for a window is spent, workers park their thread until the next
+ * window. This caps the total compile CPU per frame and spreads finished meshes across frames, so the GPU upload on the render
  * thread never sees a burst and the frame rate stays flat.
  *
  * <p>This is a process-lifetime singleton; it is never shut down, and its worker threads are daemons
- * so they do not block JVM exit. {@code shutdown}/{@code shutdownNow} are still implemented
- * faithfully for the {@code ExecutorService} contract.
+ * so they do not block JVM exit. Shutdown is still implemented just for the ExecutorService contract.
  */
 public final class XenoChunkExecutorService extends AbstractExecutorService {
 	private static final Logger LOGGER = LogManager.getLogger("XenoChunkExecutor");
@@ -64,10 +60,10 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 	/** Length of one budget window, matched to a 60 FPS frame. */
 	private static final long FRAME_NANOS = 16_700_000L;
 
-	/** Total compile CPU the workers may collectively spend per budget window. */
+	/** Total compile CPU the workers are allowed to collectively spend per budget window. */
 	private static final long COMPILE_BUDGET_NANOS = FRAME_NANOS * 3 / 4;
 
-	/** Reservation floor and admission threshold, so a window always admits at least one task. */
+	/** Reservation floor and admission threshold, so a window always takes at least one task. */
 	private static final long MIN_RESERVATION_NANOS = 100_000L;
 
 	/** EWMA smoothing factor applied to measured task durations. */
@@ -131,19 +127,6 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 		return this.tasks.poll();
 	}
 
-	/**
-	 * Reserves a slice of the current window's compile budget, parking until the next window if the
-	 * budget is already spent. The reservation scales with the estimated task duration, so expensive
-	 * compiles consume the budget faster and far fewer of them start concurrently.
-	 * <p>
-	 * The reservation is capped at the window budget and admission only requires a small remaining
-	 * floor rather than the full reservation, so a window always admits at least one task no matter
-	 * how expensive a single compilation gets. This is what keeps the pipeline alive while loading:
-	 * without the cap, a heavy section could push the running estimate past the whole window budget
-	 * and starve every worker forever.
-	 *
-	 * @return the number of nanoseconds reserved
-	 */
 	private long acquireBudget() {
 		long reserve = Math.clamp((long) this.estimatedTaskNanos, MIN_RESERVATION_NANOS, COMPILE_BUDGET_NANOS);
 		synchronized (this.budgetLock) {
@@ -177,11 +160,6 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 		}
 	}
 
-	/**
-	 * Repays the reserved budget, accounting for the actual duration of the task, and feeds the
-	 * measured duration back into the running estimate. Overspent work simply leaves the window
-	 * budget short, which parks workers until the next window.
-	 */
 	private void releaseBudget(long elapsedNanos, long reservedNanos) {
 		synchronized (this.budgetLock) {
 			this.budgetRemaining += reservedNanos - elapsedNanos;

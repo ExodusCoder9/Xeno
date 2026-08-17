@@ -25,8 +25,9 @@ import org.joml.Vector3f;
 import com.xeno.client.common.memory.MemoryAccess;
 import java.nio.ByteOrder;
 import net.minecraft.util.ARGB;
-//named fast cus its faster than vanilla ig
+
 public class FastCuboidRenderer {
+
     private static final Vector3f SCRATCH_NORMAL = new Vector3f();
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 

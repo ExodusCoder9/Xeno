@@ -27,9 +27,8 @@ import org.jspecify.annotations.NonNull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-//Please read fully before changing.
 /**
- * <p>This implementation snapshots the pending task set into a pre-decided schedule and
+ * <p>This class snapshots the pending task set into a schedule we pre decide and
  * then polls from that schedule . Ordering follows the important/background split: <em>important</em> tasks (initial compiles, transparency
  * resorts, and recompile within a small radius of the camera,
  * {@code NEARBY_RECOMPILE_DISTANCE}) are scheduled ahead of <em>background</em> tasks (distant
@@ -42,7 +41,7 @@ import java.util.List;
  * during a rebuild.
  *
  * <p>This class is thread-safe in the same way the vanilla queue is: all public entry points
- * are {@code synchronized}, because multiple {@code SectionRenderDispatcher} worker chains
+ * are  synchronized because multiple SectionRenderDispatcher worker chains
  * (each resubmitted onto the background executor between tasks) poll from it concurrently.
  */
 public class XenoSectionTaskQueue extends SectionTaskDynamicQueue {

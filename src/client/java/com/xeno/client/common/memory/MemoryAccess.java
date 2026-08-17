@@ -38,11 +38,11 @@ import java.nio.ByteOrder;
  * patched or migrated to alternative APIs like VarHandle and FFM when Unsafe methods are removed.
  * </p>
  */
-@Deprecated
+@Deprecated(since="0.1.0", forRemoval=true)
 public class MemoryAccess {
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     private static final Unsafe UNSAFE;
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
     static {
         try {
@@ -56,7 +56,7 @@ public class MemoryAccess {
         }
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static long fieldOffset(Class<?> owner, String fieldName) {
         try {
             return UNSAFE.objectFieldOffset(owner.getDeclaredField(fieldName));
@@ -65,85 +65,68 @@ public class MemoryAccess {
         }
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static int getInt(Object target, long offset) {
         return UNSAFE.getInt(target, offset);
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static float getFloat(long address) {
         return UNSAFE.getFloat(null, address);
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static int getInt(long address) {
         return UNSAFE.getInt(null, address);
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static byte getByte(long address) {
         return UNSAFE.getByte(null, address);
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static long getLong(long address) {
         return UNSAFE.getLong(null, address);
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static void putLong(long address, long value) {
         UNSAFE.putLong(null, address, value);
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static void putFloat(long address, float value) {
         UNSAFE.putFloat(null, address, value);
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static void putInt(long address, int value) {
         UNSAFE.putInt(null, address, value);
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static void putShort(long address, short value) {
         UNSAFE.putShort(null, address, value);
     }
 
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static void putByte(long address, byte value) {
         UNSAFE.putByte(null, address, value);
     }
 
-    /**
-     * Bulk-copies {@code length} bytes between off-heap addresses.
-     * <p>
-     * No bounds checking is performed so an invalid address will crash the JVM.
-     */
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static void copyMemory(long src, long dst, long length) {
         UNSAFE.copyMemory(src, dst, length);
     }
 
-    /**
-     * Packs two floats into a single long so that {@code first} occupies the lower address
-     * ({@code address}..{@code address + 3}) and {@code second} the upper one, independent of the
-     * platform byte order. Writing the result with {@link #putLong(long, long)} replaces two
-     * individual {@code putFloat} calls.
-     */
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static long packFloats(float first, float second) {
         long packed = ((long) Float.floatToRawIntBits(second) << 32) | (Float.floatToRawIntBits(first) & 0xFFFFFFFFL);
         return IS_LITTLE_ENDIAN ? packed : Long.reverseBytes(((long) Float.floatToRawIntBits(first) << 32) | (Float.floatToRawIntBits(second) & 0xFFFFFFFFL));
     }
 
-    /**
-     * Packs two ints into a single long so that {@code first} occupies the lower address
-     * ({@code address}..{@code address + 3}) and {@code second} the upper one, independent of the
-     * platform byte order. Writing the result with {@link #putLong(long, long)} replaces two
-     * individual {@code putInt} calls.
-     */
-    @Deprecated
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static long packInts(int first, int second) {
         long packed = ((long) second << 32) | (first & 0xFFFFFFFFL);
         return IS_LITTLE_ENDIAN ? packed : Long.reverseBytes(((long) first << 32) | (second & 0xFFFFFFFFL));

@@ -31,9 +31,8 @@ import org.spongepowered.asm.mixin.Overwrite;
 public abstract class XenoMeshDataMixin {
     /**
      * @author ExodusCoder9
-     * @reason Read quad centroids from the off-heap buffer with Unsafe instead of
-     *         bounds-checked ByteBuffer views.
-     */
+     * @reason Read quad centroids from the off-heap buffer with Unsafe.
+     **/
     @Overwrite
     public static void decodeQuadCentroids(
         ByteBuffer vertexBuffer, int vertexCount, VertexFormat format, CompactVectorArray output, int outputIndex

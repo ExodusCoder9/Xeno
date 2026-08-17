@@ -28,7 +28,7 @@ import org.spongepowered.asm.mixin.Overwrite;
 public abstract class XenoChunkSectionsToRenderMixin {
 	/**
 	 * @author ExodusCoder9
-	 * @reason Route chunk draw-call submission through the Xeno .
+	 * @reason Route chunk draw call submission through the Xeno .
 	 */
 	@Overwrite
 	public void renderGroup(ChunkSectionLayerGroup group, GpuSampler sampler) {
