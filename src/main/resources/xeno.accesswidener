@@ -1,4 +1,0 @@
-accessWidener v2 official
-
-accessible field net/minecraft/client/renderer/chunk/SectionRenderDispatcher$RenderSection$SectionTask isCancelled Ljava/util/concurrent/atomic/AtomicBoolean;
-accessible class net/minecraft/client/renderer/CloudRenderer$RelativeCameraPos
