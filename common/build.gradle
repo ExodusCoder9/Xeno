@@ -1,0 +1,61 @@
+plugins {
+	id 'java-library'
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = 'xeno-common'
+}
+
+java {
+	withSourcesJar()
+}
+
+loom {
+	accessWidenerPath = file("src/main/resources/xeno.accesswidener")
+
+	mixin {
+		useLegacyMixinAp = false
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+
+	compileOnly "net.fabricmc:sponge-mixin:0.13.2+mixin.0.8.5"
+	compileOnly "net.fabricmc:fabric-loader:${project.loader_version}"
+}
+
+configurations {
+	commonMainJava {
+		canBeResolved = true
+		canBeConsumed = true
+	}
+	commonMainResources {
+		canBeResolved = true
+		canBeConsumed = true
+	}
+	commonMainSources {
+		canBeResolved = true
+		canBeConsumed = true
+	}
+}
+
+artifacts {
+	commonMainJava(tasks.named(sourceSets.main.compileJavaTaskName).flatMap { it.destinationDirectory }) {
+		builtBy sourceSets.main.compileJavaTaskName
+	}
+	commonMainResources(sourceSets.main.output.resourcesDir) {
+		builtBy sourceSets.main.processResourcesTaskName
+	}
+	commonMainSources(tasks.register("commonSourcesJar", Jar) {
+		archiveClassifier = 'sources'
+		from sourceSets.main.allSource
+	})
+}
+
+tasks.jar { enabled = false }
+
+processResources {
+	exclude("**/*.accesswidener")
+}

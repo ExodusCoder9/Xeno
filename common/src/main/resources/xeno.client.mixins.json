@@ -1,0 +1,24 @@
+{
+	"required": true,
+	"package": "com.xeno.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"XenoSectionCompilerMixin",
+		"XenoSectionRenderDispatcherMixin",
+		"RenderSectionRegionAccessor",
+		"SectionCopyAccessor",
+		"XenoCloudRendererMixin",
+		"XenoBufferBuilderMixin",
+		"XenoChunkSectionsToRenderMixin",
+		"OptionsScreenMixin",
+		"CubeMixin",
+		"BufferBuilderMixin",
+		"XenoMeshDataMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

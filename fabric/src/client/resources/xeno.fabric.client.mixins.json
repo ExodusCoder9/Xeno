@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "com.xeno.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"XenoChunkExecutorMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

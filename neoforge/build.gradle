@@ -1,0 +1,99 @@
+plugins {
+	id 'java-library'
+	id 'maven-publish'
+	id 'net.neoforged.moddev' version "${mdg_version}"
+}
+
+java {
+	withSourcesJar()
+}
+
+base {
+	archivesName = 'xeno-neoforge'
+}
+
+configurations {
+	commonMainJava {
+		canBeResolved = true
+	}
+	commonMainResources {
+		canBeResolved = true
+	}
+	commonMainSources {
+		canBeResolved = true
+	}
+}
+
+dependencies {
+	commonMainJava project(path: ':common', configuration: 'commonMainJava')
+	commonMainResources project(path: ':common', configuration: 'commonMainResources')
+	commonMainSources project(path: ':common', configuration: 'commonMainSources')
+}
+
+sourceSets {
+	main {
+		compileClasspath += configurations.commonMainJava
+		runtimeClasspath += configurations.commonMainJava
+	}
+}
+
+neoForge {
+	version = "${neo_version}"
+
+	validateAccessTransformers = true
+
+	accessTransformers.from(file("src/main/resources/META-INF/accesstransformer.cfg"))
+
+	mods {
+		"xeno" {
+			sourceSet sourceSets.main
+			sourceSet project(":common").sourceSets["main"]
+		}
+	}
+
+	runs {
+		client {
+			client()
+		}
+		server {
+			server()
+			programArgument '--nogui'
+		}
+
+		configureEach {
+			systemProperty 'forge.logging.markers', 'REGISTRIES'
+			logLevel = org.slf4j.event.Level.INFO
+		}
+	}
+}
+
+processResources {
+	from configurations.commonMainResources
+
+	inputs.property "mod_version", project.mod_version
+
+	filesMatching("META-INF/neoforge.mods.toml") {
+		expand "mod_version": project.mod_version
+	}
+}
+
+jar {
+	from configurations.commonMainJava
+
+	inputs.property "projectName", project.name
+
+	from("${rootProject.projectDir}/LICENSE") {
+		rename { "${it}_${project.name}" }
+	}
+}
+
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	repositories {
+	}
+}

@@ -1,0 +1,95 @@
+plugins {
+	id 'java'
+	id 'maven-publish'
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+java {
+	withSourcesJar()
+}
+
+base {
+	archivesName = 'xeno-fabric'
+}
+
+configurations {
+	commonMainJava {
+		canBeResolved = true
+	}
+	commonMainResources {
+		canBeResolved = true
+	}
+	commonMainSources {
+		canBeResolved = true
+	}
+}
+
+dependencies {
+	commonMainJava project(path: ':common', configuration: 'commonMainJava')
+	commonMainResources project(path: ':common', configuration: 'commonMainResources')
+	commonMainSources project(path: ':common', configuration: 'commonMainSources')
+
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+}
+
+sourceSets {
+	main {
+		compileClasspath += configurations.commonMainJava
+		runtimeClasspath += configurations.commonMainJava
+	}
+}
+
+loom {
+	accessWidenerPath = file("src/main/resources/xeno.accesswidener")
+
+	splitEnvironmentSourceSets()
+
+	mixin {
+		useLegacyMixinAp = false
+	}
+
+	mods {
+		"xeno" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+sourceSets.client {
+	compileClasspath += configurations.commonMainJava
+	runtimeClasspath += configurations.commonMainJava
+}
+
+processResources {
+	from configurations.commonMainResources
+
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version
+	}
+}
+
+jar {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	from configurations.commonMainJava
+
+	inputs.property "projectName", project.name
+
+	from("${rootProject.projectDir}/LICENSE") {
+		rename { "${it}_${project.name}" }
+	}
+}
+
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	repositories {
+	}
+}

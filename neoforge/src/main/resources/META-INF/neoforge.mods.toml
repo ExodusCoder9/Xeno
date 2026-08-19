@@ -1,0 +1,35 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "GPL-3.0"
+issueTrackerURL = "https://github.com/ExodusCoder9/Xeno/issues"
+
+[[mods]]
+modId = "xeno"
+version = "${mod_version}"
+displayName = "Xeno"
+description = "A Powerful Rendering Optimization Mod for Minecraft"
+authors = "ExodusCoder9"
+iconFile = "assets/xeno/icon.png"
+
+[[mixins]]
+config = "xeno.mixins.json"
+
+[[mixins]]
+config = "xeno.client.mixins.json"
+
+[[mixins]]
+config = "xeno.neoforge.client.mixins.json"
+
+[[dependencies.xeno]]
+modId = "neoforge"
+type = "required"
+versionRange = "[26.2.0,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.xeno]]
+modId = "minecraft"
+type = "required"
+versionRange = "[26.2,)"
+ordering = "NONE"
+side = "BOTH"

@@ -1,0 +1,42 @@
+{
+	"schemaVersion": 1,
+	"id": "xeno",
+	"version": "${version}",
+	"name": "Xeno",
+	"description": "A Powerful Rendering Optimization Mod for Minecraft",
+	"authors": [
+		"ExodusCoder9"
+	],
+	"contact": {
+		"homepage": "https://github.com/ExodusCoder9/Xeno/wiki",
+		"sources": "https://github.com/ExodusCoder9/Xeno"
+	},
+	"license": "GPL 3.0",
+	"icon": "assets/xeno/icon.png",
+	"environment": "*",
+	"accessWidener": "xeno.accesswidener",
+	"entrypoints": {
+		"main": [
+			"com.xeno.fabric.Xeno"
+		],
+		"client": [
+			"com.xeno.fabric.XenoClient"
+		]
+	},
+	"mixins": [
+		"xeno.mixins.json",
+		{
+			"config": "xeno.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "xeno.fabric.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25"
+	}
+}
