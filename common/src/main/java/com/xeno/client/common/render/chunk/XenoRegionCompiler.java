@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import net.minecraft.client.Minecraft;
@@ -56,11 +57,8 @@ public final class XenoRegionCompiler {
 	private final AtomicBoolean initialized = new AtomicBoolean(false);
 	private @Nullable StagingBuffer stagingBuffer;
 	private @Nullable SectionBufferBuilderPool bufferPool;
+	private @Nullable Semaphore packPermits;
 	private volatile @Nullable SectionCompiler sectionCompiler;
-	private long submittedTasks;
-	private long completedTasks;
-	private long retriedTasks;
-	private long droppedTasks;
 	private XenoRegionCompiler() {
 	}
 
@@ -79,9 +77,9 @@ public final class XenoRegionCompiler {
 				UberGpuBuffer<SectionMesh> indices = new UberGpuBuffer<>(label, 64, INDEX_HEAP_BYTES, 8, this.stagingBuffer);
 				this.layers.put(layer, new LayerBuffers(vertices, indices));
 			}
-
-			int packs = Math.clamp(Runtime.getRuntime().availableProcessors() / 2, 1, 6);
+			int packs = XenoChunkExecutorService.optimalWorkerCount();
 			this.bufferPool = SectionBufferBuilderPool.allocate(packs);
+			this.packPermits = new Semaphore(packs);
 			LOGGER.info("Initialized region compiler: {} layer pairs, {} builder packs", this.layers.size(), packs);
 		}
 	}
@@ -120,18 +118,15 @@ public final class XenoRegionCompiler {
 
 	public void submit(XenoRenderRegion region, int localIndex, RenderSectionRegion snapshot, VertexSorting sorting, Vec3 cameraPos) {
 		if (!region.alive.get()) {
-			this.droppedTasks++;
 			return;
 		}
 
 		this.ensureInitialized();
-		this.submittedTasks++;
 		XenoChunkExecutorService.INSTANCE.execute(() -> this.compileTask(region, localIndex, snapshot, sorting, cameraPos));
 	}
 
 	private void compileTask(XenoRenderRegion region, int localIndex, RenderSectionRegion snapshot, VertexSorting sorting, Vec3 cameraPos) {
 		if (!region.alive.get()) {
-			this.droppedTasks++;
 			return;
 		}
 
@@ -143,17 +138,21 @@ public final class XenoRegionCompiler {
 			region.minSectionX() + localX, region.minSectionY() + localY, region.minSectionZ() + localZ
 		);
 
-		SectionBufferBuilderPack pack = Objects.requireNonNull(this.bufferPool).acquire();
-		if (pack == null) {
+		SectionBufferBuilderPool pool = Objects.requireNonNull(this.bufferPool);
+		Semaphore permits = Objects.requireNonNull(this.packPermits);
+		try {
+			permits.acquire();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
 			if (region.alive.get()) {
 				region.clearPending(localIndex);
 				region.markSectionDirty(localIndex, false);
-				this.retriedTasks++;
 			}
 
 			return;
 		}
 
+		SectionBufferBuilderPack pack = pool.acquire();
 		try {
 			SectionCompiler compiler = this.sectionCompiler;
 			if (compiler == null || !region.alive.get()) {
@@ -162,20 +161,18 @@ public final class XenoRegionCompiler {
 					region.markSectionDirty(localIndex, false);
 				} else if (region.alive.get()) {
 					region.clearPending(localIndex);
-				}
-
-				this.droppedTasks++;
-				return;
 			}
 
-			SectionCompiler.Results results = compiler.compile(sectionPos, snapshot, sorting, pack);
+			return;
+		}
+
+			SectionCompiler.Results results = compiler.compile(sectionPos, snapshot, sorting, Objects.requireNonNull(pack));
 			CompiledSectionMesh mesh = new CompiledSectionMesh(
 				TranslucencyPointOfView.of(cameraPos, sectionPos.asLong()), results
 			);
 
 			if (results.renderedLayers.isEmpty()) {
 				this.publish(region, localIndex, mesh);
-				this.completedTasks++;
 				return;
 			}
 
@@ -191,7 +188,6 @@ public final class XenoRegionCompiler {
 						results.release();
 						this.releaseMeshAllocations(mesh);
 						region.clearPending(localIndex);
-						this.droppedTasks++;
 						return;
 					}
 
@@ -202,18 +198,16 @@ public final class XenoRegionCompiler {
 			}
 
 			this.publish(region, localIndex, mesh);
-			this.completedTasks++;
 		} catch (Throwable t) {
 			LOGGER.error("Section compile failed at {}", sectionPos, t);
 			if (region.alive.get()) {
 				region.clearPending(localIndex);
 				region.markSectionDirty(localIndex, false);
 			}
-
-			this.droppedTasks++;
 		} finally {
-			pack.clearAll();
-			this.bufferPool.release(pack);
+			Objects.requireNonNull(pack).clearAll();
+			pool.release(pack);
+			permits.release();
 		}
 	}
 
@@ -264,30 +258,32 @@ public final class XenoRegionCompiler {
 
 
 	private void publish(XenoRenderRegion region, int localIndex, SectionMesh mesh) {
+		SectionMesh old;
 		this.copyLock.lock();
 
 		try {
-			SectionMesh old = region.meshSlot(localIndex).getAndSet(mesh);
+			old = region.meshSlot(localIndex).getAndSet(mesh);
 			this.releaseMeshAllocations(old);
-			region.clearPending(localIndex);
-			region.noteMeshUploaded(localIndex, Util.getMillis());
-
-			int sectionsXZ = XenoWorldRenderManager.REGION_SECTIONS_XZ;
-			int localX = localIndex % sectionsXZ;
-			int localZ = localIndex / sectionsXZ % sectionsXZ;
-			int localY = localIndex / (sectionsXZ * sectionsXZ);
-			long sectionNode = SectionPos.asLong(region.minSectionX() + localX, region.minSectionY() + localY, region.minSectionZ() + localZ);
-
-			Minecraft minecraft = Minecraft.getInstance();
-			if (minecraft.levelRenderer != null && minecraft.levelRenderer.viewArea() != null) {
-				SectionRenderDispatcher.RenderSection vanillaSection = ((com.xeno.client.mixin.ViewAreaAccessor) Objects.requireNonNull(minecraft.levelRenderer.viewArea())).xeno$getRenderSection(sectionNode);
-				if (vanillaSection != null) {
-					vanillaSection.sectionMesh.set(mesh);
-					minecraft.levelRenderer.sectionOcclusionGraph().schedulePropagationFrom(vanillaSection);
-				}
-			}
 		} finally {
 			this.copyLock.unlock();
+		}
+
+		region.clearPending(localIndex);
+		region.noteMeshUploaded(localIndex, Util.getMillis());
+
+		int sectionsXZ = XenoWorldRenderManager.REGION_SECTIONS_XZ;
+		int localX = localIndex % sectionsXZ;
+		int localZ = localIndex / sectionsXZ % sectionsXZ;
+		int localY = localIndex / (sectionsXZ * sectionsXZ);
+		long sectionNode = SectionPos.asLong(region.minSectionX() + localX, region.minSectionY() + localY, region.minSectionZ() + localZ);
+
+		Minecraft minecraft = Minecraft.getInstance();
+		if (minecraft.levelRenderer != null && minecraft.levelRenderer.viewArea() != null) {
+			SectionRenderDispatcher.RenderSection vanillaSection = ((com.xeno.client.mixin.ViewAreaAccessor) Objects.requireNonNull(minecraft.levelRenderer.viewArea())).xeno$getRenderSection(sectionNode);
+			if (vanillaSection != null) {
+				vanillaSection.sectionMesh.set(mesh);
+				minecraft.levelRenderer.sectionOcclusionGraph().schedulePropagationFrom(vanillaSection);
+			}
 		}
 	}
 

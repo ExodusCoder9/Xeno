@@ -200,7 +200,6 @@ public record XenoFluidRenderer(FluidStateModelSet fluidModels) {
                         v11,
                         topColor,
                         topLightCoords,
-                        Direction.UP,
                         fluidState.shouldRenderBackwardUpFace(level, pos.above())
                 );
             }
@@ -237,7 +236,6 @@ public record XenoFluidRenderer(FluidStateModelSet fluidModels) {
                         v1,
                         belowColor,
                         belowLightCoords,
-                        Direction.DOWN,
                         false
                 );
             }
@@ -340,7 +338,6 @@ public record XenoFluidRenderer(FluidStateModelSet fluidModels) {
                             v1,
                             faceColor,
                             sideLightCoords,
-                            faceDir,
                             !isOverlay
                     );
                 }
@@ -372,10 +369,9 @@ public record XenoFluidRenderer(FluidStateModelSet fluidModels) {
             float v3,
             int color,
             int lightCoords,
-            Direction facing,
             boolean addBackFace
     ) {
-        builder.writeQuad(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2, x3, y3, z3, u3, v3, color, lightCoords, facing, addBackFace);
+        builder.writeQuad(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2, x3, y3, z3, u3, v3, color, lightCoords, addBackFace);
     }
 
     private float calculateAverageHeight(

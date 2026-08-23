@@ -140,14 +140,14 @@ public final class XenoRenderRegion {
 		return false;
 	}
 
-	public synchronized void peekDirtySections(java.util.List<int[]> out, int limit) {
+	public synchronized void peekDirtySections(it.unimi.dsi.fastutil.longs.LongList out, int limit) {
 		int collected = 0;
 		for (int i = 0; i < DIRTY_WORDS && collected < limit; i++) {
 			long word = this.dirtyBits[i] & ~this.pendingBits[i];
 			while (word != 0L && collected < limit) {
 				int bit = Long.numberOfTrailingZeros(word);
 				int index = (i << 6) + bit;
-				out.add(new int[]{index, (this.playerDirtyBits[i] & (1L << bit)) != 0L ? 1 : 0});
+				out.add((long)index << 1 | ((this.playerDirtyBits[i] & (1L << bit)) != 0L ? 1L : 0L));
 				word &= ~(1L << bit);
 				collected++;
 			}

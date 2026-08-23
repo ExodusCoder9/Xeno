@@ -18,8 +18,11 @@
 package com.xeno.client.common.render.chunk;
 
 import com.mojang.blaze3d.vertex.VertexSorting;
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import java.util.ArrayList;
@@ -52,20 +55,18 @@ public final class XenoWorldRenderManager {
 	// The executor self-limits its CPU per frame window; this only bounds the submit queue.
 	private static final int MAX_COMPILES_PER_FRAME = 1024;
 	private static final int MAX_PEEKED_CANDIDATES_PER_REGION = 512;
+	private static final int NEIGHBOR_RECHECK_FRAMES = 10;
+	private static final int NEIGHBOR_CACHE_MAX_ENTRIES = 8192;
 	public static final int REGION_SIZE_BLOCKS = REGION_SECTIONS_XZ * 16;
 	private final Object lock = new Object();
 	private final Long2ObjectOpenHashMap<XenoRenderRegion> regions = new Long2ObjectOpenHashMap<>();
 	private final LongOpenHashSet loadedChunks = new LongOpenHashSet();
+	private final LongOpenHashSet dirtyRegions = new LongOpenHashSet();
+	private final Long2LongOpenHashMap neighborNotReadyAt = new Long2LongOpenHashMap();
 	private @Nullable ClientLevel level;
 	private long frameIndex;
 	private int cameraSectionX;
 	private int cameraSectionZ;
-	private long totalChunkLoads;
-	private long totalChunkUnloads;
-	private long totalDirtySections;
-	private long totalCompilesSubmitted;
-	private long regionsCreated;
-	private long regionsReleased;
 	private boolean cachedAmbientOcclusion;
 	private boolean cachedCutoutLeaves;
 	private @Nullable BlockStateModelSet cachedBlockModelSet;
@@ -73,9 +74,11 @@ public final class XenoWorldRenderManager {
 	private @Nullable BlockColors cachedBlockColors;
 	private @Nullable SectionCompiler cachedCompiler;
 	private final List<XenoRenderRegion> dirtyRegionScratch = new ArrayList<>();
-	private final List<int[]> peekedScratch = new ArrayList<>();
+	private final LongList peekedScratch = new LongArrayList();
+	private final LongArrayList dirtyRegionKeysScratch = new LongArrayList();
 
 	private XenoWorldRenderManager() {
+		this.neighborNotReadyAt.defaultReturnValue(-1L);
 	}
 
 	public void onLevelSet(@Nullable ClientLevel level) {
@@ -111,7 +114,6 @@ public final class XenoWorldRenderManager {
 		synchronized (this.lock) {
 			boolean fresh = this.loadedChunks.add(ChunkPos.pack(pos.x(), pos.z()));
 			if (fresh) {
-				this.totalChunkLoads++;
 				this.createRegionColumn(Math.floorDiv(pos.x(), REGION_SECTIONS_XZ), Math.floorDiv(pos.z(), REGION_SECTIONS_XZ));
 			}
 
@@ -152,7 +154,6 @@ public final class XenoWorldRenderManager {
 			if (region == null) {
 				region = new XenoRenderRegion(regionX, regionY, regionZ);
 				this.regions.put(key, region);
-				this.regionsCreated++;
 			}
 
 			region.incrementLoadedChunkCount();
@@ -173,7 +174,6 @@ public final class XenoWorldRenderManager {
 				return;
 			}
 
-			this.totalChunkUnloads++;
 			this.decrementRegionColumn(Math.floorDiv(pos.x(), REGION_SECTIONS_XZ), Math.floorDiv(pos.z(), REGION_SECTIONS_XZ));
 		}
 	}
@@ -193,7 +193,6 @@ public final class XenoWorldRenderManager {
 				int chunkZ = ChunkPos.getZ(packed);
 				if (lvl.getChunkSource().getChunk(chunkX, chunkZ, ChunkStatus.FULL, false) == null) {
 					iterator.remove();
-					this.totalChunkUnloads++;
 					this.decrementRegionColumn(Math.floorDiv(chunkX, REGION_SECTIONS_XZ), Math.floorDiv(chunkZ, REGION_SECTIONS_XZ));
 				}
 			}
@@ -211,24 +210,54 @@ public final class XenoWorldRenderManager {
 
 	public void onSectionDirty(int sectionX, int sectionY, int sectionZ, boolean playerChanged) {
 		synchronized (this.lock) {
-			this.totalDirtySections++;
-			XenoRenderRegion region = this.regionForLocked(sectionX, sectionY, sectionZ);
-			if (region == null) {
-				int chunkX = sectionX;
-				int chunkZ = sectionZ;
-				long packed = ChunkPos.pack(chunkX, chunkZ);
-				if (this.loadedChunks.contains(packed) || (this.level != null && this.level.getChunk(chunkX, chunkZ, ChunkStatus.FULL, false) != null)) {
-					this.loadedChunks.add(packed);
-					this.createRegionColumn(Math.floorDiv(chunkX, REGION_SECTIONS_XZ), Math.floorDiv(chunkZ, REGION_SECTIONS_XZ));
-					region = this.regionForLocked(sectionX, sectionY, sectionZ);
-				}
-			}
+			this.markSectionDirtyLocked(sectionX, sectionY, sectionZ, playerChanged);
+		}
+	}
 
-			if (region != null) {
-				int localIndex = region.localIndexOf(sectionX, sectionY, sectionZ);
-				if (localIndex >= 0) {
-					region.markSectionDirty(localIndex, playerChanged);
-				}
+	public void markSectionsMissing(LongList sectionNodes, int budget) {
+		if (sectionNodes.isEmpty() || budget <= 0) {
+			return;
+		}
+
+		ClientLevel lvl = this.level;
+		Minecraft minecraft = Minecraft.getInstance();
+		if (lvl == null || minecraft.level != lvl) {
+			return;
+		}
+
+		synchronized (this.lock) {
+			int count = Math.min(budget, sectionNodes.size());
+			for (int i = 0; i < count; i++) {
+				long node = sectionNodes.getLong(i);
+				this.markSectionDirtyLocked(SectionPos.x(node), SectionPos.y(node), SectionPos.z(node), false);
+			}
+		}
+	}
+
+	private void markSectionDirtyLocked(int sectionX, int sectionY, int sectionZ, boolean playerChanged) {
+		XenoRenderRegion region = this.regionForLocked(sectionX, sectionY, sectionZ);
+		if (region == null) {
+			int chunkX = sectionX;
+			int chunkZ = sectionZ;
+			long packed = ChunkPos.pack(chunkX, chunkZ);
+			if (this.loadedChunks.contains(packed) || (this.level != null && this.level.getChunk(chunkX, chunkZ, ChunkStatus.FULL, false) != null)) {
+				this.loadedChunks.add(packed);
+				this.createRegionColumn(Math.floorDiv(chunkX, REGION_SECTIONS_XZ), Math.floorDiv(chunkZ, REGION_SECTIONS_XZ));
+				region = this.regionForLocked(sectionX, sectionY, sectionZ);
+			}
+		}
+
+		if (region != null) {
+			int localIndex = region.localIndexOf(sectionX, sectionY, sectionZ);
+			if (localIndex >= 0) {
+				region.markSectionDirty(localIndex, playerChanged);
+				this.dirtyRegions.add(
+					XenoRenderRegion.key(
+						Math.floorDiv(sectionX, REGION_SECTIONS_XZ),
+						Math.floorDiv(sectionY, REGION_SECTIONS_Y),
+						Math.floorDiv(sectionZ, REGION_SECTIONS_XZ)
+					)
+				);
 			}
 		}
 	}
@@ -242,6 +271,13 @@ public final class XenoWorldRenderManager {
 		int localIndex = region.localIndexOf(sectionX, sectionY, sectionZ);
 		if (localIndex >= 0) {
 			region.markSectionDirty(localIndex, playerChanged);
+			this.dirtyRegions.add(
+				XenoRenderRegion.key(
+					Math.floorDiv(sectionX, REGION_SECTIONS_XZ),
+					Math.floorDiv(sectionY, REGION_SECTIONS_Y),
+					Math.floorDiv(sectionZ, REGION_SECTIONS_XZ)
+				)
+			);
 		}
 	}
 
@@ -256,24 +292,26 @@ public final class XenoWorldRenderManager {
 		return region != null && region.alive.get() ? region : null;
 	}
 
-	public record ResolvedSection(XenoRenderRegion region, int localIndex) {
-	}
-
-	public @Nullable ResolvedSection resolveSection(long sectionNode) {
-		int sectionX = SectionPos.x(sectionNode);
-		int sectionY = SectionPos.y(sectionNode);
-		int sectionZ = SectionPos.z(sectionNode);
-		XenoRenderRegion region;
+	public void resolveSections(LongList sectionNodes, XenoRenderRegion[] regionsOut, int[] indicesOut, int count) {
 		synchronized (this.lock) {
-			region = this.regionForLocked(sectionX, sectionY, sectionZ);
-		}
+			for (int i = 0; i < count; i++) {
+				long node = sectionNodes.getLong(i);
+				int sectionX = SectionPos.x(node);
+				int sectionY = SectionPos.y(node);
+				int sectionZ = SectionPos.z(node);
+				XenoRenderRegion region = this.regionForLocked(sectionX, sectionY, sectionZ);
+				XenoRenderRegion resolved = null;
+				if (region != null) {
+					int localIndex = region.localIndexOf(sectionX, sectionY, sectionZ);
+					if (localIndex >= 0) {
+						resolved = region;
+						indicesOut[i] = localIndex;
+					}
+				}
 
-		if (region == null) {
-			return null;
+				regionsOut[i] = resolved;
+			}
 		}
-
-		int localIndex = region.localIndexOf(sectionX, sectionY, sectionZ);
-		return localIndex >= 0 ? new ResolvedSection(region, localIndex) : null;
 	}
 
 	public void onCameraSectionChanged(SectionPos cameraSection) {
@@ -290,10 +328,12 @@ public final class XenoWorldRenderManager {
 			return;
 		}
 
+		int camRegionX;
+		int camRegionZ;
 		synchronized (this.lock) {
 			this.frameIndex++;
-			int camRegionX = Math.floorDiv(this.cameraSectionX, REGION_SECTIONS_XZ);
-			int camRegionZ = Math.floorDiv(this.cameraSectionZ, REGION_SECTIONS_XZ);
+			camRegionX = Math.floorDiv(this.cameraSectionX, REGION_SECTIONS_XZ);
+			camRegionZ = Math.floorDiv(this.cameraSectionZ, REGION_SECTIONS_XZ);
 			int halfExtentRegions = Math.floorDiv(
 				minecraft.options.getEffectiveRenderDistance() * 16 + VIEW_MARGIN_BLOCKS, REGION_SIZE_BLOCKS
 			);
@@ -313,20 +353,36 @@ public final class XenoWorldRenderManager {
 						&& this.frameIndex - region.lastSeenFrame() > RELEASE_GRACE_FRAMES
 				) {
 					XenoRegionCompiler.INSTANCE.releaseRegion(region);
+					this.dirtyRegions.remove(entry.getLongKey());
 					iterator.remove();
-					this.regionsReleased++;
 				}
 			}
 
-			this.scheduleCompiles(minecraft, lvl, camRegionX, camRegionZ);
+			LongIterator dirtyIterator = this.dirtyRegions.iterator();
+			LongArrayList keys = this.dirtyRegionKeysScratch;
+			keys.clear();
+			while (dirtyIterator.hasNext()) {
+				long key = dirtyIterator.nextLong();
+				XenoRenderRegion region = this.regions.get(key);
+				if (region == null || !region.alive.get() || !region.hasDirtySections()) {
+					dirtyIterator.remove();
+					continue;
+				}
+
+				keys.add(key);
+			}
 		}
+
+		this.scheduleCompiles(minecraft, lvl, camRegionX, camRegionZ);
 	}
 
 	private void scheduleCompiles(Minecraft minecraft, ClientLevel lvl, int camRegionX, int camRegionZ) {
 		List<XenoRenderRegion> dirty = this.dirtyRegionScratch;
 		dirty.clear();
-		for (XenoRenderRegion region : this.regions.values()) {
-			if (region.hasDirtySections()) {
+		LongArrayList keys = this.dirtyRegionKeysScratch;
+		for (int i = 0; i < keys.size(); i++) {
+			XenoRenderRegion region = this.regions.get(keys.getLong(i));
+			if (region != null && region.alive.get() && region.hasDirtySections()) {
 				dirty.add(region);
 			}
 		}
@@ -343,21 +399,22 @@ public final class XenoWorldRenderManager {
 		int budget = MAX_COMPILES_PER_FRAME;
 		XenoRegionCompiler.INSTANCE.setCompiler(this.acquireCompiler(minecraft));
 		RenderRegionCache snapshotCache = new RenderRegionCache();
+		LongList peeked = this.peekedScratch;
 		for (XenoRenderRegion region : dirty) {
 			if (budget <= 0) {
 				break;
 			}
 
-			List<int[]> peeked = this.peekedScratch;
 			peeked.clear();
 			region.peekDirtySections(peeked, MAX_PEEKED_CANDIDATES_PER_REGION);
-			for (int[] entry : peeked) {
+			for (int p = 0; p < peeked.size(); p++) {
 				if (budget <= 0) {
 					break;
 				}
 
-				int localIndex = entry[0];
-				boolean playerChanged = entry[1] != 0;
+				long entry = peeked.getLong(p);
+				int localIndex = (int)(entry >>> 1);
+				boolean playerChanged = (entry & 1L) != 0L;
 
 				int localX = localIndex % REGION_SECTIONS_XZ;
 				int localZ = localIndex / REGION_SECTIONS_XZ % REGION_SECTIONS_XZ;
@@ -366,15 +423,27 @@ public final class XenoWorldRenderManager {
 				int sectionY = region.minSectionY() + localY;
 				int sectionZ = region.minSectionZ() + localZ;
 
-				if (!hasAllNeighbors(lvl, sectionX, sectionZ)) {
+				long sectionNode = SectionPos.asLong(sectionX, sectionY, sectionZ);
+				long failedAtFrame = this.neighborNotReadyAt.get(sectionNode);
+				if (failedAtFrame >= 0L && this.frameIndex - failedAtFrame < NEIGHBOR_RECHECK_FRAMES) {
 					continue;
 				}
+
+				if (!hasAllNeighbors(lvl, sectionX, sectionZ)) {
+					if (this.neighborNotReadyAt.size() >= NEIGHBOR_CACHE_MAX_ENTRIES) {
+						this.neighborNotReadyAt.clear();
+					}
+
+					this.neighborNotReadyAt.put(sectionNode, this.frameIndex);
+					continue;
+				}
+
+				this.neighborNotReadyAt.remove(sectionNode);
 
 				if (!region.markPending(localIndex)) {
 					continue;
 				}
 
-				long sectionNode = SectionPos.asLong(sectionX, sectionY, sectionZ);
 				RenderSectionRegion snapshot = this.createSnapshot(snapshotCache, lvl, sectionNode);
 				if (snapshot == null) {
 					region.clearPending(localIndex);
@@ -393,7 +462,6 @@ public final class XenoWorldRenderManager {
 				);
 
 				XenoRegionCompiler.INSTANCE.submit(region, localIndex, snapshot, sorting, cameraPos);
-				this.totalCompilesSubmitted++;
 				budget--;
 			}
 		}
@@ -502,6 +570,10 @@ public final class XenoWorldRenderManager {
 		this.regions.clear();
 		this.cameraSectionX = 0;
 		this.cameraSectionZ = 0;
-		this.totalDirtySections = 0L;
+		this.dirtyRegions.clear();
+		this.neighborNotReadyAt.clear();
+		this.dirtyRegionKeysScratch.clear();
+		this.peekedScratch.clear();
+		this.dirtyRegionScratch.clear();
 	}
 }

@@ -26,7 +26,6 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.xeno.client.common.memory.MemoryAccess;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
-import net.minecraft.core.Direction;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.LightCoordsUtil;
@@ -51,7 +50,6 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
     private final VertexFormat format;
     private final ChunkSectionLayer layer;
     private int vertexCount;
-    private long vertexPointer;
 
     public XenoSectionLayerBuffer(ByteBufferBuilder buffer, VertexFormat format, ChunkSectionLayer layer) {
         this.buffer = buffer;
@@ -61,10 +59,6 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
 
     public ChunkSectionLayer layer() {
         return this.layer;
-    }
-
-    public int vertexCount() {
-        return this.vertexCount;
     }
 
     public MeshData build() {
@@ -78,6 +72,10 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
         int indexCount = PrimitiveTopology.QUADS.indexCount(this.vertexCount);
         IndexType indexType = IndexType.least(this.vertexCount);
         return new MeshData(vertexBuffer, new MeshData.DrawState(this.format, this.vertexCount, indexCount, PrimitiveTopology.QUADS, indexType));
+    }
+
+    void resetForReuse() {
+        this.vertexCount = 0;
     }
 
     public void writeBlockQuad(float x, float y, float z, BakedQuad quad, QuadInstance instance) {
@@ -137,7 +135,7 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
             float x1, float y1, float z1, float u1, float v1,
             float x2, float y2, float z2, float u2, float v2,
             float x3, float y3, float z3, float u3, float v3,
-            int color, int lightCoords, Direction facing, boolean addBackFace
+            int color, int lightCoords, boolean addBackFace
     ) {
         int vertexCount = addBackFace ? 8 : 4;
         long ptr = this.buffer.reserve(VERTEX_SIZE * vertexCount);
@@ -164,8 +162,7 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
 
     @Override
     public @NonNull VertexConsumer addVertex(float x, float y, float z) {
-        long ptr = this.buffer.reserve(VERTEX_SIZE);
-        this.vertexPointer = ptr;
+        this.buffer.reserve(VERTEX_SIZE);
         this.vertexCount++;
         return this;
     }

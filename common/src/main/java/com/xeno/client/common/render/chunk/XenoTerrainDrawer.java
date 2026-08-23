@@ -44,21 +44,29 @@ public final class XenoTerrainDrawer {
 	public static final XenoSharedQuadIndexBuffer SHARED_INDEX_BUFFER = new XenoSharedQuadIndexBuffer();
 	private static final int SELF_HEAL_MARKS_PER_FRAME = 1024;
 	private final it.unimi.dsi.fastutil.longs.LongArrayList missingScratch = new it.unimi.dsi.fastutil.longs.LongArrayList();
+	private final it.unimi.dsi.fastutil.longs.LongArrayList nodeScratch = new it.unimi.dsi.fastutil.longs.LongArrayList();
+	private XenoRenderRegion[] resolvedRegions = new XenoRenderRegion[0];
+	private int[] resolvedIndices = new int[0];
+	private final EnumMap<ChunkSectionLayer, Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>>> drawGroups =
+			new EnumMap<>(ChunkSectionLayer.class);
+	private final List<DynamicUniforms.ChunkSectionInfo> sectionInfos = new ArrayList<>();
+	private final int[] largestIndexCount = new int[1];
 
 	private XenoTerrainDrawer() {
+		for (ChunkSectionLayer layer : ChunkSectionLayer.values()) {
+			this.drawGroups.put(layer, new Int2ObjectOpenHashMap<>());
+		}
 	}
 
 	public ChunkSectionsToRender prepareChunkRenders(LevelRenderer renderer, Matrix4fc modelViewMatrix) {
 		Minecraft minecraft = Minecraft.getInstance();
 
-		EnumMap<ChunkSectionLayer, Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>>> drawGroups =
-				new EnumMap<>(ChunkSectionLayer.class);
-		for (ChunkSectionLayer layer : ChunkSectionLayer.values()) {
-			drawGroups.put(layer, new Int2ObjectOpenHashMap<>());
+		for (Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> group : this.drawGroups.values()) {
+			group.values().forEach(List::clear);
 		}
 
-		List<DynamicUniforms.ChunkSectionInfo> sectionInfos = new ArrayList<>();
-		int[] largestIndexCount = new int[1];
+		this.sectionInfos.clear();
+		this.largestIndexCount[0] = 0;
 		GpuTextureView blockAtlasView = minecraft.getTextureManager().getTexture(TextureAtlas.LOCATION_BLOCKS).getTextureView();
 		int atlasWidth = blockAtlasView.getWidth(0);
 		int atlasHeight = blockAtlasView.getHeight(0);
@@ -68,22 +76,38 @@ public final class XenoTerrainDrawer {
 		// lists below read allocation offsets, otherwise freshly compiled sections get drawn for a
 		// frame from memory that has not been copied yet.
 		compiler.flushUploads();
-		compiler.lock();
+
+		it.unimi.dsi.fastutil.longs.LongArrayList nodes = this.nodeScratch;
+		nodes.clear();
+		int visibleCount = 0;
+		for (SectionRenderDispatcher.RenderSection visible : renderer.visibleSections) {
+			nodes.add(visible.getSectionNode());
+			visibleCount++;
+		}
+
+		if (visibleCount > this.resolvedRegions.length) {
+			int capacity = Math.max(visibleCount, this.resolvedRegions.length * 2);
+			this.resolvedRegions = new XenoRenderRegion[capacity];
+			this.resolvedIndices = new int[capacity];
+		}
+
+		XenoWorldRenderManager.INSTANCE.resolveSections(nodes, this.resolvedRegions, this.resolvedIndices, visibleCount);
 
 		try {
-			for (SectionRenderDispatcher.RenderSection visible : renderer.visibleSections) {
-				long node = visible.getSectionNode();
-				XenoWorldRenderManager.ResolvedSection resolved = XenoWorldRenderManager.INSTANCE.resolveSection(node);
-				if (resolved == null) {
+			for (int i = 0; i < visibleCount; i++) {
+				long node = nodes.getLong(i);
+				XenoRenderRegion region = this.resolvedRegions[i];
+				if (region == null) {
 					this.missingScratch.add(node);
 					continue;
 				}
 
-				SectionMesh mesh = resolved.region().meshSlot(resolved.localIndex()).get();
+				int localIndex = this.resolvedIndices[i];
+				SectionMesh mesh = region.meshSlot(localIndex).get();
 				if (mesh == null || mesh == CompiledSectionMesh.UNCOMPILED) {
 					// Only nudge sections that have neither a mesh nor a queued compile;
 					// re-marking pending ones every frame flooded the queue with duplicates.
-					if (!resolved.region().isPending(resolved.localIndex())) {
+					if (!region.isPending(localIndex)) {
 						this.missingScratch.add(node);
 					}
 					continue;
@@ -93,31 +117,35 @@ public final class XenoTerrainDrawer {
 					continue;
 				}
 
-				float visibility = resolved.region().visibilityAt(resolved.localIndex(), now);
-				appendSectionDraws(
-						drawGroups, sectionInfos, largestIndexCount, compiler, compiled, visibility,
-						SectionPos.sectionToBlockCoord(SectionPos.x(node)),
-						SectionPos.sectionToBlockCoord(SectionPos.y(node)),
-						SectionPos.sectionToBlockCoord(SectionPos.z(node)),
-						atlasWidth, atlasHeight, modelViewMatrix
-				);
+				float visibility = region.visibilityAt(localIndex, now);
+				compiler.lock();
+				try {
+					appendSectionDraws(
+							this.drawGroups, this.sectionInfos, this.largestIndexCount, compiler, compiled, visibility,
+							SectionPos.sectionToBlockCoord(SectionPos.x(node)),
+							SectionPos.sectionToBlockCoord(SectionPos.y(node)),
+							SectionPos.sectionToBlockCoord(SectionPos.z(node)),
+							atlasWidth, atlasHeight, modelViewMatrix
+					);
+				} finally {
+					compiler.unlock();
+				}
 			}
 		} finally {
-			compiler.unlock();
+			java.util.Arrays.fill(this.resolvedRegions, 0, visibleCount, null);
 		}
 
-		int healBudget = SELF_HEAL_MARKS_PER_FRAME;
-		for (int i = 0; i < this.missingScratch.size() && healBudget > 0; i++, healBudget--) {
-			long node = this.missingScratch.getLong(i);
-			XenoWorldRenderManager.INSTANCE.onSectionDirty(SectionPos.x(node), SectionPos.y(node), SectionPos.z(node), false);
-		}
-
+		XenoWorldRenderManager.INSTANCE.markSectionsMissing(this.missingScratch, SELF_HEAL_MARKS_PER_FRAME);
 		this.missingScratch.clear();
 
-		SHARED_INDEX_BUFFER.ensureCapacity(Math.max(largestIndexCount[0], 1));
+		for (Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> group : this.drawGroups.values()) {
+			group.values().removeIf(List::isEmpty);
+		}
+
+		SHARED_INDEX_BUFFER.ensureCapacity(Math.max(this.largestIndexCount[0], 1));
 		var uniformSlices = RenderSystem.getDynamicUniforms()
-				.writeChunkSections(sectionInfos.toArray(new DynamicUniforms.ChunkSectionInfo[0]));
-		return new ChunkSectionsToRender(blockAtlasView, drawGroups, largestIndexCount[0], uniformSlices);
+				.writeChunkSections(this.sectionInfos.toArray(new DynamicUniforms.ChunkSectionInfo[0]));
+		return new ChunkSectionsToRender(blockAtlasView, this.drawGroups, this.largestIndexCount[0], uniformSlices);
 	}
 
 	private static void appendSectionDraws(
