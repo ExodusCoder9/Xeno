@@ -40,8 +40,6 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
-import com.xeno.client.common.render.chunk.XenoSharedQuadIndexBuffer;
-import com.xeno.client.common.render.chunk.XenoTerrainDrawer;
 
 /**
  * Owns the actual GPU draw-call submission for terrain.

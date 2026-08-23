@@ -37,7 +37,6 @@ import net.minecraft.client.renderer.chunk.*;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.core.SectionPos;
 import net.minecraft.util.Util;
-import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
 public final class XenoTerrainDrawer {
@@ -53,7 +52,7 @@ public final class XenoTerrainDrawer {
 		Minecraft minecraft = Minecraft.getInstance();
 
 		EnumMap<ChunkSectionLayer, Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>>> drawGroups =
-			new EnumMap<>(ChunkSectionLayer.class);
+				new EnumMap<>(ChunkSectionLayer.class);
 		for (ChunkSectionLayer layer : ChunkSectionLayer.values()) {
 			drawGroups.put(layer, new Int2ObjectOpenHashMap<>());
 		}
@@ -96,11 +95,11 @@ public final class XenoTerrainDrawer {
 
 				float visibility = resolved.region().visibilityAt(resolved.localIndex(), now);
 				appendSectionDraws(
-					drawGroups, sectionInfos, largestIndexCount, compiler, compiled, visibility,
-					SectionPos.sectionToBlockCoord(SectionPos.x(node)),
-					SectionPos.sectionToBlockCoord(SectionPos.y(node)),
-					SectionPos.sectionToBlockCoord(SectionPos.z(node)),
-					atlasWidth, atlasHeight, modelViewMatrix
+						drawGroups, sectionInfos, largestIndexCount, compiler, compiled, visibility,
+						SectionPos.sectionToBlockCoord(SectionPos.x(node)),
+						SectionPos.sectionToBlockCoord(SectionPos.y(node)),
+						SectionPos.sectionToBlockCoord(SectionPos.z(node)),
+						atlasWidth, atlasHeight, modelViewMatrix
 				);
 			}
 		} finally {
@@ -117,23 +116,23 @@ public final class XenoTerrainDrawer {
 
 		SHARED_INDEX_BUFFER.ensureCapacity(Math.max(largestIndexCount[0], 1));
 		var uniformSlices = RenderSystem.getDynamicUniforms()
-			.writeChunkSections(sectionInfos.toArray(new DynamicUniforms.ChunkSectionInfo[0]));
+				.writeChunkSections(sectionInfos.toArray(new DynamicUniforms.ChunkSectionInfo[0]));
 		return new ChunkSectionsToRender(blockAtlasView, drawGroups, largestIndexCount[0], uniformSlices);
 	}
 
 	private static void appendSectionDraws(
-		EnumMap<ChunkSectionLayer, Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>>> drawGroups,
-		List<DynamicUniforms.ChunkSectionInfo> sectionInfos,
-		int[] largestIndexCount,
-		XenoRegionCompiler compiler,
-		CompiledSectionMesh compiled,
-		float visibility,
-		int originX,
-		int originY,
-		int originZ,
-		int atlasWidth,
-		int atlasHeight,
-		Matrix4fc modelViewMatrix
+			EnumMap<ChunkSectionLayer, Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>>> drawGroups,
+			List<DynamicUniforms.ChunkSectionInfo> sectionInfos,
+			int[] largestIndexCount,
+			XenoRegionCompiler compiler,
+			CompiledSectionMesh compiled,
+			float visibility,
+			int originX,
+			int originY,
+			int originZ,
+			int atlasWidth,
+			int atlasHeight,
+			Matrix4fc modelViewMatrix
 	) {
 		int uboIndex = -1;
 
@@ -145,7 +144,7 @@ public final class XenoTerrainDrawer {
 
 			XenoRegionCompiler.MeshSlice slice = compiler.resolveSlice(compiled, layer);
 			boolean customIndicesReady = !draw.hasCustomIndexBuffer()
-				|| (slice != null && slice.indices() != null && compiled.isIndexBufferUploaded(layer));
+					|| (slice != null && slice.indices() != null && compiled.isIndexBufferUploaded(layer));
 			if (!customIndicesReady || slice == null) {
 				continue;
 			}
@@ -153,7 +152,7 @@ public final class XenoTerrainDrawer {
 			if (uboIndex == -1) {
 				uboIndex = sectionInfos.size();
 				sectionInfos.add(
-					new DynamicUniforms.ChunkSectionInfo(modelViewMatrix, originX, originY, originZ, visibility, atlasWidth, atlasHeight)
+						new DynamicUniforms.ChunkSectionInfo(modelViewMatrix, originX, originY, originZ, visibility, atlasWidth, atlasHeight)
 				);
 			}
 
@@ -183,12 +182,12 @@ public final class XenoTerrainDrawer {
 			int finalUboIndex = uboIndex;
 			int baseVertex = (int)(slice.vertexOffset() / Objects.requireNonNull(vertexFormat).getVertexSize());
 			List<RenderPass.Draw<GpuBufferSlice[]>> draws = drawGroups.get(layer)
-				.computeIfAbsent(combinedHash, key -> new ArrayList<>());
+					.computeIfAbsent(combinedHash, key -> new ArrayList<>());
 			draws.add(
-				new RenderPass.Draw<>(
-					0, vertexBuffer, indexBuffer, indexType, firstIndex, draw.indexCount(), baseVertex,
-					(sectionUbos, uploader) -> uploader.upload("ChunkSection", sectionUbos[finalUboIndex])
-				)
+					new RenderPass.Draw<>(
+							0, vertexBuffer, indexBuffer, indexType, firstIndex, draw.indexCount(), baseVertex,
+							(sectionUbos, uploader) -> uploader.upload("ChunkSection", sectionUbos[finalUboIndex])
+					)
 			);
 		}
 	}
