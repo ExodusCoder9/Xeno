@@ -1,28 +1,29 @@
 {
-	"required": true,
-	"package": "com.xeno.client.mixin",
-	"compatibilityLevel": "JAVA_25",
-	"client": [
-		"XenoSectionCompilerMixin",
-		"XenoSectionRenderDispatcherMixin",
-		"XenoLevelExtractorMixin",
-		"XenoClientChunkCacheMixin",
-		"XenoViewAreaMixin",
-		"XenoLevelRendererMixin",
-		"RenderSectionRegionAccessor",
-		"SectionCopyAccessor",
-		"XenoCloudRendererMixin",
-		"XenoBufferBuilderMixin",
-		"XenoChunkSectionsToRenderMixin",
-		"OptionsScreenMixin",
-		"CubeMixin",
-		"BufferBuilderMixin",
-		"XenoMeshDataMixin"
-	],
-	"injectors": {
-		"defaultRequire": 1
-	},
-	"overwrites": {
-		"requireAnnotations": true
+  "required": true,
+  "package": "com.xeno.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "BufferBuilderMixin",
+    "CubeMixin",
+    "OptionsScreenMixin",
+    "RenderSectionRegionAccessor",
+    "SectionCopyAccessor",
+    "ViewAreaAccessor",
+    "XenoBufferBuilderMixin",
+    "XenoChunkSectionsToRenderMixin",
+    "XenoClientChunkCacheMixin",
+    "XenoCloudRendererMixin",
+    "XenoLevelExtractorMixin",
+    "XenoLevelRendererMixin",
+    "XenoMeshDataMixin",
+    "XenoSectionCompilerMixin",
+    "XenoSectionRenderDispatcherMixin",
+    "XenoViewAreaMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
 	}
 }

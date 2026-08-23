@@ -31,6 +31,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public abstract class XenoLevelRendererMixin {
 	@Inject(
+		method = "compileSections",
+		at = @At("HEAD"),
+		cancellable = true
+	)
+	private void xeno$cancelVanillaCompileSections(CallbackInfo ci) {
+		ci.cancel();
+	}
+
+	@Inject(
 		method = "render",
 		at = @At("TAIL")
 	)

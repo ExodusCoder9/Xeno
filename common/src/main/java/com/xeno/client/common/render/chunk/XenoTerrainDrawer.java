@@ -43,7 +43,7 @@ import org.joml.Matrix4fc;
 public final class XenoTerrainDrawer {
 	public static final XenoTerrainDrawer INSTANCE = new XenoTerrainDrawer();
 	public static final XenoSharedQuadIndexBuffer SHARED_INDEX_BUFFER = new XenoSharedQuadIndexBuffer();
-	private static final int SELF_HEAL_MARKS_PER_FRAME = 256;
+	private static final int SELF_HEAL_MARKS_PER_FRAME = 1024;
 	private final it.unimi.dsi.fastutil.longs.LongArrayList missingScratch = new it.unimi.dsi.fastutil.longs.LongArrayList();
 
 	private XenoTerrainDrawer() {
@@ -153,7 +153,7 @@ public final class XenoTerrainDrawer {
 			if (uboIndex == -1) {
 				uboIndex = sectionInfos.size();
 				sectionInfos.add(
-					new DynamicUniforms.ChunkSectionInfo(new Matrix4f(modelViewMatrix), originX, originY, originZ, visibility, atlasWidth, atlasHeight)
+					new DynamicUniforms.ChunkSectionInfo(modelViewMatrix, originX, originY, originZ, visibility, atlasWidth, atlasHeight)
 				);
 			}
 

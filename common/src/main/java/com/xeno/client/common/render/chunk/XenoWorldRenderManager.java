@@ -50,7 +50,7 @@ public final class XenoWorldRenderManager {
 	private static final int VIEW_MARGIN_BLOCKS = 64;
 	private static final long RELEASE_GRACE_FRAMES = 200L;
 	// The executor self-limits its CPU per frame window; this only bounds the submit queue.
-	private static final int MAX_COMPILES_PER_FRAME = 256;
+	private static final int MAX_COMPILES_PER_FRAME = 1024;
 	private static final int MAX_PEEKED_CANDIDATES_PER_REGION = 512;
 	public static final int REGION_SIZE_BLOCKS = REGION_SECTIONS_XZ * 16;
 	private final Object lock = new Object();
@@ -74,7 +74,6 @@ public final class XenoWorldRenderManager {
 	private @Nullable SectionCompiler cachedCompiler;
 	private final List<XenoRenderRegion> dirtyRegionScratch = new ArrayList<>();
 	private final List<int[]> peekedScratch = new ArrayList<>();
-	private final RenderRegionCache snapshotCache = new RenderRegionCache();
 
 	private XenoWorldRenderManager() {
 	}
@@ -92,7 +91,6 @@ public final class XenoWorldRenderManager {
 
 	public void onRenderPipelineReset() {
 		synchronized (this.lock) {
-			this.resetState();
 			this.rebuildRegionsForLoadedChunks();
 			for (long packed : this.loadedChunks) {
 				int chunkX = ChunkPos.getX(packed);
@@ -101,7 +99,12 @@ public final class XenoWorldRenderManager {
 			}
 		}
 
-		XenoRegionCompiler.LOGGER.info("Render pipeline reset: all regions evicted");
+		Minecraft minecraft = Minecraft.getInstance();
+		if (minecraft.levelRenderer != null) {
+			minecraft.levelRenderer.sectionOcclusionGraph().invalidate();
+		}
+
+		XenoRegionCompiler.LOGGER.info("Render pipeline reset: all regions marked dirty");
 	}
 
 	public void onChunkLoaded(ChunkPos pos) {
@@ -211,12 +214,21 @@ public final class XenoWorldRenderManager {
 			this.totalDirtySections++;
 			XenoRenderRegion region = this.regionForLocked(sectionX, sectionY, sectionZ);
 			if (region == null) {
-				return;
+				int chunkX = sectionX;
+				int chunkZ = sectionZ;
+				long packed = ChunkPos.pack(chunkX, chunkZ);
+				if (this.loadedChunks.contains(packed) || (this.level != null && this.level.getChunk(chunkX, chunkZ, ChunkStatus.FULL, false) != null)) {
+					this.loadedChunks.add(packed);
+					this.createRegionColumn(Math.floorDiv(chunkX, REGION_SECTIONS_XZ), Math.floorDiv(chunkZ, REGION_SECTIONS_XZ));
+					region = this.regionForLocked(sectionX, sectionY, sectionZ);
+				}
 			}
 
-			int localIndex = region.localIndexOf(sectionX, sectionY, sectionZ);
-			if (localIndex >= 0) {
-				region.markSectionDirty(localIndex, playerChanged);
+			if (region != null) {
+				int localIndex = region.localIndexOf(sectionX, sectionY, sectionZ);
+				if (localIndex >= 0) {
+					region.markSectionDirty(localIndex, playerChanged);
+				}
 			}
 		}
 	}
@@ -330,12 +342,10 @@ public final class XenoWorldRenderManager {
 
 		int budget = MAX_COMPILES_PER_FRAME;
 		XenoRegionCompiler.INSTANCE.setCompiler(this.acquireCompiler(minecraft));
+		RenderRegionCache snapshotCache = new RenderRegionCache();
 		for (XenoRenderRegion region : dirty) {
 			if (budget <= 0) {
 				break;
-			}
-			if (!hasAllNeighborChunks(lvl, region)) {
-				continue;
 			}
 
 			List<int[]> peeked = this.peekedScratch;
@@ -348,9 +358,6 @@ public final class XenoWorldRenderManager {
 
 				int localIndex = entry[0];
 				boolean playerChanged = entry[1] != 0;
-				if (!region.markPending(localIndex)) {
-					continue;
-				}
 
 				int localX = localIndex % REGION_SECTIONS_XZ;
 				int localZ = localIndex / REGION_SECTIONS_XZ % REGION_SECTIONS_XZ;
@@ -358,8 +365,17 @@ public final class XenoWorldRenderManager {
 				int sectionX = region.minSectionX() + localX;
 				int sectionY = region.minSectionY() + localY;
 				int sectionZ = region.minSectionZ() + localZ;
+
+				if (!hasAllNeighbors(lvl, sectionX, sectionZ)) {
+					continue;
+				}
+
+				if (!region.markPending(localIndex)) {
+					continue;
+				}
+
 				long sectionNode = SectionPos.asLong(sectionX, sectionY, sectionZ);
-				RenderSectionRegion snapshot = this.createSnapshot(lvl, sectionNode);
+				RenderSectionRegion snapshot = this.createSnapshot(snapshotCache, lvl, sectionNode);
 				if (snapshot == null) {
 					region.clearPending(localIndex);
 					continue;
@@ -389,9 +405,9 @@ public final class XenoWorldRenderManager {
 		return deltaX * deltaX + deltaZ * deltaZ;
 	}
 
-	private @Nullable RenderSectionRegion createSnapshot(ClientLevel lvl, long sectionNode) {
+	private @Nullable RenderSectionRegion createSnapshot(RenderRegionCache snapshotCache, ClientLevel lvl, long sectionNode) {
 		try {
-			return this.snapshotCache.createRegion(lvl, sectionNode);
+			return snapshotCache.createRegion(lvl, sectionNode);
 		} catch (Throwable t) {
 			XenoRegionCompiler.LOGGER.debug("Snapshot failed for section {}", sectionNode, t);
 			return null;
@@ -406,6 +422,12 @@ public final class XenoWorldRenderManager {
 			return 0L;
 		}
 
+		SectionMesh previousMesh = region.meshSlot(localIndex).get();
+		boolean previouslyRenderable = previousMesh instanceof CompiledSectionMesh compiled && compiled.hasRenderableLayers();
+		if (previouslyRenderable) {
+			return 0L;
+		}
+
 		double centerX = originX + 8.0;
 		double centerY = originY + 8.0;
 		double centerZ = originZ + 8.0;
@@ -413,26 +435,19 @@ public final class XenoWorldRenderManager {
 		double distY = centerY - cameraPos.y;
 		double distZ = centerZ - cameraPos.z;
 		boolean nearby = distX * distX + distY * distY + distZ * distZ < 768.0;
-		SectionMesh previousMesh = region.meshSlot(localIndex).get();
-		boolean previouslyEmpty = !(previousMesh instanceof CompiledSectionMesh compiled && compiled.hasRenderableLayers());
-		return !nearby && !previouslyEmpty
+		return !nearby
 			? (long)Math.floor(minecraft.options.chunkSectionFadeInTime().get() * 1000.0)
 			: 0L;
 	}
 
-	private static boolean hasAllNeighborChunks(ClientLevel lvl, XenoRenderRegion region) {
-		int minChunkX = region.minSectionX() - 1;
-		int minChunkZ = region.minSectionZ() - 1;
-		int maxChunkX = region.minSectionX() + XenoWorldRenderManager.REGION_SECTIONS_XZ;
-		int maxChunkZ = region.minSectionZ() + XenoWorldRenderManager.REGION_SECTIONS_XZ;
-		for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-			for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-				if (lvl.getChunk(chunkX, chunkZ, ChunkStatus.FULL, false) == null) {
+	private static boolean hasAllNeighbors(ClientLevel lvl, int sectionX, int sectionZ) {
+		for (int deltaX = -1; deltaX <= 1; deltaX++) {
+			for (int deltaZ = -1; deltaZ <= 1; deltaZ++) {
+				if (lvl.getChunk(sectionX + deltaX, sectionZ + deltaZ, ChunkStatus.FULL, false) == null) {
 					return false;
 				}
 			}
 		}
-
 		return true;
 	}
 

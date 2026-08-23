@@ -31,15 +31,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.chunk.*;
 import net.minecraft.util.Util;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;
 import net.minecraft.client.renderer.SectionBufferBuilderPool;
-import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
-import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
-import net.minecraft.client.renderer.chunk.RenderSectionRegion;
-import net.minecraft.client.renderer.chunk.SectionCompiler;
-import net.minecraft.client.renderer.chunk.SectionMesh;
-import net.minecraft.client.renderer.chunk.TranslucencyPointOfView;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
@@ -233,14 +229,31 @@ public final class XenoRegionCompiler {
 			boolean success = true;
 			ByteBuffer vertices = meshData.vertexBuffer();
 			if (vertices != null) {
-				success &= buffers.vertices.addAllocation(mesh, m -> ((CompiledSectionMesh)m).setVertexBufferUploaded(layer), vertices);
+				success &= buffers.vertices.addAllocation(mesh, m -> {
+					if (m instanceof CompiledSectionMesh compiled) {
+						try {
+							compiled.setVertexBufferUploaded(layer);
+						} catch (Throwable ignored) {
+						}
+					}
+				}, vertices);
 			}
 
 			ByteBuffer indices = meshData.indexBuffer();
 			if (indices != null) {
-				success &= buffers.indices.addAllocation(mesh, m -> ((CompiledSectionMesh)m).setIndexBufferUploaded(layer), indices);
+				success &= buffers.indices.addAllocation(mesh, m -> {
+					if (m instanceof CompiledSectionMesh compiled) {
+						try {
+							compiled.setIndexBufferUploaded(layer);
+						} catch (Throwable ignored) {
+						}
+					}
+				}, indices);
 			} else {
-				mesh.setIndexBufferUploaded(layer);
+				try {
+					mesh.setIndexBufferUploaded(layer);
+				} catch (Throwable ignored) {
+				}
 			}
 
 			return success ? STAGED : RETRY;
@@ -248,6 +261,7 @@ public final class XenoRegionCompiler {
 			this.copyLock.unlock();
 		}
 	}
+
 
 	private void publish(XenoRenderRegion region, int localIndex, SectionMesh mesh) {
 		this.copyLock.lock();
@@ -257,6 +271,21 @@ public final class XenoRegionCompiler {
 			this.releaseMeshAllocations(old);
 			region.clearPending(localIndex);
 			region.noteMeshUploaded(localIndex, Util.getMillis());
+
+			int sectionsXZ = XenoWorldRenderManager.REGION_SECTIONS_XZ;
+			int localX = localIndex % sectionsXZ;
+			int localZ = localIndex / sectionsXZ % sectionsXZ;
+			int localY = localIndex / (sectionsXZ * sectionsXZ);
+			long sectionNode = SectionPos.asLong(region.minSectionX() + localX, region.minSectionY() + localY, region.minSectionZ() + localZ);
+
+			Minecraft minecraft = Minecraft.getInstance();
+			if (minecraft.levelRenderer != null && minecraft.levelRenderer.viewArea() != null) {
+				SectionRenderDispatcher.RenderSection vanillaSection = ((com.xeno.client.mixin.ViewAreaAccessor) Objects.requireNonNull(minecraft.levelRenderer.viewArea())).xeno$getRenderSection(sectionNode);
+				if (vanillaSection != null) {
+					vanillaSection.sectionMesh.set(mesh);
+					minecraft.levelRenderer.sectionOcclusionGraph().schedulePropagationFrom(vanillaSection);
+				}
+			}
 		} finally {
 			this.copyLock.unlock();
 		}
@@ -266,11 +295,24 @@ public final class XenoRegionCompiler {
 		region.alive.set(false);
 		this.copyLock.lock();
 
+		Minecraft minecraft = Minecraft.getInstance();
 		try {
 			for (int i = 0; i < XenoRenderRegion.SECTION_COUNT; i++) {
 				SectionMesh old = region.meshSlot(i).getAndSet(CompiledSectionMesh.UNCOMPILED);
 				this.releaseMeshAllocations(old);
 				region.clearPending(i);
+
+				if (minecraft.levelRenderer != null && minecraft.levelRenderer.viewArea() != null) {
+					int sectionsXZ = XenoWorldRenderManager.REGION_SECTIONS_XZ;
+					int localX = i % sectionsXZ;
+					int localZ = i / sectionsXZ % sectionsXZ;
+					int localY = i / (sectionsXZ * sectionsXZ);
+					long sectionNode = SectionPos.asLong(region.minSectionX() + localX, region.minSectionY() + localY, region.minSectionZ() + localZ);
+					SectionRenderDispatcher.RenderSection vanillaSection = ((com.xeno.client.mixin.ViewAreaAccessor) Objects.requireNonNull(minecraft.levelRenderer.viewArea())).xeno$getRenderSection(sectionNode);
+					if (vanillaSection != null) {
+						vanillaSection.sectionMesh.set(CompiledSectionMesh.UNCOMPILED);
+					}
+				}
 			}
 		} finally {
 			this.copyLock.unlock();

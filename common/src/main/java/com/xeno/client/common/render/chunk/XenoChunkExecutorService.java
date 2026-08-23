@@ -100,14 +100,11 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 				continue;
 			}
 
-			long reserved = this.acquireBudget();
-			long start = System.nanoTime();
 			try {
 				task.run();
 			} catch (Throwable t) {
 				LOGGER.error("Task on chunk builder executor threw an exception", t);
 			}
-			this.releaseBudget(System.nanoTime() - start, reserved);
 		}
 
 		this.terminatedThreads.incrementAndGet();
