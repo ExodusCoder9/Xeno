@@ -18,7 +18,6 @@
 package com.xeno.client.common.render;
 
 import com.mojang.blaze3d.IndexType;
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -27,6 +26,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.textures.GpuTextureView;
+import com.xeno.client.common.render.chunk.XenoSharedQuadIndexBuffer;
+import com.xeno.client.common.render.chunk.XenoTerrainDrawer;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import java.util.ArrayList;
@@ -39,6 +40,8 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import com.xeno.client.common.render.chunk.XenoSharedQuadIndexBuffer;
+import com.xeno.client.common.render.chunk.XenoTerrainDrawer;
 
 /**
  * Owns the actual GPU draw-call submission for terrain.
@@ -65,9 +68,11 @@ public final class XenoChunkRenderer {
 		GpuTextureView blockAtlas = chunkRenders.textureView();
 		int maxIndicesRequired = chunkRenders.maxIndicesRequired();
 
-		RenderSystem.AutoStorageIndexBuffer autoIndices = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS);
-		GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 ? null : autoIndices.getBuffer(maxIndicesRequired);
-		IndexType defaultIndexType = maxIndicesRequired == 0 ? null : autoIndices.type();
+		XenoSharedQuadIndexBuffer sharedIndices = XenoTerrainDrawer.SHARED_INDEX_BUFFER;
+		GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || !sharedIndices.hasCapacity(maxIndicesRequired)
+			? null
+			: sharedIndices.buffer();
+		IndexType defaultIndexType = defaultIndexBuffer == null ? null : sharedIndices.type();
 
 		ChunkSectionLayer[] layers = group.layers();
 		Minecraft minecraft = Minecraft.getInstance();

@@ -44,16 +44,48 @@ public class MemoryAccess {
     private static final Unsafe UNSAFE;
     @Deprecated(since="0.1.0", forRemoval=true)
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
+    @Deprecated(since="0.1.0", forRemoval=true)
+    private static final long BUFFER_ADDRESS_OFFSET;
     static {
         try {
             Field field = Unsafe.class.getDeclaredField("theUnsafe");
             field.setAccessible(true);
 
             UNSAFE = (Unsafe) field.get(null);
+            BUFFER_ADDRESS_OFFSET = UNSAFE.objectFieldOffset(java.nio.Buffer.class.getDeclaredField("address"));
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException("Strange! , Couldn't obtain reference to sun.misc.unsafe ", e);
 
         }
+    }
+
+    @Deprecated(since="0.1.0", forRemoval=true)
+    public static long getAddress(java.nio.ByteBuffer buffer) {
+        return UNSAFE.getLong(buffer, BUFFER_ADDRESS_OFFSET);
+    }
+
+    /**
+     * Packs two unsigned-16 values into one int in memory (little-endian lane
+     * order), swapping lanes on big-endian hosts.
+     */
+    @Deprecated(since="0.1.0", forRemoval=true)
+    public static int packShorts(short first, short second) {
+        int packed = ((int) second & 0xFFFF) << 16 | ((int) first & 0xFFFF);
+        return IS_LITTLE_ENDIAN ? packed : Integer.reverseBytes(packed);
+    }
+
+    /**
+     * Packs four unsigned-16 values into one long in memory (little-endian lane
+     * order), swapping lanes on big-endian hosts.
+     */
+    @Deprecated(since="0.1.0", forRemoval=true)
+    public static long packShorts(short first, short second, short third, short fourth) {
+        long packed = ((long) fourth & 0xFFFFL) << 48 | ((long) third & 0xFFFFL) << 32 | ((long) second & 0xFFFFL) << 16 | ((long) first & 0xFFFFL);
+        if (!IS_LITTLE_ENDIAN) {
+            packed = ((packed & 0x0000FFFF0000FFFFL) << 16) | ((packed >>> 16) & 0x0000FFFF0000FFFFL);
+        }
+
+        return packed;
     }
 
     @Deprecated(since="0.1.0", forRemoval=true)

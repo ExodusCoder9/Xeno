@@ -5,6 +5,10 @@
 	"client": [
 		"XenoSectionCompilerMixin",
 		"XenoSectionRenderDispatcherMixin",
+		"XenoLevelExtractorMixin",
+		"XenoClientChunkCacheMixin",
+		"XenoViewAreaMixin",
+		"XenoLevelRendererMixin",
 		"RenderSectionRegionAccessor",
 		"SectionCopyAccessor",
 		"XenoCloudRendererMixin",
