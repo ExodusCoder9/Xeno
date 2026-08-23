@@ -42,7 +42,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.util.FormattedCharSequence;
 import org.jspecify.annotations.NonNull;
 
-public class XenoVideoSettingsScreen extends Screen {
+public final class XenoVideoSettingsScreen extends Screen {
 
     public enum PerformanceImpact {
         LOW("Low", 0xFF4ADE80),

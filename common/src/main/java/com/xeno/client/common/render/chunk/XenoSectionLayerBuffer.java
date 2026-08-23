@@ -33,9 +33,7 @@ import net.minecraft.util.LightCoordsUtil;
 import org.joml.Vector3fc;
 import org.jspecify.annotations.NonNull;
 
-/**
-* Please ignore the deprecated usage and for removal errors if you are on an IDE , there might be a lot , it is meant to be this way to follow correct procedure for deprecation .
-*/
+//Please ignore the deprecated usage and for removal errors if you are on an IDE , there might be a lot , it is meant to be this way to follow correct procedure for deprecation .
 
 public final class XenoSectionLayerBuffer implements VertexConsumer {
     private static final int VERTEX_SIZE = 28;

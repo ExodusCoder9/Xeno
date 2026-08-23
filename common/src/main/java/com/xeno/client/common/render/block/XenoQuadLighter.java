@@ -37,7 +37,7 @@ public final class XenoQuadLighter {
     private final MutableBlockPos scratchPos = new MutableBlockPos();
     private boolean faceCubic;
     private boolean facePartial;
-    private final float[] faceShape = new float[SizeInfo.COUNT];
+    private final float[] faceShape = new float[SizeInformation.COUNT];
 
     public XenoQuadLighter(XenoLightDataCache cache) {
         this.cache = cache;
@@ -248,18 +248,18 @@ public final class XenoQuadLighter {
         }
 
         if (ambientOcclusion) {
-            this.faceShape[SizeInfo.WEST.index] = minX;
-            this.faceShape[SizeInfo.EAST.index] = maxX;
-            this.faceShape[SizeInfo.DOWN.index] = minY;
-            this.faceShape[SizeInfo.UP.index] = maxY;
-            this.faceShape[SizeInfo.NORTH.index] = minZ;
-            this.faceShape[SizeInfo.SOUTH.index] = maxZ;
-            this.faceShape[SizeInfo.FLIP_WEST.index] = 1.0F - minX;
-            this.faceShape[SizeInfo.FLIP_EAST.index] = 1.0F - maxX;
-            this.faceShape[SizeInfo.FLIP_DOWN.index] = 1.0F - minY;
-            this.faceShape[SizeInfo.FLIP_UP.index] = 1.0F - maxY;
-            this.faceShape[SizeInfo.FLIP_NORTH.index] = 1.0F - minZ;
-            this.faceShape[SizeInfo.FLIP_SOUTH.index] = 1.0F - maxZ;
+            this.faceShape[SizeInformation.WEST.index] = minX;
+            this.faceShape[SizeInformation.EAST.index] = maxX;
+            this.faceShape[SizeInformation.DOWN.index] = minY;
+            this.faceShape[SizeInformation.UP.index] = maxY;
+            this.faceShape[SizeInformation.NORTH.index] = minZ;
+            this.faceShape[SizeInformation.SOUTH.index] = maxZ;
+            this.faceShape[SizeInformation.FLIP_WEST.index] = 1.0F - minX;
+            this.faceShape[SizeInformation.FLIP_EAST.index] = 1.0F - maxX;
+            this.faceShape[SizeInformation.FLIP_DOWN.index] = 1.0F - minY;
+            this.faceShape[SizeInformation.FLIP_UP.index] = 1.0F - maxY;
+            this.faceShape[SizeInformation.FLIP_NORTH.index] = 1.0F - minZ;
+            this.faceShape[SizeInformation.FLIP_SOUTH.index] = 1.0F - maxZ;
         }
 
         this.facePartial = switch (quad.direction()) {
@@ -285,279 +285,279 @@ public final class XenoQuadLighter {
             new Direction[]{Direction.WEST, Direction.EAST, Direction.NORTH, Direction.SOUTH},
             0.5F,
             true,
-            new SizeInfo[]{
-                SizeInfo.FLIP_WEST,
-                SizeInfo.SOUTH,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.WEST,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.WEST,
-                SizeInfo.SOUTH
+            new SizeInformation[]{
+                SizeInformation.FLIP_WEST,
+                SizeInformation.SOUTH,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.WEST,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.WEST,
+                SizeInformation.SOUTH
             },
-            new SizeInfo[]{
-                SizeInfo.FLIP_WEST,
-                SizeInfo.NORTH,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.WEST,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.WEST,
-                SizeInfo.NORTH
+            new SizeInformation[]{
+                SizeInformation.FLIP_WEST,
+                SizeInformation.NORTH,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.WEST,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.WEST,
+                SizeInformation.NORTH
             },
-            new SizeInfo[]{
-                SizeInfo.FLIP_EAST,
-                SizeInfo.NORTH,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.EAST,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.EAST,
-                SizeInfo.NORTH
+            new SizeInformation[]{
+                SizeInformation.FLIP_EAST,
+                SizeInformation.NORTH,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.EAST,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.EAST,
+                SizeInformation.NORTH
             },
-            new SizeInfo[]{
-                SizeInfo.FLIP_EAST,
-                SizeInfo.SOUTH,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.EAST,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.EAST,
-                SizeInfo.SOUTH
+            new SizeInformation[]{
+                SizeInformation.FLIP_EAST,
+                SizeInformation.SOUTH,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.EAST,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.EAST,
+                SizeInformation.SOUTH
             }
         ),
         UP(
             new Direction[]{Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH},
             1.0F,
             true,
-            new SizeInfo[]{
-                SizeInfo.EAST,
-                SizeInfo.SOUTH,
-                SizeInfo.EAST,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.SOUTH
+            new SizeInformation[]{
+                SizeInformation.EAST,
+                SizeInformation.SOUTH,
+                SizeInformation.EAST,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.SOUTH
             },
-            new SizeInfo[]{
-                SizeInfo.EAST,
-                SizeInfo.NORTH,
-                SizeInfo.EAST,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.NORTH
+            new SizeInformation[]{
+                SizeInformation.EAST,
+                SizeInformation.NORTH,
+                SizeInformation.EAST,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.NORTH
             },
-            new SizeInfo[]{
-                SizeInfo.WEST,
-                SizeInfo.NORTH,
-                SizeInfo.WEST,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.NORTH
+            new SizeInformation[]{
+                SizeInformation.WEST,
+                SizeInformation.NORTH,
+                SizeInformation.WEST,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.NORTH
             },
-            new SizeInfo[]{
-                SizeInfo.WEST,
-                SizeInfo.SOUTH,
-                SizeInfo.WEST,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.SOUTH
+            new SizeInformation[]{
+                SizeInformation.WEST,
+                SizeInformation.SOUTH,
+                SizeInformation.WEST,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.SOUTH
             }
         ),
         NORTH(
             new Direction[]{Direction.UP, Direction.DOWN, Direction.EAST, Direction.WEST},
             0.8F,
             true,
-            new SizeInfo[]{
-                SizeInfo.UP,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.UP,
-                SizeInfo.WEST,
-                SizeInfo.FLIP_UP,
-                SizeInfo.WEST,
-                SizeInfo.FLIP_UP,
-                SizeInfo.FLIP_WEST
+            new SizeInformation[]{
+                SizeInformation.UP,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.UP,
+                SizeInformation.WEST,
+                SizeInformation.FLIP_UP,
+                SizeInformation.WEST,
+                SizeInformation.FLIP_UP,
+                SizeInformation.FLIP_WEST
             },
-            new SizeInfo[]{
-                SizeInfo.UP,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.UP,
-                SizeInfo.EAST,
-                SizeInfo.FLIP_UP,
-                SizeInfo.EAST,
-                SizeInfo.FLIP_UP,
-                SizeInfo.FLIP_EAST
+            new SizeInformation[]{
+                SizeInformation.UP,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.UP,
+                SizeInformation.EAST,
+                SizeInformation.FLIP_UP,
+                SizeInformation.EAST,
+                SizeInformation.FLIP_UP,
+                SizeInformation.FLIP_EAST
             },
-            new SizeInfo[]{
-                SizeInfo.DOWN,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.DOWN,
-                SizeInfo.EAST,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.EAST,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.FLIP_EAST
+            new SizeInformation[]{
+                SizeInformation.DOWN,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.DOWN,
+                SizeInformation.EAST,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.EAST,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.FLIP_EAST
             },
-            new SizeInfo[]{
-                SizeInfo.DOWN,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.DOWN,
-                SizeInfo.WEST,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.WEST,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.FLIP_WEST
+            new SizeInformation[]{
+                SizeInformation.DOWN,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.DOWN,
+                SizeInformation.WEST,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.WEST,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.FLIP_WEST
             }
         ),
         SOUTH(
             new Direction[]{Direction.WEST, Direction.EAST, Direction.DOWN, Direction.UP},
             0.8F,
             true,
-            new SizeInfo[]{
-                SizeInfo.UP,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.FLIP_UP,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.FLIP_UP,
-                SizeInfo.WEST,
-                SizeInfo.UP,
-                SizeInfo.WEST
+            new SizeInformation[]{
+                SizeInformation.UP,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.FLIP_UP,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.FLIP_UP,
+                SizeInformation.WEST,
+                SizeInformation.UP,
+                SizeInformation.WEST
             },
-            new SizeInfo[]{
-                SizeInfo.DOWN,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.FLIP_WEST,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.WEST,
-                SizeInfo.DOWN,
-                SizeInfo.WEST
+            new SizeInformation[]{
+                SizeInformation.DOWN,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.FLIP_WEST,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.WEST,
+                SizeInformation.DOWN,
+                SizeInformation.WEST
             },
-            new SizeInfo[]{
-                SizeInfo.DOWN,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.EAST,
-                SizeInfo.DOWN,
-                SizeInfo.EAST
+            new SizeInformation[]{
+                SizeInformation.DOWN,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.EAST,
+                SizeInformation.DOWN,
+                SizeInformation.EAST
             },
-            new SizeInfo[]{
-                SizeInfo.UP,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.FLIP_UP,
-                SizeInfo.FLIP_EAST,
-                SizeInfo.FLIP_UP,
-                SizeInfo.EAST,
-                SizeInfo.UP,
-                SizeInfo.EAST
+            new SizeInformation[]{
+                SizeInformation.UP,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.FLIP_UP,
+                SizeInformation.FLIP_EAST,
+                SizeInformation.FLIP_UP,
+                SizeInformation.EAST,
+                SizeInformation.UP,
+                SizeInformation.EAST
             }
         ),
         WEST(
             new Direction[]{Direction.UP, Direction.DOWN, Direction.NORTH, Direction.SOUTH},
             0.6F,
             true,
-            new SizeInfo[]{
-                SizeInfo.UP,
-                SizeInfo.SOUTH,
-                SizeInfo.UP,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.FLIP_UP,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.FLIP_UP,
-                SizeInfo.SOUTH
+            new SizeInformation[]{
+                SizeInformation.UP,
+                SizeInformation.SOUTH,
+                SizeInformation.UP,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.FLIP_UP,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.FLIP_UP,
+                SizeInformation.SOUTH
             },
-            new SizeInfo[]{
-                SizeInfo.UP,
-                SizeInfo.NORTH,
-                SizeInfo.UP,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.FLIP_UP,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.FLIP_UP,
-                SizeInfo.NORTH
+            new SizeInformation[]{
+                SizeInformation.UP,
+                SizeInformation.NORTH,
+                SizeInformation.UP,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.FLIP_UP,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.FLIP_UP,
+                SizeInformation.NORTH
             },
-            new SizeInfo[]{
-                SizeInfo.DOWN,
-                SizeInfo.NORTH,
-                SizeInfo.DOWN,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.NORTH
+            new SizeInformation[]{
+                SizeInformation.DOWN,
+                SizeInformation.NORTH,
+                SizeInformation.DOWN,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.NORTH
             },
-            new SizeInfo[]{
-                SizeInfo.DOWN,
-                SizeInfo.SOUTH,
-                SizeInfo.DOWN,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.SOUTH
+            new SizeInformation[]{
+                SizeInformation.DOWN,
+                SizeInformation.SOUTH,
+                SizeInformation.DOWN,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.SOUTH
             }
         ),
         EAST(
             new Direction[]{Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH},
             0.6F,
             true,
-            new SizeInfo[]{
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.SOUTH,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.DOWN,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.DOWN,
-                SizeInfo.SOUTH
+            new SizeInformation[]{
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.SOUTH,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.DOWN,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.DOWN,
+                SizeInformation.SOUTH
             },
-            new SizeInfo[]{
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.NORTH,
-                SizeInfo.FLIP_DOWN,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.DOWN,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.DOWN,
-                SizeInfo.NORTH
+            new SizeInformation[]{
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.NORTH,
+                SizeInformation.FLIP_DOWN,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.DOWN,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.DOWN,
+                SizeInformation.NORTH
             },
-            new SizeInfo[]{
-                SizeInfo.FLIP_UP,
-                SizeInfo.NORTH,
-                SizeInfo.FLIP_UP,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.UP,
-                SizeInfo.FLIP_NORTH,
-                SizeInfo.UP,
-                SizeInfo.NORTH
+            new SizeInformation[]{
+                SizeInformation.FLIP_UP,
+                SizeInformation.NORTH,
+                SizeInformation.FLIP_UP,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.UP,
+                SizeInformation.FLIP_NORTH,
+                SizeInformation.UP,
+                SizeInformation.NORTH
             },
-            new SizeInfo[]{
-                SizeInfo.FLIP_UP,
-                SizeInfo.SOUTH,
-                SizeInfo.FLIP_UP,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.UP,
-                SizeInfo.FLIP_SOUTH,
-                SizeInfo.UP,
-                SizeInfo.SOUTH
+            new SizeInformation[]{
+                SizeInformation.FLIP_UP,
+                SizeInformation.SOUTH,
+                SizeInformation.FLIP_UP,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.UP,
+                SizeInformation.FLIP_SOUTH,
+                SizeInformation.UP,
+                SizeInformation.SOUTH
             }
         );
 
         private final Direction[] corners;
         private final boolean doNonCubicWeight;
-        private final SizeInfo[] vert0Weights;
-        private final SizeInfo[] vert1Weights;
-        private final SizeInfo[] vert2Weights;
-        private final SizeInfo[] vert3Weights;
+        private final SizeInformation[] vert0Weights;
+        private final SizeInformation[] vert1Weights;
+        private final SizeInformation[] vert2Weights;
+        private final SizeInformation[] vert3Weights;
         private static final AdjacencyInfo[] BY_FACING = Util.make(new AdjacencyInfo[6], map -> {
             map[Direction.DOWN.get3DDataValue()] = DOWN;
             map[Direction.UP.get3DDataValue()] = UP;
@@ -571,10 +571,10 @@ public final class XenoQuadLighter {
             Direction[] corners,
             float shadeWeight,
             boolean doNonCubicWeight,
-            SizeInfo[] vert0Weights,
-            SizeInfo[] vert1Weights,
-            SizeInfo[] vert2Weights,
-            SizeInfo[] vert3Weights
+            SizeInformation[] vert0Weights,
+            SizeInformation[] vert1Weights,
+            SizeInformation[] vert2Weights,
+            SizeInformation[] vert3Weights
         ) {
             this.corners = corners;
             this.doNonCubicWeight = doNonCubicWeight;
@@ -622,7 +622,7 @@ public final class XenoQuadLighter {
         }
     }
 
-    private enum SizeInfo {
+    private enum SizeInformation {
         DOWN(0),
         UP(1),
         NORTH(2),
@@ -639,7 +639,7 @@ public final class XenoQuadLighter {
         public static final int COUNT = values().length;
         private final int index;
 
-        SizeInfo(int index) {
+        SizeInformation(int index) {
             this.index = index;
         }
     }

@@ -31,7 +31,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.jspecify.annotations.NonNull;
 
-public class XenoScroller extends AbstractContainerEventHandler implements Renderable, NarratableEntry {
+public final class XenoScroller extends AbstractContainerEventHandler implements Renderable, NarratableEntry {
 
     public static final int DEFAULT_THUMB_WIDTH = 6;
     public static final int DEFAULT_THUMB_HEIGHT = 32;

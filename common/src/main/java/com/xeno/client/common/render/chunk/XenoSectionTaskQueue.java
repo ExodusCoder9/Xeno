@@ -24,7 +24,6 @@ import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.chunk.SectionTaskDynamicQueue;
 import org.jspecify.annotations.NonNull;
 
-import java.util.Comparator;
 import java.util.List;
 /**
  * <p>This class snapshots the pending task set into a schedule we pre decide and
