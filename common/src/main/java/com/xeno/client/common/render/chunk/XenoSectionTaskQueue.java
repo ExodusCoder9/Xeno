@@ -24,7 +24,6 @@ import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import net.minecraft.client.renderer.chunk.SectionTaskDynamicQueue;
 import org.jspecify.annotations.NonNull;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 /**
@@ -44,7 +43,7 @@ import java.util.List;
  * are  synchronized because multiple SectionRenderDispatcher worker chains
  * (each resubmitted onto the background executor between tasks) poll from it concurrently.
  */
-public class XenoSectionTaskQueue extends SectionTaskDynamicQueue {
+public final class XenoSectionTaskQueue extends SectionTaskDynamicQueue {
 	/** Squared distance (16 blocks, below which recompiles are important. */
 	private static final double NEARBY_RECOMPILE_DISTANCE = 256.0;
 

@@ -99,8 +99,4 @@ public final class XenoSharedQuadIndexBuffer {
 	public IndexType type() {
 		return this.type;
 	}
-
-	public int indexCount() {
-		return this.indexCount;
-	}
 }

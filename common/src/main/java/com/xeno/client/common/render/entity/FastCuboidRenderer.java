@@ -26,7 +26,7 @@ import com.xeno.client.common.memory.MemoryAccess;
 import java.nio.ByteOrder;
 import net.minecraft.util.ARGB;
 
-public class FastCuboidRenderer {
+public final class FastCuboidRenderer {
 
     private static final Vector3f SCRATCH_NORMAL = new Vector3f();
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;

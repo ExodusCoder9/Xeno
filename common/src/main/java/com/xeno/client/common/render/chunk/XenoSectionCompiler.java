@@ -48,7 +48,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import org.jspecify.annotations.NonNull;
 
-public class XenoSectionCompiler extends SectionCompiler {
+public final class XenoSectionCompiler extends SectionCompiler {
     private static final int SECTION_MIN = 0;
     private static final int SECTION_MAX = 15;
 

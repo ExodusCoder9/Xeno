@@ -60,7 +60,6 @@ public final class XenoRegionCompiler {
 	private final AtomicBoolean initialized = new AtomicBoolean(false);
 	private @Nullable StagingBuffer stagingBuffer;
 	private @Nullable SectionBufferBuilderPool bufferPool;
-	private volatile boolean disposed;
 	private volatile @Nullable SectionCompiler sectionCompiler;
 	private long submittedTasks;
 	private long completedTasks;
@@ -124,7 +123,7 @@ public final class XenoRegionCompiler {
 	}
 
 	public void submit(XenoRenderRegion region, int localIndex, RenderSectionRegion snapshot, VertexSorting sorting, Vec3 cameraPos) {
-		if (this.disposed || !region.alive.get()) {
+		if (!region.alive.get()) {
 			this.droppedTasks++;
 			return;
 		}
@@ -135,7 +134,7 @@ public final class XenoRegionCompiler {
 	}
 
 	private void compileTask(XenoRenderRegion region, int localIndex, RenderSectionRegion snapshot, VertexSorting sorting, Vec3 cameraPos) {
-		if (this.disposed || !region.alive.get()) {
+		if (!region.alive.get()) {
 			this.droppedTasks++;
 			return;
 		}
@@ -151,6 +150,7 @@ public final class XenoRegionCompiler {
 		SectionBufferBuilderPack pack = Objects.requireNonNull(this.bufferPool).acquire();
 		if (pack == null) {
 			if (region.alive.get()) {
+				region.clearPending(localIndex);
 				region.markSectionDirty(localIndex, false);
 				this.retriedTasks++;
 			}
@@ -162,7 +162,10 @@ public final class XenoRegionCompiler {
 			SectionCompiler compiler = this.sectionCompiler;
 			if (compiler == null || !region.alive.get()) {
 				if (region.alive.get() && compiler == null) {
+					region.clearPending(localIndex);
 					region.markSectionDirty(localIndex, false);
+				} else if (region.alive.get()) {
+					region.clearPending(localIndex);
 				}
 
 				this.droppedTasks++;
@@ -188,9 +191,10 @@ public final class XenoRegionCompiler {
 						break;
 					}
 
-					if (outcome == ABORT || this.disposed || !region.alive.get()) {
+					if (outcome == ABORT || !region.alive.get()) {
 						results.release();
 						this.releaseMeshAllocations(mesh);
+						region.clearPending(localIndex);
 						this.droppedTasks++;
 						return;
 					}
@@ -206,6 +210,7 @@ public final class XenoRegionCompiler {
 		} catch (Throwable t) {
 			LOGGER.error("Section compile failed at {}", sectionPos, t);
 			if (region.alive.get()) {
+				region.clearPending(localIndex);
 				region.markSectionDirty(localIndex, false);
 			}
 
@@ -221,7 +226,7 @@ public final class XenoRegionCompiler {
 		this.copyLock.lock();
 
 		try {
-			if (this.disposed || !region.alive.get()) {
+			if (!region.alive.get()) {
 				return ABORT;
 			}
 
@@ -250,6 +255,7 @@ public final class XenoRegionCompiler {
 		try {
 			SectionMesh old = region.meshSlot(localIndex).getAndSet(mesh);
 			this.releaseMeshAllocations(old);
+			region.clearPending(localIndex);
 			region.noteMeshUploaded(localIndex, Util.getMillis());
 		} finally {
 			this.copyLock.unlock();
@@ -264,6 +270,7 @@ public final class XenoRegionCompiler {
 			for (int i = 0; i < XenoRenderRegion.SECTION_COUNT; i++) {
 				SectionMesh old = region.meshSlot(i).getAndSet(CompiledSectionMesh.UNCOMPILED);
 				this.releaseMeshAllocations(old);
+				region.clearPending(i);
 			}
 		} finally {
 			this.copyLock.unlock();
@@ -291,20 +298,21 @@ public final class XenoRegionCompiler {
 		this.copyLock.lock();
 
 		try (StagingBuffer.Uploader uploader = staging.startUploading(device.createCommandEncoder())) {
-			for (LayerBuffers buffers : this.layers.values()) {
-				boolean resizedHeap = buffers.vertices.uploadStagedAllocations(device, uploader);
-				buffers.indices.uploadStagedAllocations(device, uploader);
-				if (resizedHeap) {
-					break;
+			boolean restart;
+			do {
+				restart = false;
+				for (LayerBuffers buffers : this.layers.values()) {
+					boolean resizedHeap = buffers.vertices.uploadStagedAllocations(device, uploader);
+					resizedHeap |= buffers.indices.uploadStagedAllocations(device, uploader);
+					if (resizedHeap) {
+						restart = true;
+						break;
+					}
 				}
-			}
+			} while (restart);
 		} finally {
 			this.copyLock.unlock();
 		}
-	}
-
-	public String getStats() {
-		return String.format("submitted: %d, done: %d, retry: %d, drop: %d", this.submittedTasks, this.completedTasks, this.retriedTasks, this.droppedTasks);
 	}
 
 	private record LayerBuffers(UberGpuBuffer<SectionMesh> vertices, UberGpuBuffer<SectionMesh> indices) {

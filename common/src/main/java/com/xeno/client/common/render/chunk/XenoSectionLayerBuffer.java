@@ -37,7 +37,7 @@ import org.jspecify.annotations.NonNull;
 * Please ignore the deprecated usage and for removal errors if you are on an IDE , there might be a lot , it is meant to be this way to follow correct procedure for deprecation .
 */
 
-public class XenoSectionLayerBuffer implements VertexConsumer {
+public final class XenoSectionLayerBuffer implements VertexConsumer {
     private static final int VERTEX_SIZE = 28;
 
     private static final long Q_COLOR0 = MemoryAccess.fieldOffset(QuadInstance.class, "color0");

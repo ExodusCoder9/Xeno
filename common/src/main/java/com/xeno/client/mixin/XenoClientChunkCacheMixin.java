@@ -56,4 +56,12 @@ public abstract class XenoClientChunkCacheMixin {
 			XenoWorldRenderManager.INSTANCE.onChunkUnloaded(pos);
 		}
 	}
+
+	@Inject(
+		method = "updateViewRadius",
+		at = @At("TAIL")
+	)
+	private void xeno$onViewRadiusChanged(int viewRange, CallbackInfo ci) {
+		XenoWorldRenderManager.INSTANCE.reconcileWithChunkSource();
+	}
 }

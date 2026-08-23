@@ -65,6 +65,10 @@ public final class XenoTerrainDrawer {
 		int atlasHeight = blockAtlasView.getHeight(0);
 		long now = Util.getMillis();
 		XenoRegionCompiler compiler = XenoRegionCompiler.INSTANCE;
+		// Push everything workers staged since the last flush into the GPU heaps before the draw
+		// lists below read allocation offsets, otherwise freshly compiled sections get drawn for a
+		// frame from memory that has not been copied yet.
+		compiler.flushUploads();
 		compiler.lock();
 
 		try {
@@ -78,7 +82,11 @@ public final class XenoTerrainDrawer {
 
 				SectionMesh mesh = resolved.region().meshSlot(resolved.localIndex()).get();
 				if (mesh == null || mesh == CompiledSectionMesh.UNCOMPILED) {
-					this.missingScratch.add(node);
+					// Only nudge sections that have neither a mesh nor a queued compile;
+					// re-marking pending ones every frame flooded the queue with duplicates.
+					if (!resolved.region().isPending(resolved.localIndex())) {
+						this.missingScratch.add(node);
+					}
 					continue;
 				}
 

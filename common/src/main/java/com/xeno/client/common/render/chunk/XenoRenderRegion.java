@@ -19,8 +19,9 @@ package com.xeno.client.common.render.chunk;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import net.minecraft.core.SectionPos;
+
 import net.minecraft.client.renderer.chunk.SectionMesh;
+import net.minecraft.core.SectionPos;
 
 public final class XenoRenderRegion {
 	public static final int SECTION_COUNT = XenoWorldRenderManager.REGION_SECTIONS_XZ
@@ -33,6 +34,7 @@ public final class XenoRenderRegion {
 	private final int regionZ;
 	private final long[] dirtyBits = new long[DIRTY_WORDS];
 	private final long[] playerDirtyBits = new long[DIRTY_WORDS];
+	private final long[] pendingBits = new long[DIRTY_WORDS];
 	@SuppressWarnings("unchecked")
 	private final AtomicReference<SectionMesh>[] meshes = new AtomicReference[SECTION_COUNT];
 	private final long[] fadeDurationMillis = new long[SECTION_COUNT];
@@ -45,6 +47,9 @@ public final class XenoRenderRegion {
 		this.regionX = regionX;
 		this.regionY = regionY;
 		this.regionZ = regionZ;
+		for (int i = 0; i < SECTION_COUNT; i++) {
+			this.meshes[i] = new AtomicReference<>();
+		}
 	}
 
 	public static long key(int regionX, int regionY, int regionZ) {
@@ -53,10 +58,6 @@ public final class XenoRenderRegion {
 
 	public int regionX() {
 		return this.regionX;
-	}
-
-	public int regionY() {
-		return this.regionY;
 	}
 
 	public int regionZ() {
@@ -96,37 +97,42 @@ public final class XenoRenderRegion {
 		return this.regionY * XenoWorldRenderManager.REGION_SECTIONS_Y;
 	}
 
-	public boolean markSectionDirty(int localIndex, boolean playerChanged) {
+	public synchronized void markSectionDirty(int localIndex, boolean playerChanged) {
 		int word = localIndex >> 6;
 		long bit = 1L << (localIndex & 63);
-		boolean wasClean = (this.dirtyBits[word] & bit) == 0L;
+		boolean wasClean = (this.dirtyBits[word] & bit) == 0L && (this.pendingBits[word] & bit) == 0L;
 		this.dirtyBits[word] |= bit;
 		if (playerChanged) {
 			this.playerDirtyBits[word] |= bit;
 		}
 
-		return wasClean;
 	}
 
-	public int pollNextDirtySection(boolean[] playerChangedOut) {
-		for (int i = 0; i < DIRTY_WORDS; i++) {
-			long word = this.dirtyBits[i];
-			if (word != 0L) {
-				int bit = Long.numberOfTrailingZeros(word);
-				int index = (i << 6) + bit;
-				playerChangedOut[0] = (this.playerDirtyBits[i] & (1L << bit)) != 0L;
-				this.dirtyBits[i] &= ~(1L << bit);
-				this.playerDirtyBits[i] &= ~(1L << bit);
-				return index;
-			}
+	public synchronized boolean markPending(int localIndex) {
+		int word = localIndex >> 6;
+		long bit = 1L << (localIndex & 63);
+		if ((this.pendingBits[word] & bit) != 0L) {
+			return false;
 		}
 
-		return -1;
+		this.pendingBits[word] |= bit;
+		this.dirtyBits[word] &= ~bit;
+		this.playerDirtyBits[word] &= ~bit;
+		return true;
 	}
 
-	public boolean hasDirtySections() {
-		for (long word : this.dirtyBits) {
-			if (word != 0L) {
+	public synchronized void clearPending(int localIndex) {
+		int word = localIndex >> 6;
+		this.pendingBits[word] &= ~(1L << (localIndex & 63));
+	}
+
+	public synchronized boolean isPending(int localIndex) {
+		return (this.pendingBits[localIndex >> 6] & (1L << (localIndex & 63))) != 0L;
+	}
+
+	public synchronized boolean hasDirtySections() {
+		for (int i = 0; i < DIRTY_WORDS; i++) {
+			if ((this.dirtyBits[i] & ~this.pendingBits[i]) != 0L) {
 				return true;
 			}
 		}
@@ -134,20 +140,22 @@ public final class XenoRenderRegion {
 		return false;
 	}
 
-	public void markAllSectionsDirty() {
-		for (int i = 0; i < SECTION_COUNT; i++) {
-			this.markSectionDirty(i, false);
+	public synchronized void peekDirtySections(java.util.List<int[]> out, int limit) {
+		int collected = 0;
+		for (int i = 0; i < DIRTY_WORDS && collected < limit; i++) {
+			long word = this.dirtyBits[i] & ~this.pendingBits[i];
+			while (word != 0L && collected < limit) {
+				int bit = Long.numberOfTrailingZeros(word);
+				int index = (i << 6) + bit;
+				out.add(new int[]{index, (this.playerDirtyBits[i] & (1L << bit)) != 0L ? 1 : 0});
+				word &= ~(1L << bit);
+				collected++;
+			}
 		}
 	}
 
 	public AtomicReference<SectionMesh> meshSlot(int localIndex) {
-		AtomicReference<SectionMesh> slot = this.meshes[localIndex];
-		if (slot == null) {
-			slot = new AtomicReference<>();
-			this.meshes[localIndex] = slot;
-		}
-
-		return slot;
+		return this.meshes[localIndex];
 	}
 
 	public void setFadeDuration(int localIndex, long durationMillis) {
@@ -164,21 +172,17 @@ public final class XenoRenderRegion {
 		return elapsed >= duration ? 1.0F : (float)elapsed / (float)duration;
 	}
 
-	public int loadedChunkCount() {
-		return this.loadedChunkCount;
-	}
-
-	public void incrementLoadedChunkCount() {
+	public synchronized void incrementLoadedChunkCount() {
 		this.loadedChunkCount++;
 	}
 
-	public void decrementLoadedChunkCount() {
+	public synchronized void decrementLoadedChunkCount() {
 		if (this.loadedChunkCount > 0) {
 			this.loadedChunkCount--;
 		}
 	}
 
-	public boolean isUnused() {
+	public synchronized boolean isUnused() {
 		return this.loadedChunkCount == 0;
 	}
 
