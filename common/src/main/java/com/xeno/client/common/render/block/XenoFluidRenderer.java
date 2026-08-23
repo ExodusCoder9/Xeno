@@ -382,32 +382,50 @@ public record XenoFluidRenderer(FluidStateModelSet fluidModels) {
             BlockAndTintGetter level, Fluid type, float heightSelf, float height2, float height1, BlockPos cornerPos
     ) {
         if (!(height1 >= 1.0F) && !(height2 >= 1.0F)) {
-            float[] weightedHeight = new float[2];
+            float sum = 0.0F;
+            float count = 0.0F;
             if (height1 > 0.0F || height2 > 0.0F) {
                 float heightCorner = this.getHeight(level, type, cornerPos);
                 if (heightCorner >= 1.0F) {
                     return 1.0F;
                 }
 
-                this.addWeightedHeight(weightedHeight, heightCorner);
+                if (heightCorner >= 0.8F) {
+                    sum += heightCorner * 10.0F;
+                    count += 10.0F;
+                } else if (heightCorner >= 0.0F) {
+                    sum += heightCorner;
+                    count += 1.0F;
+                }
             }
 
-            this.addWeightedHeight(weightedHeight, heightSelf);
-            this.addWeightedHeight(weightedHeight, height1);
-            this.addWeightedHeight(weightedHeight, height2);
-            return weightedHeight[0] / weightedHeight[1];
+            if (heightSelf >= 0.8F) {
+                sum += heightSelf * 10.0F;
+                count += 10.0F;
+            } else if (heightSelf >= 0.0F) {
+                sum += heightSelf;
+                count += 1.0F;
+            }
+
+            if (height1 >= 0.8F) {
+                sum += height1 * 10.0F;
+                count += 10.0F;
+            } else if (height1 >= 0.0F) {
+                sum += height1;
+                count += 1.0F;
+            }
+
+            if (height2 >= 0.8F) {
+                sum += height2 * 10.0F;
+                count += 10.0F;
+            } else if (height2 >= 0.0F) {
+                sum += height2;
+                count += 1.0F;
+            }
+
+            return count > 0.0F ? sum / count : 0.0F;
         } else {
             return 1.0F;
-        }
-    }
-
-    private void addWeightedHeight(float[] weightedHeight, float height) {
-        if (height >= 0.8F) {
-            weightedHeight[0] += height * 10.0F;
-            weightedHeight[1] += 10.0F;
-        } else if (height >= 0.0F) {
-            weightedHeight[0] += height;
-            weightedHeight[1]++;
         }
     }
 

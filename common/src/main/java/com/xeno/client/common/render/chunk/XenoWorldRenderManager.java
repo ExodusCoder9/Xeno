@@ -441,9 +441,12 @@ public final class XenoWorldRenderManager {
 	}
 
 	private static boolean hasAllNeighbors(ClientLevel lvl, int sectionX, int sectionZ) {
+		if (lvl.getChunk(sectionX, sectionZ, ChunkStatus.FULL, false) == null) {
+			return false;
+		}
 		for (int deltaX = -1; deltaX <= 1; deltaX++) {
 			for (int deltaZ = -1; deltaZ <= 1; deltaZ++) {
-				if (lvl.getChunk(sectionX + deltaX, sectionZ + deltaZ, ChunkStatus.FULL, false) == null) {
+				if ((deltaX != 0 || deltaZ != 0) && lvl.getChunk(sectionX + deltaX, sectionZ + deltaZ, ChunkStatus.FULL, false) == null) {
 					return false;
 				}
 			}

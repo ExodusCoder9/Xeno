@@ -77,10 +77,13 @@ public class XenoModelRenderer {
         if (!this.parts.isEmpty()) {
             try {
                 Vec3 offset = blockState.getOffset(pos);
+                float renderX = offset == Vec3.ZERO || (offset.x == 0.0 && offset.y == 0.0 && offset.z == 0.0) ? x : x + (float) offset.x;
+                float renderY = offset == Vec3.ZERO || (offset.x == 0.0 && offset.y == 0.0 && offset.z == 0.0) ? y : y + (float) offset.y;
+                float renderZ = offset == Vec3.ZERO || (offset.x == 0.0 && offset.y == 0.0 && offset.z == 0.0) ? z : z + (float) offset.z;
                 if (this.ambientOcclusion && blockState.getLightEmission() == 0 && this.parts.getFirst().useAmbientOcclusion()) {
-                    this.emitAmbientOcclusion(output, x + (float) offset.x, y + (float) offset.y, z + (float) offset.z, level, blockState, pos);
+                    this.emitAmbientOcclusion(output, renderX, renderY, renderZ, level, blockState, pos);
                 } else {
-                    this.emitFlat(output, x + (float) offset.x, y + (float) offset.y, z + (float) offset.z, level, blockState, pos);
+                    this.emitFlat(output, renderX, renderY, renderZ, level, blockState, pos);
                 }
             } finally {
                 this.parts.clear();

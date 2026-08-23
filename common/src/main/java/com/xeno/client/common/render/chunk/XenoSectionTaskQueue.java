@@ -100,54 +100,44 @@ public final class XenoSectionTaskQueue extends SectionTaskDynamicQueue {
 	}
 
 	private void rebuild(Vec3 cameraPos) {
-		if (this.pending.size() == 0) {
+		if (this.pending.isEmpty()) {
+			this.order = new SectionRenderDispatcher.RenderSection.SectionTask[0];
+			this.cursor = 0;
 			this.resetCaches();
 			return;
 		}
 
-		int size = this.pending.size();
-		SectionRenderDispatcher.RenderSection.SectionTask[] important = new SectionRenderDispatcher.RenderSection.SectionTask[size];
-		SectionRenderDispatcher.RenderSection.SectionTask[] background = new SectionRenderDispatcher.RenderSection.SectionTask[size];
-		int impCount = 0;
-		int bgCount = 0;
+		this.pending.removeIf(task -> task.isCancelled.get());
+		if (this.pending.isEmpty()) {
+			this.order = new SectionRenderDispatcher.RenderSection.SectionTask[0];
+			this.cursor = 0;
+			this.resetCaches();
+			return;
+		}
 
-		for (int i = 0; i < size; i++) {
-			SectionRenderDispatcher.RenderSection.SectionTask task = this.pending.get(i);
-			if (!task.isCancelled.get()) {
-				if (isImportant(task, cameraPos)) {
-					important[impCount++] = task;
-				} else {
-					background[bgCount++] = task;
-				}
+		double camX = cameraPos.x;
+		double camY = cameraPos.y;
+		double camZ = cameraPos.z;
+
+		this.pending.sort((taskA, taskB) -> {
+			boolean impA = isImportant(taskA, camX, camY, camZ);
+			boolean impB = isImportant(taskB, camX, camY, camZ);
+			if (impA != impB) {
+				return impA ? -1 : 1;
 			}
-		}
+			double distA = taskA.getRenderOrigin().distToCenterSqr(camX, camY, camZ);
+			double distB = taskB.getRenderOrigin().distToCenterSqr(camX, camY, camZ);
+			return Double.compare(distA, distB);
+		});
 
-		this.pending.clear();
-		Comparator<SectionRenderDispatcher.RenderSection.SectionTask> byDistance = byDistanceTo(cameraPos);
-		
-		java.util.Arrays.sort(important, 0, impCount, byDistance);
-		java.util.Arrays.sort(background, 0, bgCount, byDistance);
-
-		SectionRenderDispatcher.RenderSection.SectionTask[] rebuilt = new SectionRenderDispatcher.RenderSection.SectionTask[impCount + bgCount];
-		System.arraycopy(important, 0, rebuilt, 0, impCount);
-		System.arraycopy(background, 0, rebuilt, impCount, bgCount);
-
-		for (int i = 0; i < rebuilt.length; i++) {
-			this.pending.add(rebuilt[i]);
-		}
-		
-		this.order = rebuilt;
+		this.order = this.pending.toArray(new SectionRenderDispatcher.RenderSection.SectionTask[0]);
 		this.cursor = 0;
 		this.cachedCameraSection = cameraSectionKey(cameraPos);
 		this.cachedGeneration = this.generation;
 	}
 
-	private static boolean isImportant(SectionRenderDispatcher.RenderSection.SectionTask task, Vec3 cameraPos) {
-		return !task.isRecompile() || task.getRenderOrigin().distToCenterSqr(cameraPos) < NEARBY_RECOMPILE_DISTANCE;
-	}
-
-	private static Comparator<SectionRenderDispatcher.RenderSection.SectionTask> byDistanceTo(Vec3 cameraPos) {
-		return Comparator.comparingDouble(task -> task.getRenderOrigin().distToCenterSqr(cameraPos));
+	private static boolean isImportant(SectionRenderDispatcher.RenderSection.SectionTask task, double camX, double camY, double camZ) {
+		return !task.isRecompile() || task.getRenderOrigin().distToCenterSqr(camX, camY, camZ) < NEARBY_RECOMPILE_DISTANCE;
 	}
 
 	private void resetCaches() {

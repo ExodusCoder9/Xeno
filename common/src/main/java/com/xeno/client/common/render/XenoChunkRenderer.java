@@ -58,6 +58,8 @@ public final class XenoChunkRenderer {
 	private XenoChunkRenderer() {
 	}
 
+	private final List<RenderPass.Draw<GpuBufferSlice[]>> layerDrawsScratch = new ArrayList<>();
+
 	/**
 	 * Submits every draw in chunkRenders for the given layer group directly to the GPU.
 	 * Must be called on the render thread. We get the render target  from the layer group the
@@ -105,8 +107,8 @@ public final class XenoChunkRenderer {
 					continue;
 				}
 
+				this.layerDrawsScratch.clear();
 				ObjectIterator<List<RenderPass.Draw<GpuBufferSlice[]>>> iterator = drawGroup.values().iterator();
-				List<RenderPass.Draw<GpuBufferSlice[]>> layerDraws = null;
 				while (iterator.hasNext()) {
 					List<RenderPass.Draw<GpuBufferSlice[]>> draws = iterator.next();
 					if (draws.isEmpty()) {
@@ -114,17 +116,16 @@ public final class XenoChunkRenderer {
 					}
 
 					if (layer == ChunkSectionLayer.TRANSLUCENT) {
-						draws = draws.reversed();
+						for (int i = draws.size() - 1; i >= 0; i--) {
+							this.layerDrawsScratch.add(draws.get(i));
+						}
+					} else {
+						this.layerDrawsScratch.addAll(draws);
 					}
-
-					if (layerDraws == null) {
-						layerDraws = new ArrayList<>();
-					}
-					layerDraws.addAll(draws);
 				}
 
-				if (layerDraws != null) {
-					renderPass.drawMultipleIndexed(layerDraws, defaultIndexBuffer, defaultIndexType, DYNAMIC_CHUNK_SECTION_UNIFORMS, chunkSectionInfos);
+				if (!this.layerDrawsScratch.isEmpty()) {
+					renderPass.drawMultipleIndexed(this.layerDrawsScratch, defaultIndexBuffer, defaultIndexType, DYNAMIC_CHUNK_SECTION_UNIFORMS, chunkSectionInfos);
 				}
 			}
 		}
