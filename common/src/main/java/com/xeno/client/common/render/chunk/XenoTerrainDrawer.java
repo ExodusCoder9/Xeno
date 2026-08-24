@@ -72,10 +72,7 @@ public final class XenoTerrainDrawer {
 		int atlasHeight = blockAtlasView.getHeight(0);
 		long now = Util.getMillis();
 		XenoRegionCompiler compiler = XenoRegionCompiler.INSTANCE;
-		// Push everything workers staged since the last flush into the GPU heaps before the draw
-		// lists below read allocation offsets, otherwise freshly compiled sections get drawn for a
-		// frame from memory that has not been copied yet.
-		compiler.flushUploads();
+		compiler.processPendingUploadsAndFlush();
 
 		it.unimi.dsi.fastutil.longs.LongArrayList nodes = this.nodeScratch;
 		nodes.clear();
@@ -118,18 +115,13 @@ public final class XenoTerrainDrawer {
 				}
 
 				float visibility = region.visibilityAt(localIndex, now);
-				compiler.lock();
-				try {
-					appendSectionDraws(
-							this.drawGroups, this.sectionInfos, this.largestIndexCount, compiler, compiled, visibility,
-							SectionPos.sectionToBlockCoord(SectionPos.x(node)),
-							SectionPos.sectionToBlockCoord(SectionPos.y(node)),
-							SectionPos.sectionToBlockCoord(SectionPos.z(node)),
-							atlasWidth, atlasHeight, modelViewMatrix
-					);
-				} finally {
-					compiler.unlock();
-				}
+				appendSectionDraws(
+						this.drawGroups, this.sectionInfos, this.largestIndexCount, compiler, compiled, visibility,
+						SectionPos.sectionToBlockCoord(SectionPos.x(node)),
+						SectionPos.sectionToBlockCoord(SectionPos.y(node)),
+						SectionPos.sectionToBlockCoord(SectionPos.z(node)),
+						atlasWidth, atlasHeight, modelViewMatrix
+				);
 			}
 		} finally {
 			java.util.Arrays.fill(this.resolvedRegions, 0, visibleCount, null);

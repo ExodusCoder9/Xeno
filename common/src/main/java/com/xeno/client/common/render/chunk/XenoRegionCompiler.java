@@ -29,9 +29,9 @@ import java.nio.ByteBuffer;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.chunk.*;
 import net.minecraft.util.Util;
@@ -49,22 +49,25 @@ public final class XenoRegionCompiler {
 	private static final int VERTEX_HEAP_BYTES = 128 * 1024 * 1024;
 	private static final int INDEX_HEAP_BYTES = 32 * 1024 * 1024;
 	private static final int STAGING_BUFFER_BYTES = 96 * 1024 * 1024;
-	private static final int STAGED = 0;
-	private static final int RETRY = 1;
-	private static final int ABORT = 2;
-	private final ReentrantLock copyLock = new ReentrantLock();
+
 	private final EnumMap<ChunkSectionLayer, LayerBuffers> layers = new EnumMap<>(ChunkSectionLayer.class);
 	private final AtomicBoolean initialized = new AtomicBoolean(false);
+	private final ConcurrentLinkedQueue<CompileResult> uploadQueue = new ConcurrentLinkedQueue<>();
 	private @Nullable StagingBuffer stagingBuffer;
 	private @Nullable SectionBufferBuilderPool bufferPool;
 	private @Nullable Semaphore packPermits;
 	private volatile @Nullable SectionCompiler sectionCompiler;
+
+	public record CompileResult(
+		XenoRenderRegion region,
+		int localIndex,
+		SectionCompiler.Results results,
+		CompiledSectionMesh mesh
+	) {}
+
 	private XenoRegionCompiler() {
 	}
 
-	/**
-	 * Must run on the render thread with an alive GpuDevice.
-	 */
 	private void ensureInitialized() {
 		if (this.initialized.compareAndSet(false, true)) {
 			GpuDevice device = RenderSystem.getDevice();
@@ -88,12 +91,14 @@ public final class XenoRegionCompiler {
 		this.sectionCompiler = compiler;
 	}
 
-
 	public record MeshSlice(GpuBuffer vertices, long vertexOffset, @Nullable GpuBuffer indices, long indexOffset) {
 	}
 
 	public @Nullable MeshSlice resolveSlice(SectionMesh mesh, ChunkSectionLayer layer) {
 		LayerBuffers buffers = this.layers.get(layer);
+		if (buffers == null) {
+			return null;
+		}
 		TlsfAllocator.Allocation vertexAlloc = buffers.vertices.getAllocation(mesh);
 		if (vertexAlloc == null) {
 			return null;
@@ -108,13 +113,7 @@ public final class XenoRegionCompiler {
 		);
 	}
 
-	public void lock() {
-		this.copyLock.lock();
-	}
 
-	public void unlock() {
-		this.copyLock.unlock();
-	}
 
 	public void submit(XenoRenderRegion region, int localIndex, RenderSectionRegion snapshot, VertexSorting sorting, Vec3 cameraPos) {
 		if (!region.alive.get()) {
@@ -148,7 +147,6 @@ public final class XenoRegionCompiler {
 				region.clearPending(localIndex);
 				region.markSectionDirty(localIndex, false);
 			}
-
 			return;
 		}
 
@@ -156,48 +154,28 @@ public final class XenoRegionCompiler {
 		try {
 			SectionCompiler compiler = this.sectionCompiler;
 			if (compiler == null || !region.alive.get()) {
-				if (region.alive.get() && compiler == null) {
+				if (region.alive.get()) {
 					region.clearPending(localIndex);
-					region.markSectionDirty(localIndex, false);
-				} else if (region.alive.get()) {
-					region.clearPending(localIndex);
+					if (compiler == null) {
+						region.markSectionDirty(localIndex, false);
+					}
+				}
+				return;
 			}
-
-			return;
-		}
 
 			SectionCompiler.Results results = compiler.compile(sectionPos, snapshot, sorting, Objects.requireNonNull(pack));
 			CompiledSectionMesh mesh = new CompiledSectionMesh(
 				TranslucencyPointOfView.of(cameraPos, sectionPos.asLong()), results
 			);
 
-			if (results.renderedLayers.isEmpty()) {
-				this.publish(region, localIndex, mesh);
+			if (!region.alive.get()) {
+				results.release();
+				region.clearPending(localIndex);
 				return;
 			}
 
-			for (Map.Entry<ChunkSectionLayer, MeshData> entry : results.renderedLayers.entrySet()) {
-				MeshData meshData = entry.getValue();
-				while (true) {
-					int outcome = this.stageLayerBuffers(entry.getKey(), mesh, meshData, region);
-					if (outcome == STAGED) {
-						break;
-					}
-
-					if (outcome == ABORT || !region.alive.get()) {
-						results.release();
-						this.releaseMeshAllocations(mesh);
-						region.clearPending(localIndex);
-						return;
-					}
-
-					Thread.onSpinWait();
-				}
-
-				meshData.close();
-			}
-
-			this.publish(region, localIndex, mesh);
+			// Push result to queue
+			this.uploadQueue.add(new CompileResult(region, localIndex, results, mesh));
 		} catch (Throwable t) {
 			LOGGER.error("Section compile failed at {}", sectionPos, t);
 			if (region.alive.get()) {
@@ -211,63 +189,78 @@ public final class XenoRegionCompiler {
 		}
 	}
 
-	private int stageLayerBuffers(ChunkSectionLayer layer, CompiledSectionMesh mesh, MeshData meshData, XenoRenderRegion region) {
-		LayerBuffers buffers = this.layers.get(layer);
-		this.copyLock.lock();
+	public void processPendingUploadsAndFlush() {
+		if (!this.initialized.get()) {
+			return;
+		}
 
-		try {
+		CompileResult result;
+		while ((result = this.uploadQueue.poll()) != null) {
+			XenoRenderRegion region = result.region();
+			int localIndex = result.localIndex();
+			CompiledSectionMesh mesh = result.mesh();
+			SectionCompiler.Results results = result.results();
+
 			if (!region.alive.get()) {
-				return ABORT;
+				results.release();
+				region.clearPending(localIndex);
+				continue;
 			}
 
-			boolean success = true;
-			ByteBuffer vertices = meshData.vertexBuffer();
-			if (vertices != null) {
-				success &= buffers.vertices.addAllocation(mesh, m -> {
-					if (m instanceof CompiledSectionMesh compiled) {
-						try {
-							compiled.setVertexBufferUploaded(layer);
-						} catch (Throwable ignored) {
-						}
-					}
-				}, vertices);
-			}
-
-			ByteBuffer indices = meshData.indexBuffer();
-			if (indices != null) {
-				success &= buffers.indices.addAllocation(mesh, m -> {
-					if (m instanceof CompiledSectionMesh compiled) {
-						try {
-							compiled.setIndexBufferUploaded(layer);
-						} catch (Throwable ignored) {
-						}
-					}
-				}, indices);
-			} else {
-				try {
-					mesh.setIndexBufferUploaded(layer);
-				} catch (Throwable ignored) {
+			if (!results.renderedLayers.isEmpty()) {
+				for (Map.Entry<ChunkSectionLayer, MeshData> entry : results.renderedLayers.entrySet()) {
+					ChunkSectionLayer layer = entry.getKey();
+					MeshData meshData = entry.getValue();
+					this.stageLayerBuffersOnRenderThread(layer, mesh, meshData);
+					meshData.close();
 				}
 			}
 
-			return success ? STAGED : RETRY;
-		} finally {
-			this.copyLock.unlock();
+			this.publishOnRenderThread(region, localIndex, mesh);
+		}
+
+		this.flushUploads();
+	}
+
+	private void stageLayerBuffersOnRenderThread(ChunkSectionLayer layer, CompiledSectionMesh mesh, MeshData meshData) {
+		LayerBuffers buffers = this.layers.get(layer);
+		if (buffers == null) {
+			return;
+		}
+
+		ByteBuffer vertices = meshData.vertexBuffer();
+		if (vertices != null) {
+			buffers.vertices.addAllocation(mesh, m -> {
+				if (m instanceof CompiledSectionMesh compiled) {
+					try {
+						compiled.setVertexBufferUploaded(layer);
+					} catch (Throwable ignored) {
+					}
+				}
+			}, vertices);
+		}
+
+		ByteBuffer indices = meshData.indexBuffer();
+		if (indices != null) {
+			buffers.indices.addAllocation(mesh, m -> {
+				if (m instanceof CompiledSectionMesh compiled) {
+					try {
+						compiled.setIndexBufferUploaded(layer);
+					} catch (Throwable ignored) {
+					}
+				}
+			}, indices);
+		} else {
+			try {
+				mesh.setIndexBufferUploaded(layer);
+			} catch (Throwable ignored) {
+			}
 		}
 	}
 
-
-	private void publish(XenoRenderRegion region, int localIndex, SectionMesh mesh) {
-		SectionMesh old;
-		this.copyLock.lock();
-
-		try {
-			old = region.meshSlot(localIndex).getAndSet(mesh);
-			this.releaseMeshAllocations(old);
-		} finally {
-			this.copyLock.unlock();
-		}
-
+	private void publishOnRenderThread(XenoRenderRegion region, int localIndex, SectionMesh mesh) {
+		SectionMesh old = region.meshSlot(localIndex).getAndSet(mesh);
+		this.releaseMeshAllocations(old);
 		region.clearPending(localIndex);
 		region.noteMeshUploaded(localIndex, Util.getMillis());
 
@@ -289,29 +282,24 @@ public final class XenoRegionCompiler {
 
 	public void releaseRegion(XenoRenderRegion region) {
 		region.alive.set(false);
-		this.copyLock.lock();
 
 		Minecraft minecraft = Minecraft.getInstance();
-		try {
-			for (int i = 0; i < XenoRenderRegion.SECTION_COUNT; i++) {
-				SectionMesh old = region.meshSlot(i).getAndSet(CompiledSectionMesh.UNCOMPILED);
-				this.releaseMeshAllocations(old);
-				region.clearPending(i);
+		for (int i = 0; i < XenoRenderRegion.SECTION_COUNT; i++) {
+			SectionMesh old = region.meshSlot(i).getAndSet(CompiledSectionMesh.UNCOMPILED);
+			this.releaseMeshAllocations(old);
+			region.clearPending(i);
 
-				if (minecraft.levelRenderer != null && minecraft.levelRenderer.viewArea() != null) {
-					int sectionsXZ = XenoWorldRenderManager.REGION_SECTIONS_XZ;
-					int localX = i % sectionsXZ;
-					int localZ = i / sectionsXZ % sectionsXZ;
-					int localY = i / (sectionsXZ * sectionsXZ);
-					long sectionNode = SectionPos.asLong(region.minSectionX() + localX, region.minSectionY() + localY, region.minSectionZ() + localZ);
-					SectionRenderDispatcher.RenderSection vanillaSection = ((com.xeno.client.mixin.ViewAreaAccessor) Objects.requireNonNull(minecraft.levelRenderer.viewArea())).xeno$getRenderSection(sectionNode);
-					if (vanillaSection != null) {
-						vanillaSection.sectionMesh.set(CompiledSectionMesh.UNCOMPILED);
-					}
+			if (minecraft.levelRenderer != null && minecraft.levelRenderer.viewArea() != null) {
+				int sectionsXZ = XenoWorldRenderManager.REGION_SECTIONS_XZ;
+				int localX = i % sectionsXZ;
+				int localZ = i / sectionsXZ % sectionsXZ;
+				int localY = i / (sectionsXZ * sectionsXZ);
+				long sectionNode = SectionPos.asLong(region.minSectionX() + localX, region.minSectionY() + localY, region.minSectionZ() + localZ);
+				SectionRenderDispatcher.RenderSection vanillaSection = ((com.xeno.client.mixin.ViewAreaAccessor) Objects.requireNonNull(minecraft.levelRenderer.viewArea())).xeno$getRenderSection(sectionNode);
+				if (vanillaSection != null) {
+					vanillaSection.sectionMesh.set(CompiledSectionMesh.UNCOMPILED);
 				}
 			}
-		} finally {
-			this.copyLock.unlock();
 		}
 	}
 
@@ -333,8 +321,6 @@ public final class XenoRegionCompiler {
 		}
 
 		GpuDevice device = RenderSystem.getDevice();
-		this.copyLock.lock();
-
 		try (StagingBuffer.Uploader uploader = staging.startUploading(device.createCommandEncoder())) {
 			boolean restart;
 			do {
@@ -348,8 +334,6 @@ public final class XenoRegionCompiler {
 					}
 				}
 			} while (restart);
-		} finally {
-			this.copyLock.unlock();
 		}
 	}
 

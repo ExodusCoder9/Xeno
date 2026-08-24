@@ -32,47 +32,10 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-/**
- * Owned worker-thread executor for section mesh compilation.
- * <p>
- * This executor instead owns a fixed
- * pool of dedicated worker threads that block on a counting semaphore while idle and consume tasks
- * from a lock-free deque.
- *
- * <p>The worker count follows the following heuristic: {@code clamp(max(cores/3, cores-6), 1, 10)}.
- * Each task consumed from the deque is a full  runTask cycle, which in turn polls the
- * priority-ordered {@link XenoSectionTaskQueue}, so chunk priority is preserved.
- *
- * <p>A frame-aligned compile budget bounds how much CPU the chunk builders may collectively spend in
- * each ~16.7 ms window while the backlog is small. The render thread is never blocked: instead each
- * worker reserves a slice of the shared per-window budget before starting a task, and repays (or
- * overspends) it once the task finishes. The reservation tracks a decaying average of recent task
- * durations, so it adapts to how expensive section compilation actually is. Once the budget for a
- * window is spent, workers park their thread until the next window. This caps the total compile CPU
- * per frame and spreads finished meshes across frames, so the GPU upload on the render thread never
- * sees a burst and the frame rate stays flat.
- *
- * <p>This is a process-lifetime singleton; it is never shut down, and its worker threads are daemons
- * so they do not block JVM exit. Shutdown is still implemented just for the ExecutorService contract.
- */
+
 public final class XenoChunkExecutorService extends AbstractExecutorService {
 	private static final Logger LOGGER = LogManager.getLogger("XenoChunkExecutor");
 
-	/** Length of one budget window, matched to a 60 FPS frame. */
-	private static final long FRAME_NANOS = 16_700_000L;
-
-	/**
-	 * Total compile CPU the workers are allowed to collectively spend per budget window in
-	 * steady state.
-	 */
-	private static final long COMPILE_BUDGET_NANOS = FRAME_NANOS * 3 / 4;
-	/** Reservation floor and admission threshold, so a window always takes at least one task. */
-	private static final long MIN_RESERVATION_NANOS = 100_000L;
-	/** EWMA smoothing factor applied to measured task durations. */
-	private static final double ESTIMATE_SMOOTHING = 0.2;
-	private static final long UNBOUNDED_RESERVATION = Long.MAX_VALUE;
-	private static final int TURBO_HIGH_WATERMARK_PER_WORKER = 3;
-	private static final int TURBO_LOW_WATERMARK_PER_WORKER = 1;
 	public static final TracingExecutor INSTANCE = new TracingExecutor(new XenoChunkExecutorService());
 	private final ConcurrentLinkedDeque<Runnable> tasks = new ConcurrentLinkedDeque<>();
 	private final Semaphore semaphore = new Semaphore(0);
@@ -80,11 +43,6 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 	private final AtomicInteger terminatedThreads = new AtomicInteger();
 	private final List<Thread> threads = new ArrayList<>();
 	private final AtomicInteger queuedTasks = new AtomicInteger();
-	private final Object budgetLock = new Object();
-	private long budgetEpoch = Long.MIN_VALUE;
-	private long budgetRemaining;
-	private double estimatedTaskNanos = COMPILE_BUDGET_NANOS / 8.0;
-	private boolean budgetTurbo;
 
 	private XenoChunkExecutorService() {
 		int count = optimalThreadCount();
@@ -112,31 +70,14 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 				continue;
 			}
 
-			long reserved = this.acquireBudget();
-			if (reserved < 0L) {
-				this.queuedTasks.incrementAndGet();
-				this.tasks.addFirst(task);
-				this.semaphore.release(1);
-				continue;
-			}
-
-			long start = System.nanoTime();
 			try {
 				task.run();
 			} catch (Throwable t) {
 				LOGGER.error("Task on chunk builder executor threw an exception", t);
-			} finally {
-				if (reserved != UNBOUNDED_RESERVATION) {
-					this.releaseBudget(System.nanoTime() - start, reserved);
-				}
 			}
 		}
 
 		this.terminatedThreads.incrementAndGet();
-	}
-
-	private boolean budgetGrantedUnconditionally() {
-		return this.queuedTasks.get() >= this.workerCount() * TURBO_HIGH_WATERMARK_PER_WORKER;
 	}
 
 	private Runnable waitForNextJob() {
@@ -156,67 +97,6 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 		}
 
 		return task;
-	}
-
-	private long acquireBudget() {
-		if (this.budgetGrantedUnconditionally()) {
-			synchronized (this.budgetLock) {
-				this.budgetTurbo = true;
-			}
-
-			return UNBOUNDED_RESERVATION;
-		}
-
-		long reserve = Math.clamp((long) this.estimatedTaskNanos, MIN_RESERVATION_NANOS, COMPILE_BUDGET_NANOS);
-		synchronized (this.budgetLock) {
-			while (true) {
-				if (this.budgetTurbo && this.queuedTasks.get() < this.workerCount() * TURBO_LOW_WATERMARK_PER_WORKER) {
-					this.budgetTurbo = false;
-				}
-
-				if (this.budgetTurbo) {
-					return UNBOUNDED_RESERVATION;
-				}
-
-				long epoch = System.nanoTime() / FRAME_NANOS;
-				if (this.budgetEpoch != epoch) {
-					this.budgetEpoch = epoch;
-					this.budgetRemaining = COMPILE_BUDGET_NANOS;
-				}
-
-				if (this.budgetRemaining >= MIN_RESERVATION_NANOS) {
-					reserve = Math.min(reserve, this.budgetRemaining);
-					this.budgetRemaining -= reserve;
-					return reserve;
-				}
-
-				long nextBoundary = (epoch + 1) * FRAME_NANOS;
-				long waitNanos = nextBoundary - System.nanoTime();
-				if (waitNanos <= 0L) {
-					continue;
-				}
-
-				try {
-					this.budgetLock.wait(waitNanos / 1_000_000L, (int) (waitNanos % 1_000_000L));
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-					this.budgetEpoch = Long.MIN_VALUE;
-					return -1L;
-				}
-			}
-		}
-	}
-
-	private void releaseBudget(long elapsedNanos, long reservedNanos) {
-		synchronized (this.budgetLock) {
-			this.budgetRemaining += reservedNanos - elapsedNanos;
-			if (this.budgetRemaining > COMPILE_BUDGET_NANOS) {
-				this.budgetRemaining = COMPILE_BUDGET_NANOS;
-			}
-			this.estimatedTaskNanos = Math.clamp(this.estimatedTaskNanos * (1.0 - ESTIMATE_SMOOTHING) + elapsedNanos * ESTIMATE_SMOOTHING, MIN_RESERVATION_NANOS,
-                    COMPILE_BUDGET_NANOS);
-			this.budgetLock.notifyAll();
-		}
 	}
 
 	@Override

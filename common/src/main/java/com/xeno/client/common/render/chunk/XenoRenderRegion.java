@@ -20,6 +20,7 @@ package com.xeno.client.common.render.chunk;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.xeno.client.common.memory.MemoryAccess;
 import net.minecraft.client.renderer.chunk.SectionMesh;
 import net.minecraft.core.SectionPos;
 
@@ -97,57 +98,68 @@ public final class XenoRenderRegion {
 		return this.regionY * XenoWorldRenderManager.REGION_SECTIONS_Y;
 	}
 
-	public synchronized void markSectionDirty(int localIndex, boolean playerChanged) {
+	private static final long LOADED_CHUNK_COUNT_OFFSET = MemoryAccess.fieldOffset(XenoRenderRegion.class, "loadedChunkCount");
+
+	public void markSectionDirty(int localIndex, boolean playerChanged) {
 		int word = localIndex >> 6;
 		long bit = 1L << (localIndex & 63);
-		boolean wasClean = (this.dirtyBits[word] & bit) == 0L && (this.pendingBits[word] & bit) == 0L;
-		this.dirtyBits[word] |= bit;
+		MemoryAccess.fetchAndBitwiseOrLong(this.dirtyBits, word, bit);
 		if (playerChanged) {
-			this.playerDirtyBits[word] |= bit;
+			MemoryAccess.fetchAndBitwiseOrLong(this.playerDirtyBits, word, bit);
 		}
-
 	}
 
-	public synchronized boolean markPending(int localIndex) {
+	public boolean markPending(int localIndex) {
 		int word = localIndex >> 6;
 		long bit = 1L << (localIndex & 63);
-		if ((this.pendingBits[word] & bit) != 0L) {
-			return false;
-		}
+		long offset = MemoryAccess.LONG_ARRAY_BASE + ((long) word * MemoryAccess.LONG_ARRAY_INDEX_SCALE);
+		long currentPending;
+		do {
+			currentPending = MemoryAccess.getLongVolatile(this.pendingBits, word);
+			if ((currentPending & bit) != 0L) {
+				return false;
+			}
+		} while (!MemoryAccess.compareAndSwapLong(this.pendingBits, offset, currentPending, currentPending | bit));
 
-		this.pendingBits[word] |= bit;
-		this.dirtyBits[word] &= ~bit;
-		this.playerDirtyBits[word] &= ~bit;
+		MemoryAccess.fetchAndBitwiseAndLong(this.dirtyBits, word, ~bit);
+		MemoryAccess.fetchAndBitwiseAndLong(this.playerDirtyBits, word, ~bit);
 		return true;
 	}
 
-	public synchronized void clearPending(int localIndex) {
+	public void clearPending(int localIndex) {
 		int word = localIndex >> 6;
-		this.pendingBits[word] &= ~(1L << (localIndex & 63));
+		long bit = 1L << (localIndex & 63);
+		MemoryAccess.fetchAndBitwiseAndLong(this.pendingBits, word, ~bit);
 	}
 
-	public synchronized boolean isPending(int localIndex) {
-		return (this.pendingBits[localIndex >> 6] & (1L << (localIndex & 63))) != 0L;
+	public boolean isPending(int localIndex) {
+		int word = localIndex >> 6;
+		long bit = 1L << (localIndex & 63);
+		return (MemoryAccess.getLongVolatile(this.pendingBits, word) & bit) != 0L;
 	}
 
-	public synchronized boolean hasDirtySections() {
+	public boolean hasDirtySections() {
 		for (int i = 0; i < DIRTY_WORDS; i++) {
-			if ((this.dirtyBits[i] & ~this.pendingBits[i]) != 0L) {
+			long dirty = MemoryAccess.getLongVolatile(this.dirtyBits, i);
+			long pending = MemoryAccess.getLongVolatile(this.pendingBits, i);
+			if ((dirty & ~pending) != 0L) {
 				return true;
 			}
 		}
-
 		return false;
 	}
 
-	public synchronized void peekDirtySections(it.unimi.dsi.fastutil.longs.LongList out, int limit) {
+	public void peekDirtySections(it.unimi.dsi.fastutil.longs.LongList out, int limit) {
 		int collected = 0;
 		for (int i = 0; i < DIRTY_WORDS && collected < limit; i++) {
-			long word = this.dirtyBits[i] & ~this.pendingBits[i];
+			long dirty = MemoryAccess.getLongVolatile(this.dirtyBits, i);
+			long pending = MemoryAccess.getLongVolatile(this.pendingBits, i);
+			long playerDirty = MemoryAccess.getLongVolatile(this.playerDirtyBits, i);
+			long word = dirty & ~pending;
 			while (word != 0L && collected < limit) {
 				int bit = Long.numberOfTrailingZeros(word);
 				int index = (i << 6) + bit;
-				out.add((long)index << 1 | ((this.playerDirtyBits[i] & (1L << bit)) != 0L ? 1L : 0L));
+				out.add((long) index << 1 | ((playerDirty & (1L << bit)) != 0L ? 1L : 0L));
 				word &= ~(1L << bit);
 				collected++;
 			}
@@ -172,18 +184,22 @@ public final class XenoRenderRegion {
 		return elapsed >= duration ? 1.0F : (float)elapsed / (float)duration;
 	}
 
-	public synchronized void incrementLoadedChunkCount() {
-		this.loadedChunkCount++;
+	public void incrementLoadedChunkCount() {
+		MemoryAccess.getAndAddInt(this, LOADED_CHUNK_COUNT_OFFSET, 1);
 	}
 
-	public synchronized void decrementLoadedChunkCount() {
-		if (this.loadedChunkCount > 0) {
-			this.loadedChunkCount--;
-		}
+	public void decrementLoadedChunkCount() {
+		int current;
+		do {
+			current = MemoryAccess.getInt(this, LOADED_CHUNK_COUNT_OFFSET);
+			if (current <= 0) {
+				break;
+			}
+		} while (!MemoryAccess.compareAndSwapInt(this, LOADED_CHUNK_COUNT_OFFSET, current, current - 1));
 	}
 
-	public synchronized boolean isUnused() {
-		return this.loadedChunkCount == 0;
+	public boolean isUnused() {
+		return MemoryAccess.getInt(this, LOADED_CHUNK_COUNT_OFFSET) == 0;
 	}
 
 	public void markSeen(long frame) {

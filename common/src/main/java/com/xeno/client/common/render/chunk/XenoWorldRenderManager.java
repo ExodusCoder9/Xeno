@@ -55,7 +55,7 @@ public final class XenoWorldRenderManager {
 	// The executor self-limits its CPU per frame window; this only bounds the submit queue.
 	private static final int MAX_COMPILES_PER_FRAME = 1024;
 	private static final int MAX_PEEKED_CANDIDATES_PER_REGION = 512;
-	private static final int NEIGHBOR_RECHECK_FRAMES = 10;
+	private static final int NEIGHBOR_RECHECK_FRAMES = 1;
 	private static final int NEIGHBOR_CACHE_MAX_ENTRIES = 8192;
 	public static final int REGION_SIZE_BLOCKS = REGION_SECTIONS_XZ * 16;
 	private final Object lock = new Object();
