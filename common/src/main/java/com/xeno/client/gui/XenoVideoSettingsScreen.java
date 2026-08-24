@@ -122,7 +122,7 @@ public final class XenoVideoSettingsScreen extends Screen {
                     int bgColor;
                     int textColor;
 
-                    if (this.isActive()) {
+                    if (this.isSelected()) {
                         bgColor = 0x1A8B5CF6;
                         textColor = 0xFFFFFFFF;
                     } else if (hovered) {
@@ -137,7 +137,7 @@ public final class XenoVideoSettingsScreen extends Screen {
                         graphics.fill(x, y, x + w, y + h, bgColor);
                     }
 
-                    if (this.isActive()) {
+                    if (this.isSelected()) {
                         graphics.fill(x, y, x + 2, y + h, 0xFF8B5CF6);
                     }
 

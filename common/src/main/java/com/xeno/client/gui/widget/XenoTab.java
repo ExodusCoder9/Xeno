@@ -39,7 +39,7 @@ public class XenoTab extends AbstractButton {
 
     private static final int TEXT_PADDING_LEFT = 10;
 
-    private boolean active;
+    private boolean selected;
     private final OnTabPress onPress;
 
     @FunctionalInterface
@@ -47,22 +47,22 @@ public class XenoTab extends AbstractButton {
         void onPress(XenoTab tab);
     }
 
-    public XenoTab(int x, int y, int width, int height, Component message, boolean active, OnTabPress onPress) {
+    public XenoTab(int x, int y, int width, int height, Component message, boolean selected, OnTabPress onPress) {
         super(x, y, width, height, message);
-        this.active = active;
+        this.selected = selected;
         this.onPress = onPress;
     }
 
-    public static XenoTab builder(int x, int y, Component message, boolean active, OnTabPress onPress) {
-        return new XenoTab(x, y, DEFAULT_WIDTH, DEFAULT_HEIGHT, message, active, onPress);
+    public static XenoTab builder(int x, int y, Component message, boolean selected, OnTabPress onPress) {
+        return new XenoTab(x, y, DEFAULT_WIDTH, DEFAULT_HEIGHT, message, selected, onPress);
     }
 
-    public boolean isActive() {
-        return this.active;
+    public boolean isSelected() {
+        return this.selected;
     }
 
-    public void setActive(boolean active) {
-        this.active = active;
+    public void setSelected(boolean selected) {
+        this.selected = selected;
     }
 
     @Override
@@ -83,7 +83,7 @@ public class XenoTab extends AbstractButton {
         int bgColor;
         int textColor;
 
-        if (this.active) {
+        if (this.selected) {
             bgColor = BG_ACTIVE;
             textColor = TEXT_ACTIVE;
         } else if (hovered) {
@@ -96,7 +96,7 @@ public class XenoTab extends AbstractButton {
 
         graphics.fill(x, y, x + w, y + h, bgColor);
 
-        if (this.active) {
+        if (this.selected) {
             graphics.fill(x, y, x + ACCENT_BAR_WIDTH, y + h, ACCENT_COLOR);
         }
 
