@@ -32,7 +32,6 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.chunk.*;
 import net.minecraft.util.Util;
@@ -51,7 +50,6 @@ public final class XenoRegionCompiler {
 	private static final int INDEX_HEAP_BYTES = 32 * 1024 * 1024;
 	private static final int STAGING_BUFFER_BYTES = 96 * 1024 * 1024;
 
-	private final ReentrantLock stagingLock = new ReentrantLock();
 	private final EnumMap<ChunkSectionLayer, LayerBuffers> layers = new EnumMap<>(ChunkSectionLayer.class);
 	private final AtomicBoolean initialized = new AtomicBoolean(false);
 	private final ConcurrentLinkedQueue<CompileResult> uploadQueue = new ConcurrentLinkedQueue<>();
@@ -63,7 +61,9 @@ public final class XenoRegionCompiler {
 	public record CompileResult(
 		XenoRenderRegion region,
 		int localIndex,
-		CompiledSectionMesh mesh
+		SectionCompiler.Results results,
+		CompiledSectionMesh mesh,
+		SectionBufferBuilderPack pack
 	) {}
 
 	private XenoRegionCompiler() {
@@ -150,6 +150,7 @@ public final class XenoRegionCompiler {
 		}
 
 		SectionBufferBuilderPack pack = pool.acquire();
+		boolean handedOff = false;
 		try {
 			SectionCompiler compiler = this.sectionCompiler;
 			if (compiler == null || !region.alive.get()) {
@@ -173,35 +174,9 @@ public final class XenoRegionCompiler {
 				return;
 			}
 
-			if (!results.renderedLayers.isEmpty()) {
-				this.stagingLock.lock();
-				try {
-					for (Map.Entry<ChunkSectionLayer, MeshData> entry : results.renderedLayers.entrySet()) {
-						ChunkSectionLayer layer = entry.getKey();
-						MeshData meshData = entry.getValue();
-						while (true) {
-							if (this.stageLayerBuffers(layer, mesh, meshData) || !region.alive.get()) {
-								break;
-							}
-							this.stagingLock.unlock();
-							Thread.yield();
-							this.stagingLock.lock();
-						}
-						meshData.close();
-					}
-				} finally {
-					this.stagingLock.unlock();
-				}
-			}
-
-			if (!region.alive.get()) {
-				this.releaseMeshAllocations(mesh);
-				region.clearPending(localIndex);
-				return;
-			}
-
-			// Push result with staged buffers to queue
-			this.uploadQueue.add(new CompileResult(region, localIndex, mesh));
+			// Pass pack and results to Render Thread for staging & uploading
+			this.uploadQueue.add(new CompileResult(region, localIndex, results, mesh, pack));
+			handedOff = true;
 		} catch (Throwable t) {
 			LOGGER.error("Section compile failed at {}", sectionPos, t);
 			if (region.alive.get()) {
@@ -209,22 +184,69 @@ public final class XenoRegionCompiler {
 				region.markSectionDirty(localIndex, false);
 			}
 		} finally {
-			Objects.requireNonNull(pack).clearAll();
-			pool.release(pack);
-			permits.release();
+			if (!handedOff) {
+				pack.clearAll();
+				pool.release(pack);
+				permits.release();
+			}
 		}
 	}
 
-	private boolean stageLayerBuffers(ChunkSectionLayer layer, CompiledSectionMesh mesh, MeshData meshData) {
-		LayerBuffers buffers = this.layers.get(layer);
-		if (buffers == null) {
-			return true;
+	/**
+	 * Must run on the Render Thread.
+	 */
+	public void processPendingUploadsAndFlush() {
+		if (!this.initialized.get()) {
+			return;
 		}
 
-		boolean success = true;
+		SectionBufferBuilderPool pool = Objects.requireNonNull(this.bufferPool);
+		Semaphore permits = Objects.requireNonNull(this.packPermits);
+
+		CompileResult result;
+		while ((result = this.uploadQueue.poll()) != null) {
+			XenoRenderRegion region = result.region();
+			int localIndex = result.localIndex();
+			SectionCompiler.Results results = result.results();
+			CompiledSectionMesh mesh = result.mesh();
+			SectionBufferBuilderPack pack = result.pack();
+
+			try {
+				if (!region.alive.get()) {
+					results.release();
+					region.clearPending(localIndex);
+					continue;
+				}
+
+				if (!results.renderedLayers.isEmpty()) {
+					for (Map.Entry<ChunkSectionLayer, MeshData> entry : results.renderedLayers.entrySet()) {
+						ChunkSectionLayer layer = entry.getKey();
+						MeshData meshData = entry.getValue();
+						this.stageLayerBuffersOnRenderThread(layer, mesh, meshData);
+						meshData.close();
+					}
+				}
+
+				this.publishOnRenderThread(region, localIndex, mesh);
+			} finally {
+				pack.clearAll();
+				pool.release(pack);
+				permits.release();
+			}
+		}
+
+		this.flushUploads();
+	}
+
+	private void stageLayerBuffersOnRenderThread(ChunkSectionLayer layer, CompiledSectionMesh mesh, MeshData meshData) {
+		LayerBuffers buffers = this.layers.get(layer);
+		if (buffers == null) {
+			return;
+		}
+
 		ByteBuffer vertices = meshData.vertexBuffer();
 		if (vertices != null) {
-			success &= buffers.vertices.addAllocation(mesh, m -> {
+			buffers.vertices.addAllocation(mesh, m -> {
 				if (m instanceof CompiledSectionMesh compiled) {
 					try {
 						compiled.setVertexBufferUploaded(layer);
@@ -236,7 +258,7 @@ public final class XenoRegionCompiler {
 
 		ByteBuffer indices = meshData.indexBuffer();
 		if (indices != null) {
-			success &= buffers.indices.addAllocation(mesh, m -> {
+			buffers.indices.addAllocation(mesh, m -> {
 				if (m instanceof CompiledSectionMesh compiled) {
 					try {
 						compiled.setIndexBufferUploaded(layer);
@@ -250,31 +272,6 @@ public final class XenoRegionCompiler {
 			} catch (Throwable ignored) {
 			}
 		}
-
-		return success;
-	}
-
-	public void processPendingUploadsAndFlush() {
-		if (!this.initialized.get()) {
-			return;
-		}
-
-		CompileResult result;
-		while ((result = this.uploadQueue.poll()) != null) {
-			XenoRenderRegion region = result.region();
-			int localIndex = result.localIndex();
-			CompiledSectionMesh mesh = result.mesh();
-
-			if (!region.alive.get()) {
-				this.releaseMeshAllocations(mesh);
-				region.clearPending(localIndex);
-				continue;
-			}
-
-			this.publishOnRenderThread(region, localIndex, mesh);
-		}
-
-		this.flushUploads();
 	}
 
 	private void publishOnRenderThread(XenoRenderRegion region, int localIndex, SectionMesh mesh) {
