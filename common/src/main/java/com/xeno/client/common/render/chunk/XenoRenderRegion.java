@@ -26,8 +26,8 @@ import net.minecraft.core.SectionPos;
 
 public final class XenoRenderRegion {
 	public static final int SECTION_COUNT = XenoWorldRenderManager.REGION_SECTIONS_XZ
-		* XenoWorldRenderManager.REGION_SECTIONS_Y
-		* XenoWorldRenderManager.REGION_SECTIONS_XZ;
+			* XenoWorldRenderManager.REGION_SECTIONS_Y
+			* XenoWorldRenderManager.REGION_SECTIONS_XZ;
 	private static final int BITS_PER_WORD = 64;
 	private static final int DIRTY_WORDS = SECTION_COUNT / BITS_PER_WORD;
 	private final int regionX;
@@ -70,16 +70,16 @@ public final class XenoRenderRegion {
 		int ly = sectionY - this.baseSectionY();
 		int lz = sectionZ - this.minSectionZ();
 		if ((lx | ly | lz) < 0
-			|| lx >= XenoWorldRenderManager.REGION_SECTIONS_XZ
-			|| ly >= XenoWorldRenderManager.REGION_SECTIONS_Y
-			|| lz >= XenoWorldRenderManager.REGION_SECTIONS_XZ
+				|| lx >= XenoWorldRenderManager.REGION_SECTIONS_XZ
+				|| ly >= XenoWorldRenderManager.REGION_SECTIONS_Y
+				|| lz >= XenoWorldRenderManager.REGION_SECTIONS_XZ
 		) {
 			return -1;
 		}
 
 		return ly * (XenoWorldRenderManager.REGION_SECTIONS_XZ * XenoWorldRenderManager.REGION_SECTIONS_XZ)
-			+ lz * XenoWorldRenderManager.REGION_SECTIONS_XZ
-			+ lx;
+				+ lz * XenoWorldRenderManager.REGION_SECTIONS_XZ
+				+ lx;
 	}
 
 	public int minSectionX() {

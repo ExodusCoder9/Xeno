@@ -59,11 +59,11 @@ public final class XenoRegionCompiler {
 	private volatile @Nullable SectionCompiler sectionCompiler;
 
 	public record CompileResult(
-		XenoRenderRegion region,
-		int localIndex,
-		SectionCompiler.Results results,
-		CompiledSectionMesh mesh,
-		SectionBufferBuilderPack pack
+			XenoRenderRegion region,
+			int localIndex,
+			SectionCompiler.Results results,
+			CompiledSectionMesh mesh,
+			SectionBufferBuilderPack pack
 	) {}
 
 	private XenoRegionCompiler() {
@@ -76,7 +76,7 @@ public final class XenoRegionCompiler {
 			for (ChunkSectionLayer layer : ChunkSectionLayer.values()) {
 				String label = "xeno_" + layer.label();
 				UberGpuBuffer<SectionMesh> vertices = new UberGpuBuffer<>(
-					label, 32, VERTEX_HEAP_BYTES, layer.vertexFormat().getVertexSize(), this.stagingBuffer
+						label, 32, VERTEX_HEAP_BYTES, layer.vertexFormat().getVertexSize(), this.stagingBuffer
 				);
 				UberGpuBuffer<SectionMesh> indices = new UberGpuBuffer<>(label, 64, INDEX_HEAP_BYTES, 8, this.stagingBuffer);
 				this.layers.put(layer, new LayerBuffers(vertices, indices));
@@ -107,10 +107,10 @@ public final class XenoRegionCompiler {
 
 		TlsfAllocator.Allocation indexAlloc = buffers.indices.getAllocation(mesh);
 		return new MeshSlice(
-			buffers.vertices.getGpuBuffer(vertexAlloc),
-			vertexAlloc.getOffsetFromHeap(),
-			indexAlloc != null ? buffers.indices.getGpuBuffer(indexAlloc) : null,
-			indexAlloc != null ? indexAlloc.getOffsetFromHeap() : 0L
+				buffers.vertices.getGpuBuffer(vertexAlloc),
+				vertexAlloc.getOffsetFromHeap(),
+				indexAlloc != null ? buffers.indices.getGpuBuffer(indexAlloc) : null,
+				indexAlloc != null ? indexAlloc.getOffsetFromHeap() : 0L
 		);
 	}
 
@@ -133,7 +133,7 @@ public final class XenoRegionCompiler {
 		int localZ = localIndex / sectionsXZ % sectionsXZ;
 		int localY = localIndex / (sectionsXZ * sectionsXZ);
 		SectionPos sectionPos = SectionPos.of(
-			region.minSectionX() + localX, region.minSectionY() + localY, region.minSectionZ() + localZ
+				region.minSectionX() + localX, region.minSectionY() + localY, region.minSectionZ() + localZ
 		);
 
 		SectionBufferBuilderPool pool = Objects.requireNonNull(this.bufferPool);
@@ -165,7 +165,7 @@ public final class XenoRegionCompiler {
 
 			SectionCompiler.Results results = compiler.compile(sectionPos, snapshot, sorting, Objects.requireNonNull(pack));
 			CompiledSectionMesh mesh = new CompiledSectionMesh(
-				TranslucencyPointOfView.of(cameraPos, sectionPos.asLong()), results
+					TranslucencyPointOfView.of(cameraPos, sectionPos.asLong()), results
 			);
 
 			if (!region.alive.get()) {

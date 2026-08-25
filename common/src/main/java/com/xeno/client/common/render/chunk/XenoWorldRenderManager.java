@@ -252,11 +252,11 @@ public final class XenoWorldRenderManager {
 			if (localIndex >= 0) {
 				region.markSectionDirty(localIndex, playerChanged);
 				this.dirtyRegions.add(
-					XenoRenderRegion.key(
-						Math.floorDiv(sectionX, REGION_SECTIONS_XZ),
-						Math.floorDiv(sectionY, REGION_SECTIONS_Y),
-						Math.floorDiv(sectionZ, REGION_SECTIONS_XZ)
-					)
+						XenoRenderRegion.key(
+								Math.floorDiv(sectionX, REGION_SECTIONS_XZ),
+								Math.floorDiv(sectionY, REGION_SECTIONS_Y),
+								Math.floorDiv(sectionZ, REGION_SECTIONS_XZ)
+						)
 				);
 			}
 		}
@@ -272,22 +272,22 @@ public final class XenoWorldRenderManager {
 		if (localIndex >= 0) {
 			region.markSectionDirty(localIndex, playerChanged);
 			this.dirtyRegions.add(
-				XenoRenderRegion.key(
-					Math.floorDiv(sectionX, REGION_SECTIONS_XZ),
-					Math.floorDiv(sectionY, REGION_SECTIONS_Y),
-					Math.floorDiv(sectionZ, REGION_SECTIONS_XZ)
-				)
+					XenoRenderRegion.key(
+							Math.floorDiv(sectionX, REGION_SECTIONS_XZ),
+							Math.floorDiv(sectionY, REGION_SECTIONS_Y),
+							Math.floorDiv(sectionZ, REGION_SECTIONS_XZ)
+					)
 			);
 		}
 	}
 
 	private @Nullable XenoRenderRegion regionForLocked(int sectionX, int sectionY, int sectionZ) {
 		XenoRenderRegion region = this.regions.get(
-			XenoRenderRegion.key(
-				Math.floorDiv(sectionX, REGION_SECTIONS_XZ),
-				Math.floorDiv(sectionY, REGION_SECTIONS_Y),
-				Math.floorDiv(sectionZ, REGION_SECTIONS_XZ)
-			)
+				XenoRenderRegion.key(
+						Math.floorDiv(sectionX, REGION_SECTIONS_XZ),
+						Math.floorDiv(sectionY, REGION_SECTIONS_Y),
+						Math.floorDiv(sectionZ, REGION_SECTIONS_XZ)
+				)
 		);
 		return region != null && region.alive.get() ? region : null;
 	}
@@ -335,7 +335,7 @@ public final class XenoWorldRenderManager {
 			camRegionX = Math.floorDiv(this.cameraSectionX, REGION_SECTIONS_XZ);
 			camRegionZ = Math.floorDiv(this.cameraSectionZ, REGION_SECTIONS_XZ);
 			int halfExtentRegions = Math.floorDiv(
-				minecraft.options.getEffectiveRenderDistance() * 16 + VIEW_MARGIN_BLOCKS, REGION_SIZE_BLOCKS
+					minecraft.options.getEffectiveRenderDistance() * 16 + VIEW_MARGIN_BLOCKS, REGION_SIZE_BLOCKS
 			);
 			int hysteresisExtent = halfExtentRegions + 1;
 
@@ -348,9 +348,9 @@ public final class XenoWorldRenderManager {
 				if (deltaX <= halfExtentRegions && deltaZ <= halfExtentRegions) {
 					region.markSeen(this.frameIndex);
 				} else if (
-					(deltaX > hysteresisExtent || deltaZ > hysteresisExtent)
-						&& region.isUnused()
-						&& this.frameIndex - region.lastSeenFrame() > RELEASE_GRACE_FRAMES
+						(deltaX > hysteresisExtent || deltaZ > hysteresisExtent)
+								&& region.isUnused()
+								&& this.frameIndex - region.lastSeenFrame() > RELEASE_GRACE_FRAMES
 				) {
 					XenoRegionCompiler.INSTANCE.releaseRegion(region);
 					this.dirtyRegions.remove(entry.getLongKey());
@@ -454,11 +454,11 @@ public final class XenoWorldRenderManager {
 				float originY = SectionPos.sectionToBlockCoord(sectionY);
 				float originZ = SectionPos.sectionToBlockCoord(sectionZ);
 				region.setFadeDuration(
-					localIndex,
-					computeFadeDuration(minecraft, region, localIndex, originX, originY, originZ, playerChanged, cameraPos)
+						localIndex,
+						computeFadeDuration(minecraft, region, localIndex, originX, originY, originZ, playerChanged, cameraPos)
 				);
 				VertexSorting sorting = VertexSorting.byDistance(
-					(float)(cameraPos.x - originX), (float)(cameraPos.y - originY), (float)(cameraPos.z - originZ)
+						(float)(cameraPos.x - originX), (float)(cameraPos.y - originY), (float)(cameraPos.z - originZ)
 				);
 
 				XenoRegionCompiler.INSTANCE.submit(region, localIndex, snapshot, sorting, cameraPos);
@@ -483,8 +483,8 @@ public final class XenoWorldRenderManager {
 	}
 
 	private static long computeFadeDuration(
-		Minecraft minecraft, XenoRenderRegion region, int localIndex, float originX, float originY, float originZ,
-		boolean playerChanged, Vec3 cameraPos
+			Minecraft minecraft, XenoRenderRegion region, int localIndex, float originX, float originY, float originZ,
+			boolean playerChanged, Vec3 cameraPos
 	) {
 		if (playerChanged) {
 			return 0L;
@@ -504,8 +504,8 @@ public final class XenoWorldRenderManager {
 		double distZ = centerZ - cameraPos.z;
 		boolean nearby = distX * distX + distY * distY + distZ * distZ < 768.0;
 		return !nearby
-			? (long)Math.floor(minecraft.options.chunkSectionFadeInTime().get() * 1000.0)
-			: 0L;
+				? (long)Math.floor(minecraft.options.chunkSectionFadeInTime().get() * 1000.0)
+				: 0L;
 	}
 
 	private static boolean hasAllNeighbors(ClientLevel lvl, int sectionX, int sectionZ) {
@@ -529,11 +529,11 @@ public final class XenoWorldRenderManager {
 		FluidStateModelSet fluidModelSet = minecraft.getModelManager().getFluidStateModelSet();
 		BlockColors blockColors = minecraft.getBlockColors();
 		if (this.cachedCompiler == null
-			|| this.cachedAmbientOcclusion != ambientOcclusion
-			|| this.cachedCutoutLeaves != cutoutLeaves
-			|| this.cachedBlockModelSet != blockModelSet
-			|| this.cachedFluidModelSet != fluidModelSet
-			|| this.cachedBlockColors != blockColors
+				|| this.cachedAmbientOcclusion != ambientOcclusion
+				|| this.cachedCutoutLeaves != cutoutLeaves
+				|| this.cachedBlockModelSet != blockModelSet
+				|| this.cachedFluidModelSet != fluidModelSet
+				|| this.cachedBlockColors != blockColors
 		) {
 			this.cachedAmbientOcclusion = ambientOcclusion;
 			this.cachedCutoutLeaves = cutoutLeaves;
