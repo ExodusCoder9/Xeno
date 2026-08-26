@@ -27,7 +27,6 @@ import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.xeno.client.common.render.chunk.XenoSharedQuadIndexBuffer;
-import com.xeno.client.common.render.chunk.XenoTerrainDrawer;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import java.util.ArrayList;
@@ -53,6 +52,8 @@ public final class XenoChunkRenderer {
 
 	private static final List<String> DYNAMIC_CHUNK_SECTION_UNIFORMS = List.of("ChunkSection");
 
+	public static final XenoSharedQuadIndexBuffer SHARED_INDEX_BUFFER = new XenoSharedQuadIndexBuffer();
+
 	private XenoChunkRenderer() {
 	}
 
@@ -68,7 +69,8 @@ public final class XenoChunkRenderer {
 		GpuTextureView blockAtlas = chunkRenders.textureView();
 		int maxIndicesRequired = chunkRenders.maxIndicesRequired();
 
-		XenoSharedQuadIndexBuffer sharedIndices = XenoTerrainDrawer.SHARED_INDEX_BUFFER;
+		XenoSharedQuadIndexBuffer sharedIndices = SHARED_INDEX_BUFFER;
+		sharedIndices.ensureCapacity(maxIndicesRequired);
 		GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || !sharedIndices.hasCapacity(maxIndicesRequired)
 			? null
 			: sharedIndices.buffer();

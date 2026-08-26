@@ -59,10 +59,6 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 		return optimalThreadCount();
 	}
 
-	int workerCount() {
-		return this.threads.size();
-	}
-
 	private void workerLoop() {
 		while (this.running.get()) {
 			Runnable task = this.waitForNextJob();
@@ -163,6 +159,6 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 
 	private static int optimalThreadCount() {
 		int cores = Runtime.getRuntime().availableProcessors();
-		return Mth.clamp(Math.max(cores / 3, cores - 6), 1, 10);
+		return Mth.clamp(Math.max(cores / 3, cores - 6), 1, 16);
 	}
 }

@@ -11,14 +11,10 @@
     "ViewAreaAccessor",
     "XenoBufferBuilderMixin",
     "XenoChunkSectionsToRenderMixin",
-    "XenoClientChunkCacheMixin",
     "XenoCloudRendererMixin",
-    "XenoLevelExtractorMixin",
-    "XenoLevelRendererMixin",
     "XenoMeshDataMixin",
     "XenoSectionCompilerMixin",
-    "XenoSectionRenderDispatcherMixin",
-    "XenoViewAreaMixin"
+    "XenoSectionRenderDispatcherMixin"
   ],
   "injectors": {
     "defaultRequire": 1

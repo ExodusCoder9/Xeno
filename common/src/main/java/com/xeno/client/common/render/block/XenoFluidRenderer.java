@@ -430,6 +430,7 @@ public record XenoFluidRenderer(FluidStateModelSet fluidModels) {
         return this.getHeight(level, fluidType, pos, state, state.getFluidState());
     }
 
+    @SuppressWarnings("deprecated")
     private float getHeight(BlockAndTintGetter level, Fluid fluidType, BlockPos pos, BlockState state, FluidState fluidState) {
         if (fluidType.isSame(fluidState.getType())) {
             BlockState aboveState = level.getBlockState(pos.above());
