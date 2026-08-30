@@ -28,7 +28,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(LevelRenderer.class)
-public abstract class XenoSectionCompilerMixin {
+public abstract class XenoLevelRendererMixin {
     @Redirect(
         method = "invalidateCompiledGeometry",
         at = @At(value = "NEW", target = "Lnet/minecraft/client/renderer/chunk/SectionCompiler;")
