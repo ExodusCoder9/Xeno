@@ -34,11 +34,8 @@ public abstract class XenoSectionCompilerMixin {
         at = @At(value = "NEW", target = "Lnet/minecraft/client/renderer/chunk/SectionCompiler;")
     )
     private static SectionCompiler xeno$useXenoCompiler(
-        boolean ambientOcclusion,
-        boolean cutoutLeaves,
-        BlockStateModelSet blockModelSet,
-        FluidStateModelSet fluidModelSet,
-        BlockColors blockColors
+        boolean ambientOcclusion, boolean cutoutLeaves,
+        BlockStateModelSet blockModelSet, FluidStateModelSet fluidModelSet, BlockColors blockColors
     ) {
         return new XenoSectionCompiler(ambientOcclusion, cutoutLeaves, blockModelSet, fluidModelSet, blockColors);
     }

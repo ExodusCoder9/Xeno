@@ -108,21 +108,6 @@ public class MemoryAccess {
     }
 
     @Deprecated(since="0.1.0", forRemoval=true)
-    public static int getInt(long address) {
-        return UNSAFE.getInt(null, address);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static byte getByte(long address) {
-        return UNSAFE.getByte(null, address);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static long getLong(long address) {
-        return UNSAFE.getLong(null, address);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
     public static void putLong(long address, long value) {
         UNSAFE.putLong(null, address, value);
     }
@@ -145,86 +130,6 @@ public class MemoryAccess {
     @Deprecated(since="0.1.0", forRemoval=true)
     public static void putByte(long address, byte value) {
         UNSAFE.putByte(null, address, value);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static void copyMemory(long src, long dst, long length) {
-        UNSAFE.copyMemory(src, dst, length);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static final long LONG_ARRAY_BASE = UNSAFE.arrayBaseOffset(long[].class);
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static final int LONG_ARRAY_INDEX_SCALE = UNSAFE.arrayIndexScale(long[].class);
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static final long OBJECT_ARRAY_BASE = UNSAFE.arrayBaseOffset(Object[].class);
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static final int OBJECT_ARRAY_INDEX_SCALE = UNSAFE.arrayIndexScale(Object[].class);
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static boolean compareAndSwapLong(Object target, long offset, long expected, long update) {
-        return UNSAFE.compareAndSwapLong(target, offset, expected, update);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static boolean compareAndSwapInt(Object target, long offset, int expected, int update) {
-        return UNSAFE.compareAndSwapInt(target, offset, expected, update);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static boolean compareAndSwapObject(Object target, long offset, Object expected, Object update) {
-        return UNSAFE.compareAndSwapObject(target, offset, expected, update);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static int getAndAddInt(Object target, long offset, int delta) {
-        return UNSAFE.getAndAddInt(target, offset, delta);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static long getAndAddLong(Object target, long offset, long delta) {
-        return UNSAFE.getAndAddLong(target, offset, delta);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static void putOrderedLong(Object target, long offset, long value) {
-        UNSAFE.putOrderedLong(target, offset, value);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static void putOrderedObject(Object target, long offset, Object value) {
-        UNSAFE.putOrderedObject(target, offset, value);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static long getLongVolatile(Object target, long offset) {
-        return UNSAFE.getLongVolatile(target, offset);
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static long getLongVolatile(long[] array, int index) {
-        return UNSAFE.getLongVolatile(array, LONG_ARRAY_BASE + ((long) index * LONG_ARRAY_INDEX_SCALE));
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static void fetchAndBitwiseOrLong(long[] array, int index, long mask) {
-        long offset = LONG_ARRAY_BASE + ((long) index * LONG_ARRAY_INDEX_SCALE);
-        long current;
-        do {
-            current = UNSAFE.getLongVolatile(array, offset);
-        } while (!UNSAFE.compareAndSwapLong(array, offset, current, current | mask));
-    }
-
-    @Deprecated(since="0.1.0", forRemoval=true)
-    public static void fetchAndBitwiseAndLong(long[] array, int index, long mask) {
-        long offset = LONG_ARRAY_BASE + ((long) index * LONG_ARRAY_INDEX_SCALE);
-        long current;
-        do {
-            current = UNSAFE.getLongVolatile(array, offset);
-        } while (!UNSAFE.compareAndSwapLong(array, offset, current, current & mask));
     }
 
     @Deprecated(since="0.1.0", forRemoval=true)

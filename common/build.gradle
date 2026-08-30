@@ -21,7 +21,6 @@ loom {
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-
 	compileOnly "net.fabricmc:sponge-mixin:0.13.2+mixin.0.8.5"
 	compileOnly "net.fabricmc:fabric-loader:${project.loader_version}"
 }
