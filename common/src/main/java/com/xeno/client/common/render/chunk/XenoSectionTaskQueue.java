@@ -146,9 +146,9 @@ public final class XenoSectionTaskQueue extends SectionTaskDynamicQueue {
 
 	private static long cameraSectionKey(Vec3 cameraPos) {
 		return SectionPos.asLong(
-			SectionPos.blockToSectionCoord(cameraPos.x),
-			SectionPos.blockToSectionCoord(cameraPos.y),
-			SectionPos.blockToSectionCoord(cameraPos.z)
+				SectionPos.blockToSectionCoord(cameraPos.x),
+				SectionPos.blockToSectionCoord(cameraPos.y),
+				SectionPos.blockToSectionCoord(cameraPos.z)
 		);
 	}
 }
