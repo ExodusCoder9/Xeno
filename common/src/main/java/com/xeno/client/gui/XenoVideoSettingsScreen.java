@@ -17,6 +17,9 @@
 
 package com.xeno.client.gui;
 
+import com.mojang.blaze3d.platform.Monitor;
+import com.mojang.blaze3d.platform.VideoMode;
+import com.mojang.blaze3d.platform.Window;
 import com.xeno.client.gui.widget.XenoButton;
 import com.xeno.client.gui.widget.XenoScroller;
 import com.xeno.client.gui.widget.XenoSlider;
@@ -25,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 import net.minecraft.client.Minecraft;
@@ -33,6 +37,8 @@ import net.minecraft.client.TextureFilteringMethod;
 import net.minecraft.client.AttackIndicatorStatus;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.GraphicsPreset;
+import net.minecraft.client.InactivityFpsLimit;
+import net.minecraft.client.PrioritizeChunkUpdates;
 import net.minecraft.server.level.ParticleStatus;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -69,7 +75,7 @@ public final class XenoVideoSettingsScreen extends Screen {
     private record OptionEntry(AbstractWidget widget, Component description, PerformanceImpact impact, String name) {
     }
 
-    private static final Component TITLE = Component.translatable("options.videoTitle");
+    private static final Component TITLE = Component.literal("Video Settings");
     private static final int ROW_HEIGHT = 30;
 
     private final Screen lastScreen;
@@ -84,6 +90,11 @@ public final class XenoVideoSettingsScreen extends Screen {
 
     private final List<OptionEntry> currentTabOptions = new ArrayList<>();
     private final Map<OptionInstance<?>, Object> pendingChanges = new HashMap<>();
+
+    private Monitor resolutionMonitor;
+    private int pendingResolution = -1;
+    private int initialResolution = -1;
+    private boolean resolutionEdited = false;
 
     private XenoScroller scroller;
     private float scrollOffset;
@@ -107,8 +118,21 @@ public final class XenoVideoSettingsScreen extends Screen {
         this.scrollOffset = 0;
         this.targetScrollOffset = 0;
 
+        Window window = this.minecraft.getWindow();
+        this.resolutionMonitor = window.findBestMonitor();
+        this.initialResolution = queryInitialResolution();
+        if (!this.resolutionEdited) {
+            this.pendingResolution = this.initialResolution;
+        }
+
         int tabY = 40;
-        String[] tabNames = {"General", "Quality", "Performance", "Advanced"};
+        String[] tabNames = {
+                "Display",
+                "Quality",
+                "Performance",
+                "Preferences",
+                "Advanced"
+        };
         for (int i = 0; i < tabNames.length; i++) {
             XenoTab tab = new XenoTab(0, tabY, 110, 20, Component.literal(tabNames[i]), this.currentTab == i, _ -> {}) {
                 @Override
@@ -192,6 +216,15 @@ public final class XenoVideoSettingsScreen extends Screen {
 
         updateScrollerRange();
         updateWidgetPositions();
+    }
+
+    private int queryInitialResolution() {
+        if (this.resolutionMonitor == null) {
+            return -1;
+        }
+        Window window = this.minecraft.getWindow();
+        Optional<VideoMode> preferred = window.getPreferredFullscreenVideoMode();
+        return preferred.map(this.resolutionMonitor::indexOfMode).orElse(-1);
     }
 
     @SuppressWarnings("unchecked")
@@ -278,20 +311,12 @@ public final class XenoVideoSettingsScreen extends Screen {
             addCycle(this.options.preferredGraphicsBackend(), "Graphics API",
                     "Chooses the preferred graphics rendering API. Default relies on native platforms; Vulkan offers modern hardware optimizations.",
                     PerformanceImpact.MEDIUM);
+            addResolution();
+            addDoubleSlider(this.options.gamma(), "Brightness", 0.0, 1.0,
+                    "Adjusts the overall brightness of the game world.",
+                    PerformanceImpact.LOW);
             addCycle(this.options.guiScale(), "GUI Scale",
                     "Adjusts the size of the user interface.",
-                    PerformanceImpact.LOW);
-            addSlider(this.options.renderDistance(), "Render Distance", 2, 32,
-                    "Determines how far chunks are rendered around the player. Higher values increase visibility but cost more performance.",
-                    PerformanceImpact.MEDIUM);
-            addSlider(this.options.simulationDistance(), "Simulation Distance", 5, 32,
-                    "Controls how far entity simulations and block ticks occur. Lower values reduce CPU load.",
-                    PerformanceImpact.MEDIUM);
-            addSlider(this.options.framerateLimit(), "FPS Limit", 10, 260,
-                    "Caps the maximum frames per second. Lower values reduce GPU load and power consumption.",
-                    PerformanceImpact.LOW);
-            addToggle(this.options.enableVsync(), "VSync",
-                    "Synchronizes frame output with monitor refresh rate. Reduces screen tearing but may add input lag.",
                     PerformanceImpact.LOW);
             addToggle(this.options.fullscreen(), "Fullscreen",
                     "Toggles between windowed and fullscreen display modes.",
@@ -299,11 +324,11 @@ public final class XenoVideoSettingsScreen extends Screen {
             addToggle(this.options.exclusiveFullscreen(), "Exclusive Fullscreen",
                     "Enables exclusive control over the monitor display when running in fullscreen.",
                     PerformanceImpact.LOW);
-            addCycle(this.options.attackIndicator(), "Attack Indicator",
-                    "Sets the display style and position for the combat crosshair attack indicator.",
+            addToggle(this.options.enableVsync(), "VSync",
+                    "Synchronizes frame output with monitor refresh rate. Reduces screen tearing but may add input lag.",
                     PerformanceImpact.LOW);
-            addToggle(this.options.showAutosaveIndicator(), "Autosave Indicator",
-                    "Enables a subtle disk indicator in the corner of the screen when the game performs an autosave.",
+            addSlider(this.options.framerateLimit(), "FPS Limit", 10, 260,
+                    "Caps the maximum frames per second. Lower values reduce GPU load and power consumption.",
                     PerformanceImpact.LOW);
 
         } else if (tabIndex == 1) {
@@ -328,35 +353,121 @@ public final class XenoVideoSettingsScreen extends Screen {
             addCycle(this.options.mipmapLevels(), "Mipmap",
                     "Sharpens distant textures using multi-resolution texture maps. Lower levels can improve performance.",
                     PerformanceImpact.LOW);
-            addToggle(this.options.entityShadows(), "Entity Shadows",
-                    "Enables circular shadow silhouettes beneath living entity entities and items.",
-                    PerformanceImpact.LOW);
             addToggle(this.options.cutoutLeaves(), "See-Through Leaves",
                     "Controls leaf block transparency. Solid opaque leaves bypass translucency checks and render faster.",
                     PerformanceImpact.MEDIUM);
-            addSlider(this.options.weatherRadius(), "Weather Effect Radius", 2, 10,
-                    "Defines block radius for weather rendering and audio sources centered on the player.",
+            addToggle(this.options.improvedTransparency(), "Improved Transparency",
+                    "Enables advanced transparency effects. May affect performance on some hardware.",
                     PerformanceImpact.MEDIUM);
             addToggle(this.options.vignette(), "Show Vignette",
                     "Applies a cinematic darkening overlay around the borders of the screen.",
                     PerformanceImpact.LOW);
+            addToggle(this.options.entityShadows(), "Entity Shadows",
+                    "Enables circular shadow silhouettes beneath living entity entities and items.",
+                    PerformanceImpact.LOW);
+            addSlider(this.options.weatherRadius(), "Weather Effect Radius", 2, 10,
+                    "Defines block radius for weather rendering and audio sources centered on the player.",
+                    PerformanceImpact.MEDIUM);
 
         } else if (tabIndex == 2) {
+            addSlider(this.options.renderDistance(), "Render Distance", 2, 32,
+                    "Determines how far chunks are rendered around the player. Higher values increase visibility but cost more performance.",
+                    PerformanceImpact.MEDIUM);
+            addSlider(this.options.simulationDistance(), "Simulation Distance", 5, 32,
+                    "Controls how far entity simulations and block ticks occur. Lower values reduce CPU load.",
+                    PerformanceImpact.MEDIUM);
             addDoubleToggle(this.options.chunkSectionFadeInTime(), "Chunk Fade Time",
                     "Applies smooth fade-in animations to newly loaded chunk sections.",
                     PerformanceImpact.LOW);
             addDoubleSlider(this.options.entityDistanceScaling(), "Entity Distance", 0.5, 5.0,
                     "Adjusts the distance threshold for rendering entity models. Lower scaling values save significant GPU time.",
                     PerformanceImpact.MEDIUM);
+            addCycle(this.options.prioritizeChunkUpdates(), "Priority Chunk Updates",
+                    "Controls how chunk updates are prioritized. Nearby prioritizes chunk updates around the player.",
+                    PerformanceImpact.MEDIUM);
+            addCycle(this.options.inactivityFpsLimit(), "Inactivity FPS Limit",
+                    "Limits the frame rate when the game is minimized or the player is idle, to save power.",
+                    PerformanceImpact.LOW);
 
         } else if (tabIndex == 3) {
+            addCycle(this.options.attackIndicator(), "Attack Indicator",
+                    "Sets the display style and position for the combat crosshair attack indicator.",
+                    PerformanceImpact.LOW);
+            addToggle(this.options.showAutosaveIndicator(), "Autosave Indicator",
+                    "Enables a subtle disk indicator in the corner of the screen when the game performs an autosave.",
+                    PerformanceImpact.LOW);
+
+        } else if (tabIndex == 4) {
             addCycle(this.options.textureFiltering(), "Texture Filtering",
                     "Applies texture sampling methods. RGSS or Anisotropic filtering keep oblique angles sharp.",
                     PerformanceImpact.LOW);
             addCycle(this.options.maxAnisotropyBit(), "Anisotropic Value",
                     "Specifies level of anisotropic filtering. Higher values retain fine textures on steep slopes.",
                     PerformanceImpact.LOW);
+            addSlider(this.options.menuBackgroundBlurriness(), "Menu Background Blurriness", 0, 10,
+                    "Controls the amount of background blurriness applied to menus.",
+                    PerformanceImpact.LOW);
         }
+    }
+
+    private Component getResolutionText() {
+        if (this.resolutionMonitor == null) {
+            return Component.literal("Unavailable");
+        }
+        if (this.pendingResolution == -1) {
+            return Component.literal("Current");
+        }
+        VideoMode mode = this.resolutionMonitor.mode(this.pendingResolution);
+        return Component.literal(mode.getWidth() + " x " + mode.getHeight());
+    }
+
+    private void addResolution() {
+        if (this.resolutionMonitor == null) {
+            return;
+        }
+        int maxMode = this.resolutionMonitor.modeCount() - 1;
+        int index = this.currentTabOptions.size();
+        int y = 40 + index * ROW_HEIGHT;
+
+        double sliderValue = maxMode >= 0 ? (double) (this.pendingResolution + 1) / (maxMode + 1) : 0.0;
+        Component msg = getResolutionText();
+
+        XenoSlider slider = new XenoSlider(0, y, 80, 20, msg, sliderValue, s -> {
+            if (maxMode >= 0) {
+                int raw = (int) Math.round(s.getDoubleValue() * (maxMode + 1)) - 1;
+                if (raw < -1) {
+                    raw = -1;
+                }
+                if (raw > maxMode) {
+                    raw = maxMode;
+                }
+                this.pendingResolution = raw;
+                this.resolutionEdited = true;
+                s.setMessage(getResolutionText());
+            }
+        }) {
+            @Override
+            protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+                int x = this.getX();
+                int y = this.getY();
+                int w = this.getWidth();
+                int h = this.getHeight();
+
+                graphics.fill(x, y + h / 2 - 1, x + w, y + h / 2 + 1, 0x40FFFFFF);
+
+                int handleWidth = 4;
+                int handleX = x + (int) (this.getDoubleValue() * (w - handleWidth));
+                graphics.fill(handleX, y, handleX + handleWidth, y + h, 0xFF8B5CF6);
+            }
+        };
+
+        this.addRenderableWidget(slider);
+        this.currentTabOptions.add(new OptionEntry(
+                slider,
+                Component.literal("Drag to select the fullscreen resolution from your monitor's supported modes. Current uses your monitor's default settings."),
+                PerformanceImpact.LOW,
+                "Resolution"
+        ));
     }
 
     private void addSlider(OptionInstance<Integer> option, String name, int min, int max, String desc, PerformanceImpact impact) {
@@ -364,18 +475,22 @@ public final class XenoVideoSettingsScreen extends Screen {
         int y = 40 + index * ROW_HEIGHT;
         int current = getOptionValue(option);
 
-        if ("Simulation Distance".equals(name) && current < 5) {
+        boolean isSimDist = "Simulation Distance".equals(name);
+        boolean isFpsLimit = "FPS Limit".equals(name);
+        boolean isWeather = "Weather Effect Radius".equals(name);
+
+        if (isSimDist && current < 5) {
             current = 5;
         }
-        if ("FPS Limit".equals(name) && current > 250) {
+        if (isFpsLimit && current > 250) {
             current = 260;
         }
-        if ("Weather Effect Radius".equals(name) && current < 3) {
+        if (isWeather && current < 3) {
             current = 10;
         }
 
         double sliderValue;
-        if ("FPS Limit".equals(name)) {
+        if (isFpsLimit) {
             if (current >= 260) {
                 sliderValue = 1.0;
             } else {
@@ -389,7 +504,7 @@ public final class XenoVideoSettingsScreen extends Screen {
 
         XenoSlider slider = new XenoSlider(0, y, 80, 20, msg, sliderValue, s -> {
             int value;
-            if ("FPS Limit".equals(name)) {
+            if (isFpsLimit) {
                 int rawValue = 10 + (int) Math.round(s.getDoubleValue() * 250);
                 value = ((rawValue + 5) / 10) * 10;
                 if (value > 250) {
@@ -397,10 +512,10 @@ public final class XenoVideoSettingsScreen extends Screen {
                 }
             } else {
                 value = min + (int) Math.round(s.getDoubleValue() * (max - min));
-                if ("Simulation Distance".equals(name) && value < 5) {
+                if (isSimDist && value < 5) {
                     value = 5;
                 }
-                if ("Weather Effect Radius".equals(name) && value < 3) {
+                if (isWeather && value < 3) {
                     value = 3;
                 }
             }
@@ -429,17 +544,18 @@ public final class XenoVideoSettingsScreen extends Screen {
     private void addDoubleSlider(OptionInstance<Double> option, String name, double min, double max, String desc, PerformanceImpact impact) {
         int index = this.currentTabOptions.size();
         int y = 40 + index * ROW_HEIGHT;
+        boolean isGamma = "Brightness".equals(name);
         double current = getOptionValue(option);
 
         double sliderValue = (current - min) / (max - min);
-        Component msg = Component.literal(Math.round(current * 100) + "%");
+        Component msg = isGamma ? getOptionValueText(name, current) : Component.literal(Math.round(current * 100) + "%");
 
         XenoSlider slider = new XenoSlider(0, y, 80, 20, msg, sliderValue, s -> {
             double rawVal = min + s.getDoubleValue() * (max - min);
-            double value = Math.round(rawVal * 4.0) / 4.0;
+            double value = isGamma ? Math.round(rawVal * 100.0) / 100.0 : Math.round(rawVal * 4.0) / 4.0;
             value = Math.clamp(value, min, max);
             markOptionChanged(option, value);
-            s.setMessage(Component.literal(Math.round(value * 100) + "%"));
+            s.setMessage(isGamma ? getOptionValueText(name, value) : Component.literal(Math.round(value * 100) + "%"));
         }) {
             @Override
             protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
@@ -540,30 +656,24 @@ public final class XenoVideoSettingsScreen extends Screen {
         XenoButton button = new XenoButton(0, y, 120, 20, msg, btn -> {
             Object val = getOptionValue(option);
             Object nextVal;
-            if (val instanceof Enum<?>) {
-                Object[] constants = val.getClass().getEnumConstants();
-                int next = (((Enum<?>) val).ordinal() + 1) % constants.length;
-                nextVal = constants[next];
-                if (nextVal == GraphicsPreset.CUSTOM) {
-                    nextVal = GraphicsPreset.FAST;
+            switch (val) {
+                case Enum<?> anEnum -> {
+                    Object[] constants = val.getClass().getEnumConstants();
+                    int next = (anEnum.ordinal() + 1) % constants.length;
+                    nextVal = constants[next];
+                    if (nextVal == GraphicsPreset.CUSTOM) {
+                        nextVal = GraphicsPreset.FAST;
+                    }
                 }
-            } else if (val instanceof Boolean) {
-                nextVal = !((Boolean) val);
-            } else if (val instanceof Integer) {
-                int intVal = (Integer) val;
-                if ("Biome Blend".equals(name)) {
-                    nextVal = (intVal + 1) % 8;
-                } else if ("Anisotropic Value".equals(name)) {
-                    nextVal = 1 + (intVal % 3);
-                } else if ("Mipmap".equals(name) || "Mipmap Levels".equals(name)) {
-                    nextVal = (intVal + 1) % 5;
-                } else if ("GUI Scale".equals(name)) {
-                    nextVal = intVal >= 4 ? 1 : intVal + 1;
-                } else {
-                    nextVal = intVal + 1;
-                }
-            } else {
-                nextVal = val;
+                case Boolean b -> nextVal = !b;
+                case Integer intVal -> nextVal = switch (name) {
+                    case "Biome Blend" -> (intVal + 1) % 8;
+                    case "Anisotropic Value" -> 1 + (intVal % 3);
+                    case "Mipmap" -> (intVal + 1) % 5;
+                    case "GUI Scale" -> intVal >= 4 ? 1 : intVal + 1;
+                    case null, default -> intVal + 1;
+                };
+                case null, default -> nextVal = val;
             }
 
             if (option == this.options.graphicsPreset()) {
@@ -603,6 +713,17 @@ public final class XenoVideoSettingsScreen extends Screen {
         if (value instanceof Boolean) {
             return Component.literal((Boolean) value ? "ON" : "OFF");
         }
+        if ("Brightness".equals(optionName)) {
+            int progress = (int) (((Double) value) * 100.0);
+            if (progress == 0) {
+                return Component.literal("Moody");
+            } else if (progress == 50) {
+                return Component.literal("Default");
+            } else if (progress == 100) {
+                return Component.literal("Bright");
+            }
+            return Component.literal(String.valueOf(progress));
+        }
         if (value instanceof PreferredGraphicsApi) {
             return ((PreferredGraphicsApi) value).caption();
         }
@@ -612,9 +733,24 @@ public final class XenoVideoSettingsScreen extends Screen {
             if (value == TextureFilteringMethod.ANISOTROPIC) return Component.literal("Anisotropic");
         }
         if (value instanceof AttackIndicatorStatus) {
-            if (value == AttackIndicatorStatus.OFF) return Component.literal("OFF");
-            if (value == AttackIndicatorStatus.CROSSHAIR) return Component.literal("Crosshair");
-            if (value == AttackIndicatorStatus.HOTBAR) return Component.literal("Hotbar");
+            switch (value) {
+                case AttackIndicatorStatus.OFF -> {
+                    return Component.literal("OFF");
+                }
+                case AttackIndicatorStatus.CROSSHAIR -> {
+                    return Component.literal("Crosshair");
+                }
+                case AttackIndicatorStatus.HOTBAR -> {
+                    return Component.literal("Hotbar");
+                }
+                default -> throw new IllegalStateException("Unexpected value: " + value);
+            }
+        }
+        if (value instanceof InactivityFpsLimit) {
+            return ((InactivityFpsLimit) value).caption();
+        }
+        if (value instanceof PrioritizeChunkUpdates) {
+            return ((PrioritizeChunkUpdates) value).caption();
         }
         if (value instanceof Enum<?>) {
             return Component.literal(capitalize(((Enum<?>) value).name()));
@@ -622,16 +758,18 @@ public final class XenoVideoSettingsScreen extends Screen {
         if (value instanceof Integer) {
             int val = (Integer) value;
             if ("Biome Blend".equals(optionName)) {
-                return Component.literal(val == 0 ? "OFF" : (val * 2 + 1) + "x" + (val * 2 + 1));
+                return val == 0
+                        ? Component.literal("OFF")
+                        : Component.literal((val * 2 + 1) + "x" + (val * 2 + 1));
             }
             if ("Anisotropic Value".equals(optionName)) {
                 return Component.literal((1 << val) + "x");
             }
-            if ("Mipmap".equals(optionName) || "Mipmap Levels".equals(optionName)) {
+            if ("Mipmap".equals(optionName)) {
                 return Component.literal(val == 0 ? "Off" : val + "x");
             }
             if ("GUI Scale".equals(optionName)) {
-                return Component.literal(val + "x");
+                return Component.literal(val == 0 ? "Auto" : val + "x");
             }
             return Component.literal(String.valueOf(val));
         }
@@ -642,17 +780,13 @@ public final class XenoVideoSettingsScreen extends Screen {
         if ("FPS Limit".equals(optionName) && value == 260) {
             return Component.literal("Unlimited");
         }
-        if ("Render Distance".equals(optionName) || "Simulation Distance".equals(optionName)) {
-            return Component.literal(value + " chunks");
-        }
-        if ("Cloud Distance".equals(optionName)) {
+        if ("Render Distance".equals(optionName)
+                || "Simulation Distance".equals(optionName)
+                || "Cloud Distance".equals(optionName)) {
             return Component.literal(value + " chunks");
         }
         if ("Weather Effect Radius".equals(optionName)) {
             return Component.literal(value + " blocks");
-        }
-        if ("Mipmap Levels".equals(optionName)) {
-            return Component.literal(value == 0 ? "OFF" : value + "x");
         }
         return Component.literal(String.valueOf(value));
     }
@@ -681,6 +815,15 @@ public final class XenoVideoSettingsScreen extends Screen {
 
         this.pendingChanges.clear();
         this.minecraft.options.save();
+
+        if (this.resolutionMonitor != null && this.pendingResolution != this.initialResolution) {
+            Window window = this.minecraft.getWindow();
+            window.setPreferredFullscreenVideoMode(
+                    this.pendingResolution == -1
+                            ? Optional.empty()
+                            : Optional.of(this.resolutionMonitor.mode(this.pendingResolution))
+            );
+        }
         this.minecraft.getWindow().changeFullscreenVideoMode();
 
         int currentMip = this.options.mipmapLevels().get();
@@ -860,7 +1003,7 @@ public final class XenoVideoSettingsScreen extends Screen {
 
         if (event.button() == 0) {
             if (mx >= 0 && mx <= 110) {
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < this.tabs.size(); i++) {
                     int minY = 40 + i * 24;
                     int maxY = minY + 20;
                     if (my >= minY && my <= maxY) {
