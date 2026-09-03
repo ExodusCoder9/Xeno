@@ -174,13 +174,16 @@ public final class XenoSectionCompiler extends SectionCompiler {
         int ordinal = layer.ordinal();
         XenoSectionLayerBuffer sink = sinks[ordinal];
         if (sink == null) {
-            sink = new XenoSectionLayerBuffer(builders.buffer(layer), layer.vertexFormat(), layer);
+            sink = new XenoSectionLayerBuffer(builders.buffer(layer), XenoVertexFormats.TERRAIN, layer);
             sinks[ordinal] = sink;
         }
         return sink;
     }
 
     private static boolean isBlockLayout(VertexFormat format) {
+        if (format.equals(XenoVertexFormats.TERRAIN)) {
+            return true;
+        }
         if (format.getVertexSize() != 28) {
             return false;
         }

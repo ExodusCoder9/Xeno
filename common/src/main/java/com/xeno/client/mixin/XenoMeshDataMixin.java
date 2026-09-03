@@ -22,6 +22,7 @@ import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
 import com.xeno.client.common.memory.MemoryAccess;
+import com.xeno.client.common.render.chunk.XenoVertexEncoder;
 import java.nio.ByteBuffer;
 import org.lwjgl.system.MemoryUtil;
 import org.spongepowered.asm.mixin.Mixin;
@@ -48,19 +49,40 @@ public abstract class XenoMeshDataMixin {
         int quadStride = vertexStride * 4;
         int quadCount = vertexCount / 4;
 
-        for (int i = 0; i < quadCount; i++) {
-            long firstPosOffset = baseAddress + (long) i * quadStride + positionOffset;
-            long secondPosOffset = firstPosOffset + (long) vertexStride * 2;
-            float x0 = MemoryAccess.getFloat(firstPosOffset);
-            float y0 = MemoryAccess.getFloat(firstPosOffset + 4L);
-            float z0 = MemoryAccess.getFloat(firstPosOffset + 8L);
-            float x1 = MemoryAccess.getFloat(secondPosOffset);
-            float y1 = MemoryAccess.getFloat(secondPosOffset + 4L);
-            float z1 = MemoryAccess.getFloat(secondPosOffset + 8L);
-            float xMid = (x0 + x1) / 2.0F;
-            float yMid = (y0 + y1) / 2.0F;
-            float zMid = (z0 + z1) / 2.0F;
-            output.set(outputIndex + i, xMid, yMid, zMid);
+        if (vertexStride == 20) {
+            for (int i = 0; i < quadCount; i++) {
+                long firstPosOffset = baseAddress + (long) i * quadStride + positionOffset;
+                long secondPosOffset = firstPosOffset + 40L;
+
+                int hi0 = MemoryAccess.getInt(firstPosOffset);
+                int lo0 = MemoryAccess.getInt(firstPosOffset + 4L);
+                float x0 = XenoVertexEncoder.unpackCoord(hi0, lo0, 0);
+                float y0 = XenoVertexEncoder.unpackCoord(hi0, lo0, 10);
+                float z0 = XenoVertexEncoder.unpackCoord(hi0, lo0, 20);
+
+                int hi1 = MemoryAccess.getInt(secondPosOffset);
+                int lo1 = MemoryAccess.getInt(secondPosOffset + 4L);
+                float x1 = XenoVertexEncoder.unpackCoord(hi1, lo1, 0);
+                float y1 = XenoVertexEncoder.unpackCoord(hi1, lo1, 10);
+                float z1 = XenoVertexEncoder.unpackCoord(hi1, lo1, 20);
+
+                output.set(outputIndex + i, (x0 + x1) * 0.5F, (y0 + y1) * 0.5F, (z0 + z1) * 0.5F);
+            }
+        } else {
+            for (int i = 0; i < quadCount; i++) {
+                long firstPosOffset = baseAddress + (long) i * quadStride + positionOffset;
+                long secondPosOffset = firstPosOffset + (long) vertexStride * 2;
+                float x0 = MemoryAccess.getFloat(firstPosOffset);
+                float y0 = MemoryAccess.getFloat(firstPosOffset + 4L);
+                float z0 = MemoryAccess.getFloat(firstPosOffset + 8L);
+                float x1 = MemoryAccess.getFloat(secondPosOffset);
+                float y1 = MemoryAccess.getFloat(secondPosOffset + 4L);
+                float z1 = MemoryAccess.getFloat(secondPosOffset + 8L);
+                float xMid = (x0 + x1) * 0.5F;
+                float yMid = (y0 + y1) * 0.5F;
+                float zMid = (z0 + z1) * 0.5F;
+                output.set(outputIndex + i, xMid, yMid, zMid);
+            }
         }
     }
 }

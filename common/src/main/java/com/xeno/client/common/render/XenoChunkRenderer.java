@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
@@ -101,7 +100,7 @@ public final class XenoChunkRenderer {
 
 			GpuBufferSlice[] chunkSectionInfos = chunkRenders.chunkSectionInfos();
 			for (ChunkSectionLayer layer : layers) {
-				renderPass.setPipeline(wireframe ? RenderPipelines.WIREFRAME : layer.pipeline());
+				renderPass.setPipeline(XenoRenderPipelines.getPipeline(layer, wireframe));
 				Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> drawGroup = chunkRenders.drawGroupsPerLayer().get(layer);
 				if (drawGroup == null) {
 					continue;

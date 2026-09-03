@@ -4,17 +4,20 @@
   "compatibilityLevel": "JAVA_25",
   "client": [
     "BufferBuilderMixin",
+    "ClientPackSourceMixin",
     "CubeMixin",
     "OptionsScreenMixin",
     "RenderSectionRegionAccessor",
     "SectionCopyAccessor",
     "ViewAreaAccessor",
     "XenoBufferBuilderMixin",
+    "XenoChunkSectionLayerMixin",
     "XenoChunkSectionsToRenderMixin",
     "XenoCloudRendererMixin",
     "XenoMeshDataMixin",
     "XenoLevelRendererMixin",
-    "XenoSectionRenderDispatcherMixin"
+    "XenoSectionRenderDispatcherMixin",
+    "XenoShaderManagerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
