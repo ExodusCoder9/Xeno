@@ -50,7 +50,6 @@ public final class MemoryAccess {
         try {
             Field field = Unsafe.class.getDeclaredField("theUnsafe");
             field.setAccessible(true);
-
             UNSAFE = (Unsafe) field.get(null);
             BUFFER_ADDRESS_OFFSET = UNSAFE.objectFieldOffset(java.nio.Buffer.class.getDeclaredField("address"));
         } catch (NoSuchFieldException | IllegalAccessException e) {
