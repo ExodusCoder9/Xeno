@@ -46,6 +46,7 @@ public final class MemoryAccess {
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
     @Deprecated(since="0.1.0", forRemoval=true)
     private static final long BUFFER_ADDRESS_OFFSET;
+
     static {
         try {
             Field field = Unsafe.class.getDeclaredField("theUnsafe");
@@ -54,7 +55,6 @@ public final class MemoryAccess {
             BUFFER_ADDRESS_OFFSET = UNSAFE.objectFieldOffset(java.nio.Buffer.class.getDeclaredField("address"));
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException("Strange! , Couldn't obtain reference to sun.misc.unsafe ", e);
-
         }
     }
 
@@ -84,11 +84,13 @@ public final class MemoryAccess {
      */
     @Deprecated(since="0.1.0", forRemoval=true)
     public static long packShorts(short first, short second, short third, short fourth) {
-        long packed = ((long) fourth & 0xFFFFL) << 48 | ((long) third & 0xFFFFL) << 32 | ((long) second & 0xFFFFL) << 16 | ((long) first & 0xFFFFL);
+        long packed = ((long) fourth & 0xFFFFL) << 48
+                | ((long) third & 0xFFFFL) << 32
+                | ((long) second & 0xFFFFL) << 16
+                | ((long) first & 0xFFFFL);
         if (!IS_LITTLE_ENDIAN) {
-            packed = ((packed & 0x0000FFFF0000FFFFL) << 16) | ((packed >>> 16) & 0x0000FFFF0000FFFFL);
+            packed = Long.rotateLeft(Long.reverseBytes(packed), 16);
         }
-
         return packed;
     }
 
@@ -143,8 +145,10 @@ public final class MemoryAccess {
 
     @Deprecated(since="0.1.0", forRemoval=true)
     public static long packFloats(float first, float second) {
-        long packed = ((long) Float.floatToRawIntBits(second) << 32) | (Float.floatToRawIntBits(first) & 0xFFFFFFFFL);
-        return IS_LITTLE_ENDIAN ? packed : Long.reverseBytes(((long) Float.floatToRawIntBits(first) << 32) | (Float.floatToRawIntBits(second) & 0xFFFFFFFFL));
+        final int f1 = Float.floatToRawIntBits(first);
+        final int f2 = Float.floatToRawIntBits(second);
+        long packed = ((long) f2 << 32) | (f1 & 0xFFFFFFFFL);
+        return IS_LITTLE_ENDIAN ? packed : Long.reverseBytes(((long) f1 << 32) | (f2 & 0xFFFFFFFFL));
     }
 
     @Deprecated(since="0.1.0", forRemoval=true)
