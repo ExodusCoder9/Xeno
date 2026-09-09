@@ -22,7 +22,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 
 @Mod("xeno")
-public class Xeno {
+public final class Xeno {
 	public Xeno(IEventBus modEventBus, ModContainer modContainer) {
 	}
 }

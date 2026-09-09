@@ -19,7 +19,7 @@ package com.xeno.fabric;
 
 import net.fabricmc.api.ClientModInitializer;
 
-public class XenoClient implements ClientModInitializer {
+public final class XenoClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 	}
