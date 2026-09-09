@@ -22,6 +22,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.NonNull;
 
 public class XenoButton extends AbstractButton {
     public static final int DEFAULT_WIDTH = 200;
@@ -54,7 +55,7 @@ public class XenoButton extends AbstractButton {
     }
 
     @Override
-    public void onPress(InputWithModifiers input) {
+    public void onPress(@NonNull InputWithModifiers input) {
         if (this.onPress != null) {
             this.onPress.onPress(this);
         }
@@ -87,7 +88,7 @@ public class XenoButton extends AbstractButton {
     }
 
     @Override
-    protected void updateWidgetNarration(net.minecraft.client.gui.narration.NarrationElementOutput output) {
+    protected void updateWidgetNarration(net.minecraft.client.gui.narration.@NonNull NarrationElementOutput output) {
         this.defaultButtonNarrationText(output);
     }
 }

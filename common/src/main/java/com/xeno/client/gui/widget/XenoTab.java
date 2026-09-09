@@ -110,7 +110,7 @@ public class XenoTab extends AbstractButton {
     }
 
     @Override
-    protected void updateWidgetNarration(net.minecraft.client.gui.narration.NarrationElementOutput output) {
+    protected void updateWidgetNarration(net.minecraft.client.gui.narration.@NonNull NarrationElementOutput output) {
         this.defaultButtonNarrationText(output);
     }
 }

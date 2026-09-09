@@ -24,6 +24,13 @@ configurations {
 	}
 }
 
+repositories {
+	maven {
+		name = 'Terraformers'
+		url = 'https://maven.terraformersmc.com/releases/'
+	}
+}
+
 dependencies {
 	commonMainJava project(path: ':common', configuration: 'commonMainJava')
 	commonMainResources project(path: ':common', configuration: 'commonMainResources')
@@ -31,6 +38,8 @@ dependencies {
 
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 sourceSets {

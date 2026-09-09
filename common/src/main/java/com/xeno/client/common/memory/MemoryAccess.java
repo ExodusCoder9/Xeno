@@ -39,7 +39,7 @@ import java.nio.ByteOrder;
  * </p>
  */
 @Deprecated(since="0.1.0", forRemoval=true)
-public class MemoryAccess {
+public final class MemoryAccess {
     @Deprecated(since="0.1.0", forRemoval=true)
     private static final Unsafe UNSAFE;
     @Deprecated(since="0.1.0", forRemoval=true)
@@ -57,6 +57,11 @@ public class MemoryAccess {
             throw new RuntimeException("Strange! , Couldn't obtain reference to sun.misc.unsafe ", e);
 
         }
+    }
+
+    @Deprecated(since="0.1.0", forRemoval=true)
+    private MemoryAccess() {
+        throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
 
     @Deprecated(since="0.1.0", forRemoval=true)
