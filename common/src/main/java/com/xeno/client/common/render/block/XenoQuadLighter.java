@@ -72,13 +72,13 @@ public final class XenoQuadLighter {
         int light3 = this.cache.getLightCoords(state3, level, pos);
         float shade3 = this.cache.getShadeBrightness(state3, level, pos);
         BlockState corner0 = level.getBlockState(pos.setWithOffset(basePosition, info.corners[0]).move(direction));
-        boolean translucent0 = !corner0.isViewBlocking(level, pos) || corner0.getLightDampening() == 0;
+        boolean translucent0 = corner0.isLightPermeable();
         BlockState corner1 = level.getBlockState(pos.setWithOffset(basePosition, info.corners[1]).move(direction));
-        boolean translucent1 = !corner1.isViewBlocking(level, pos) || corner1.getLightDampening() == 0;
+        boolean translucent1 = corner1.isLightPermeable();
         BlockState corner2 = level.getBlockState(pos.setWithOffset(basePosition, info.corners[2]).move(direction));
-        boolean translucent2 = !corner2.isViewBlocking(level, pos) || corner2.getLightDampening() == 0;
+        boolean translucent2 = corner2.isLightPermeable();
         BlockState corner3 = level.getBlockState(pos.setWithOffset(basePosition, info.corners[3]).move(direction));
-        boolean translucent3 = !corner3.isViewBlocking(level, pos) || corner3.getLightDampening() == 0;
+        boolean translucent3 = corner3.isLightPermeable();
         float shadeCorner02;
         int lightCorner02;
         if (!translucent2 && !translucent0) {
@@ -137,7 +137,7 @@ public final class XenoQuadLighter {
         float shadeCenter = this.faceCubic
             ? this.cache.getShadeBrightness(this.cache.getState(level, basePosition), level, basePosition)
             : this.cache.getShadeBrightness(this.cache.getState(level, centerPosition), level, centerPosition);
-        AmbientVertexRemap remap = AmbientVertexRemap.fromFacing(direction);
+        AmbientVertexRemapper remap = AmbientVertexRemapper.fromFacing(direction);
         if (this.facePartial && info.doNonCubicWeight) {
             float tempShade1 = (shade3 + shade0 + shadeCorner03 + shadeCenter) * 0.25F;
             float tempShade2 = (shade2 + shade0 + shadeCorner02 + shadeCenter) * 0.25F;
@@ -207,7 +207,7 @@ public final class XenoQuadLighter {
         }
 
         CardinalLighting cardinalLighting = level.cardinalLighting();
-        outputInstance.scaleColor(quad.materialInfo().shade() ? cardinalLighting.byFace(direction) : cardinalLighting.up());
+        outputInstance.scaleColor(getDirectionalBrightness(cardinalLighting, quad, direction));
     }
 
     public void prepareQuadFlat(
@@ -222,8 +222,12 @@ public final class XenoQuadLighter {
         }
 
         CardinalLighting cardinalLighting = level.cardinalLighting();
-        float directionalBrightness = quad.materialInfo().shade() ? cardinalLighting.byFace(quad.direction()) : cardinalLighting.up();
-        outputInstance.setColor(ARGB.gray(directionalBrightness));
+        outputInstance.setColor(ARGB.gray(getDirectionalBrightness(cardinalLighting, quad, quad.direction())));
+    }
+
+    private static float getDirectionalBrightness(CardinalLighting cardinalLighting, BakedQuad quad, Direction actualDirection) {
+        Direction shadeDirectionOverride = quad.materialInfo().shadeDirectionOverride();
+        return shadeDirectionOverride != null ? cardinalLighting.byFace(shadeDirectionOverride) : cardinalLighting.byFace(actualDirection);
     }
 
     private void prepareQuadShape(BlockAndTintGetter level, BlockState state, BlockPos pos, BakedQuad quad, boolean ambientOcclusion) {
@@ -589,7 +593,7 @@ public final class XenoQuadLighter {
         }
     }
 
-    private enum AmbientVertexRemap {
+    private enum AmbientVertexRemapper {
         DOWN(0, 1, 2, 3),
         UP(2, 3, 0, 1),
         NORTH(3, 0, 1, 2),
@@ -601,7 +605,7 @@ public final class XenoQuadLighter {
         private final int vert1;
         private final int vert2;
         private final int vert3;
-        private static final AmbientVertexRemap[] BY_FACING = Util.make(new AmbientVertexRemap[6], map -> {
+        private static final AmbientVertexRemapper[] BY_FACING = Util.make(new AmbientVertexRemapper[6], map -> {
             map[Direction.DOWN.get3DDataValue()] = DOWN;
             map[Direction.UP.get3DDataValue()] = UP;
             map[Direction.NORTH.get3DDataValue()] = NORTH;
@@ -610,14 +614,14 @@ public final class XenoQuadLighter {
             map[Direction.EAST.get3DDataValue()] = EAST;
         });
 
-        AmbientVertexRemap(int vert0, int vert1, int vert2, int vert3) {
+        AmbientVertexRemapper(int vert0, int vert1, int vert2, int vert3) {
             this.vert0 = vert0;
             this.vert1 = vert1;
             this.vert2 = vert2;
             this.vert3 = vert3;
         }
 
-        public static AmbientVertexRemap fromFacing(Direction direction) {
+        public static AmbientVertexRemapper fromFacing(Direction direction) {
             return BY_FACING[direction.get3DDataValue()];
         }
     }

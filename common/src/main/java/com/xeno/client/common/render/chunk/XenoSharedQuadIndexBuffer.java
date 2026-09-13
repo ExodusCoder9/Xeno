@@ -17,9 +17,9 @@
 
 package com.xeno.client.common.render.chunk;
 
-import com.mojang.blaze3d.IndexType;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.device.GpuDevice;
+import com.mojang.renderpearl.api.pipeline.IndexType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.xeno.client.common.memory.MemoryAccess;
 import java.nio.ByteBuffer;

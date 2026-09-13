@@ -17,8 +17,8 @@
 
 package com.xeno.client.mixin;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 import com.xeno.client.common.render.XenoRenderPipelines;
 import com.xeno.client.common.render.chunk.XenoVertexFormats;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
@@ -29,10 +29,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ChunkSectionLayer.class)
 public abstract class XenoChunkSectionLayerMixin {
-    @Inject(method = "pipeline", at = @At("HEAD"), cancellable = true)
-    private void xeno$overridePipeline(CallbackInfoReturnable<RenderPipeline> cir) {
+    @Inject(method = "pipeline(Z)Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;", at = @At("HEAD"), cancellable = true)
+    private void xeno$overridePipeline(boolean multiDraw, CallbackInfoReturnable<RenderPipeline> cir) {
         ChunkSectionLayer layer = (ChunkSectionLayer) (Object) this;
-        cir.setReturnValue(XenoRenderPipelines.getPipeline(layer, false));
+        cir.setReturnValue(XenoRenderPipelines.getPipeline(layer, false, multiDraw));
     }
 
     @Inject(method = "vertexFormat", at = @At("HEAD"), cancellable = true)

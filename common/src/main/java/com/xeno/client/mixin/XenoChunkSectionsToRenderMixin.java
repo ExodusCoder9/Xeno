@@ -17,21 +17,60 @@
 
 package com.xeno.client.mixin;
 
-import com.mojang.blaze3d.textures.GpuSampler;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.IndexType;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.textures.GpuSampler;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.xeno.client.common.render.XenoChunkRenderer;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import org.jspecify.annotations.Nullable;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
+import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(ChunkSectionsToRender.class)
 public abstract class XenoChunkSectionsToRenderMixin {
+	@Shadow @Final private int maxIndicesRequired;
+	@Shadow @Final private GpuBufferSlice terrainTransformUBO;
+
+	@Shadow
+	protected abstract void render(
+		final ChunkSectionLayer layer,
+		final RenderPass renderPass,
+		final @Nullable GpuBuffer defaultIndexBuffer,
+		final @Nullable IndexType defaultIndexType,
+		final @Nullable RenderPipeline renderPipelineOverride,
+		final @Nullable RenderPipeline renderPipelineOverrideMultidraw
+	);
+
 	/**
 	 * @author ExodusCoder9
-	 * @reason Route chunk draw call submission through the Xeno .
+	 * @reason Route chunk draw call submission through the Xeno chunk renderer.
 	 */
 	@Overwrite
-	public void renderGroup(ChunkSectionLayerGroup group, GpuSampler sampler) {
-		XenoChunkRenderer.INSTANCE.renderChunks((ChunkSectionsToRender) (Object) this, group, sampler);
+	public void renderGroup(
+		final ChunkSectionLayerGroup group,
+		final RenderPass renderPass,
+		final GpuSampler sampler,
+		final GpuTextureView atlas,
+		final boolean renderWireframeTerrain
+	) {
+		XenoChunkRenderer.INSTANCE.renderChunks(
+			(ChunkSectionsToRender) (Object) this,
+			group,
+			renderPass,
+			sampler,
+			atlas,
+			renderWireframeTerrain,
+			this.maxIndicesRequired,
+			this.terrainTransformUBO,
+			this::render
+		);
 	}
 }

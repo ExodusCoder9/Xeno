@@ -18,8 +18,8 @@
 package com.xeno.client.common.render.chunk;
 
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.VertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormatElement;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormatElement;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import net.minecraft.CrashReport;
 import net.minecraft.CrashReportCategory;

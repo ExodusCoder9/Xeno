@@ -17,8 +17,8 @@
 
 package com.xeno.client.common.render.chunk;
 
-import com.mojang.blaze3d.GpuFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 public final class XenoVertexFormats {
     public static final int TERRAIN_VERTEX_SIZE = 20;

@@ -134,7 +134,17 @@ public final class XenoVideoSettingsScreen extends Screen {
                 "Advanced"
         };
         for (int i = 0; i < tabNames.length; i++) {
-            XenoTab tab = new XenoTab(0, tabY, 110, 20, Component.literal(tabNames[i]), this.currentTab == i, _ -> {}) {
+            final int tabIndex = i;
+            XenoTab tab = new XenoTab(0, tabY, 110, 20, Component.literal(tabNames[i]), this.currentTab == i, _ -> {
+                if (this.currentTab != tabIndex) {
+                    this.currentTab = tabIndex;
+                    this.scrollOffset = 0;
+                    if (this.scroller != null) {
+                        this.scroller.setScrollAmount(0);
+                    }
+                    this.rebuildWidgets();
+                }
+            }) {
                 @Override
                 protected void extractContents(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
                     int x = this.getX();
@@ -1001,7 +1011,7 @@ public final class XenoVideoSettingsScreen extends Screen {
         double mx = event.x();
         double my = event.y();
 
-        if (event.button() == 0) {
+        if (event.button() == 1 || event.button() == 0) {
             if (mx >= 0 && mx <= 110) {
                 for (int i = 0; i < this.tabs.size(); i++) {
                     int minY = 40 + i * 24;
@@ -1025,7 +1035,7 @@ public final class XenoVideoSettingsScreen extends Screen {
             if (mx >= this.width - 16 && mx <= this.width && my >= 40 && my <= this.height - 35) {
                 if (this.scroller.mouseClicked(event, doubleClick)) {
                     this.setFocused(this.scroller);
-                    if (event.button() == 0) {
+                    if (event.button() == 1 || event.button() == 0) {
                         this.setDragging(true);
                     }
                     return true;

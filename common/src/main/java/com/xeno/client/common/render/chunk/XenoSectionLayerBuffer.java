@@ -17,13 +17,13 @@
 
 package com.xeno.client.common.render.chunk;
 
-import com.mojang.blaze3d.IndexType;
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.pipeline.IndexType;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 import com.xeno.client.common.memory.MemoryAccess;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
@@ -195,6 +195,11 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
 
     @Override
     public @NonNull VertexConsumer setUv2(int u, int v) {
+        return this;
+    }
+
+    @Override
+    public @NonNull VertexConsumer setUv3(float u, float v) {
         return this;
     }
 

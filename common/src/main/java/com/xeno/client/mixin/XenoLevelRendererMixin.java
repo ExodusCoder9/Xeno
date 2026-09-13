@@ -17,6 +17,7 @@
 
 package com.xeno.client.mixin;
 
+import com.mojang.renderpearl.api.device.HintsAndWorkarounds;
 import com.xeno.client.common.render.chunk.XenoSectionCompiler;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -29,6 +30,17 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(LevelRenderer.class)
 public abstract class XenoLevelRendererMixin {
+    @Redirect(
+        method = "<init>",
+        at = @At(
+            value = "INVOKE",
+            target = "Lcom/mojang/renderpearl/api/device/HintsAndWorkarounds;multiDrawIndirectHasKnownIssues()Z"
+        )
+    )
+    private boolean xeno$ignoreKnownIssues(HintsAndWorkarounds instance) {
+        return false;
+    }
+
     @Redirect(
         method = "invalidateCompiledGeometry",
         at = @At(value = "NEW", target = "Lnet/minecraft/client/renderer/chunk/SectionCompiler;")

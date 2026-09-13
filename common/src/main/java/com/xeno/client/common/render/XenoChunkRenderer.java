@@ -17,116 +17,79 @@
 
 package com.xeno.client.common.render;
 
-import com.mojang.blaze3d.IndexType;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuSampler;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.IndexType;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuSampler;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.xeno.client.common.render.chunk.XenoSharedQuadIndexBuffer;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectIterator;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.OptionalDouble;
-import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Owns the actual GPU draw-call submission for terrain.
- *<p>
- *
- * This class opens the render pass itself, binds its own textures/samplers and pipelines, and submits the section draws in
- * one drawMultipleIndexed batch per layer.
+ * Owns GPU draw-call submission for terrain in Xeno.
+ * Coordinates shared index buffers, bindings, and MultiDrawIndirect pipeline execution.
  */
 public final class XenoChunkRenderer {
-	public static final XenoChunkRenderer INSTANCE = new XenoChunkRenderer();
+    public static final XenoChunkRenderer INSTANCE = new XenoChunkRenderer();
+    public static final XenoSharedQuadIndexBuffer SHARED_INDEX_BUFFER = new XenoSharedQuadIndexBuffer();
 
-	private static final List<String> DYNAMIC_CHUNK_SECTION_UNIFORMS = List.of("ChunkSection");
+    @FunctionalInterface
+    public interface RenderInvoker {
+        void render(
+            ChunkSectionLayer layer,
+            RenderPass renderPass,
+            @Nullable GpuBuffer defaultIndexBuffer,
+            @Nullable IndexType defaultIndexType,
+            @Nullable RenderPipeline renderPipelineOverride,
+            @Nullable RenderPipeline renderPipelineOverrideMultidraw
+        );
+    }
 
-	public static final XenoSharedQuadIndexBuffer SHARED_INDEX_BUFFER = new XenoSharedQuadIndexBuffer();
+    private XenoChunkRenderer() {
+    }
 
-	private XenoChunkRenderer() {
-	}
+    /**
+     * Submits terrain draws for the given layer group to the active render pass.
+     */
+    public void renderChunks(
+        ChunkSectionsToRender chunkRenders,
+        ChunkSectionLayerGroup group,
+        RenderPass renderPass,
+        GpuSampler sampler,
+        GpuTextureView atlas,
+        boolean renderWireframeTerrain,
+        int maxIndicesRequired,
+        GpuBufferSlice terrainTransformUBO,
+        RenderInvoker renderInvoker
+    ) {
+        GameRenderer gameRenderer = Minecraft.getInstance().gameRenderer;
+        GpuTextureView lightmap = gameRenderer.lightmap();
 
-	private final List<RenderPass.Draw<GpuBufferSlice[]>> layerDrawsScratch = new ArrayList<>();
+        SHARED_INDEX_BUFFER.ensureCapacity(maxIndicesRequired);
+        GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || !SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
+            ? null
+            : SHARED_INDEX_BUFFER.buffer();
+        IndexType defaultIndexType = defaultIndexBuffer == null ? null : SHARED_INDEX_BUFFER.type();
 
-	/**
-	 * Submits every draw in chunkRenders for the given layer group directly to the GPU.
-	 * Must be called on the render thread. We get the render target  from the layer group the
-	 * same way vanilla does (main framebuffer for opaque layers, the translucent target otherwise),
-	 * so the depth/color attachments already contain everything the pass needs.
-	 */
-	public void renderChunks(ChunkSectionsToRender chunkRenders, ChunkSectionLayerGroup group, GpuSampler sampler) {
-		GpuTextureView blockAtlas = chunkRenders.textureView();
-		int maxIndicesRequired = chunkRenders.maxIndicesRequired();
+        renderPass.setUniform("TerrainUniform", terrainTransformUBO);
+        renderPass.setUniform("Sampler0", atlas, sampler);
+        renderPass.setUniform("Sampler2", lightmap, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
 
-		XenoSharedQuadIndexBuffer sharedIndices = SHARED_INDEX_BUFFER;
-		sharedIndices.ensureCapacity(maxIndicesRequired);
-		GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || !sharedIndices.hasCapacity(maxIndicesRequired)
-			? null
-			: sharedIndices.buffer();
-		IndexType defaultIndexType = defaultIndexBuffer == null ? null : sharedIndices.type();
-
-		ChunkSectionLayer[] layers = group.layers();
-		Minecraft minecraft = Minecraft.getInstance();
-		boolean wireframe = SharedConstants.DEBUG_HOTKEYS && minecraft.wireframe;
-		RenderTarget renderTarget = group.outputTarget();
-		GpuTextureView colorView = renderTarget.getColorTextureView();
-		GpuTextureView depthView = renderTarget.getDepthTextureView();
-		if (colorView == null || depthView == null) {
-			throw new IllegalStateException("Render target " + renderTarget + " has no color/depth attachments");
-		}
-
-		try (RenderPass renderPass = RenderSystem.getDevice()
-			.createCommandEncoder()
-			.createRenderPass(
-				() -> "Xeno section layers for " + group.label(),
-				colorView,
-				Optional.empty(),
-				depthView,
-				OptionalDouble.empty()
-			)) {
-			RenderSystem.bindDefaultUniforms(renderPass);
-			renderPass.bindTexture("Sampler0", blockAtlas, sampler);
-			renderPass.bindTexture("Sampler2", minecraft.gameRenderer.lightmap(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
-
-			GpuBufferSlice[] chunkSectionInfos = chunkRenders.chunkSectionInfos();
-			for (ChunkSectionLayer layer : layers) {
-				renderPass.setPipeline(XenoRenderPipelines.getPipeline(layer, wireframe));
-				Int2ObjectOpenHashMap<List<RenderPass.Draw<GpuBufferSlice[]>>> drawGroup = chunkRenders.drawGroupsPerLayer().get(layer);
-				if (drawGroup == null) {
-					continue;
-				}
-
-				this.layerDrawsScratch.clear();
-				ObjectIterator<List<RenderPass.Draw<GpuBufferSlice[]>>> iterator = drawGroup.values().iterator();
-				while (iterator.hasNext()) {
-					List<RenderPass.Draw<GpuBufferSlice[]>> draws = iterator.next();
-					if (draws.isEmpty()) {
-						continue;
-					}
-
-					if (layer == ChunkSectionLayer.TRANSLUCENT) {
-						for (int i = draws.size() - 1; i >= 0; i--) {
-							this.layerDrawsScratch.add(draws.get(i));
-						}
-					} else {
-						this.layerDrawsScratch.addAll(draws);
-					}
-				}
-
-				if (!this.layerDrawsScratch.isEmpty()) {
-					renderPass.drawMultipleIndexed(this.layerDrawsScratch, defaultIndexBuffer, defaultIndexType, DYNAMIC_CHUNK_SECTION_UNIFORMS, chunkSectionInfos);
-				}
-			}
-		}
-	}
+        for (ChunkSectionLayer layer : group.layers()) {
+            renderPass.pushDebugGroup(() -> "Xeno terrain layer: " + layer.label());
+            RenderPipeline normalPipeline = XenoRenderPipelines.getPipeline(layer, renderWireframeTerrain, false);
+            RenderPipeline multiDrawPipeline = XenoRenderPipelines.getPipeline(layer, renderWireframeTerrain, true);
+            renderInvoker.render(layer, renderPass, defaultIndexBuffer, defaultIndexType, normalPipeline, multiDrawPipeline);
+            renderPass.popDebugGroup();
+        }
+    }
 }

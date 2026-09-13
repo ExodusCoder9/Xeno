@@ -142,7 +142,7 @@ public final class XenoScroller extends AbstractContainerEventHandler implements
 
     @Override
     public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
-        if (event.buttonInfo().button() != 0) {
+        if (event.buttonInfo().button() != 1 && event.buttonInfo().button() != 0) {
             return false;
         }
 
@@ -168,7 +168,7 @@ public final class XenoScroller extends AbstractContainerEventHandler implements
 
     @Override
     public boolean mouseDragged(final @NonNull MouseButtonEvent event, final double dx, final double dy) {
-        if (!this.dragging || event.buttonInfo().button() != 0) {
+        if (!this.dragging || (event.buttonInfo().button() != 1 && event.buttonInfo().button() != 0)) {
             return false;
         }
 
@@ -185,7 +185,7 @@ public final class XenoScroller extends AbstractContainerEventHandler implements
 
     @Override
     public boolean mouseReleased(final MouseButtonEvent event) {
-        if (event.buttonInfo().button() == 0) {
+        if (event.buttonInfo().button() == 1 || event.buttonInfo().button() == 0) {
             this.dragging = false;
             return true;
         }

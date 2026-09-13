@@ -22,9 +22,9 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Predicate;
 import net.minecraft.client.renderer.ShaderManager;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackResources;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,20 +34,23 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(ShaderManager.class)
 public abstract class XenoShaderManagerMixin {
     @Redirect(
-        method = "prepare(Lnet/minecraft/server/packs/resources/ResourceManager;Lnet/minecraft/util/profiling/ProfilerFiller;)Lnet/minecraft/client/renderer/ShaderManager$Configs;",
+        method = "loadConfigs(Lnet/minecraft/server/packs/resources/ResourceManager;)Lnet/minecraft/client/renderer/ShaderManager$Configs;",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/server/packs/resources/ResourceManager;listResources(Ljava/lang/String;Ljava/util/function/Predicate;)Ljava/util/Map;"
+            target = "Lnet/minecraft/server/packs/resources/ResourceManager;listResources(Ljava/lang/String;Lnet/minecraft/server/packs/resources/ResourceManager$Selector;)Ljava/util/Map;"
         )
     )
-    private Map<Identifier, Resource> xeno$injectXenoShaders(
-        ResourceManager manager, String directory, Predicate<Identifier> filter
+    private static Map<Identifier, Resource> xeno$injectXenoShaders(
+        ResourceManager manager, String directory, ResourceManager.Selector selector
     ) {
-        Map<Identifier, Resource> files = manager.listResources(directory, filter);
+        Map<Identifier, Resource> files = manager.listResources(directory, selector);
         Identifier terrainVsh = Identifier.fromNamespaceAndPath("xeno", "shaders/core/terrain.vsh");
         if (!files.containsKey(terrainVsh)) {
             Map<Identifier, Resource> mutableFiles = new HashMap<>(files);
-            mutableFiles.put(terrainVsh, new Resource(null, () -> {
+            PackResources defaultPack = manager.getResource(Identifier.withDefaultNamespace("shaders/core/terrain.vsh"))
+                .map(Resource::source)
+                .orElse(null);
+            mutableFiles.put(terrainVsh, new Resource(defaultPack, () -> {
                 InputStream is = XenoSectionCompiler.class.getResourceAsStream("/assets/xeno/shaders/core/terrain.vsh");
                 if (is == null) {
                     throw new FileNotFoundException("Could not find xeno terrain shader in classpath: /assets/xeno/shaders/core/terrain.vsh");

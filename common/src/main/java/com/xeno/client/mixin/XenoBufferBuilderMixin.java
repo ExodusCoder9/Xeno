@@ -20,9 +20,9 @@ package com.xeno.client.mixin;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
-import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 import com.xeno.client.common.memory.MemoryAccess;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
@@ -49,7 +49,7 @@ public abstract class XenoBufferBuilderMixin implements VertexConsumer {
     @Unique
     private boolean xeno$positionColorTexLightmapFormat;
 
-    @Inject(method = "<init>(Lcom/mojang/blaze3d/vertex/ByteBufferBuilder;Lcom/mojang/blaze3d/PrimitiveTopology;Lcom/mojang/blaze3d/vertex/VertexFormat;)V", at = @At("RETURN"))
+    @Inject(method = "<init>(Lcom/mojang/blaze3d/vertex/ByteBufferBuilder;Lcom/mojang/renderpearl/api/pipeline/PrimitiveTopology;Lcom/mojang/renderpearl/api/vertex/VertexFormat;)V", at = @At("RETURN"))
     private void onInit(ByteBufferBuilder buffer, PrimitiveTopology primitiveTopology, VertexFormat format, CallbackInfo ci) {
         this.xeno$particleFormat = (format == DefaultVertexFormat.PARTICLE);
         this.xeno$positionColorTexLightmapFormat = (format == DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP);
@@ -57,7 +57,7 @@ public abstract class XenoBufferBuilderMixin implements VertexConsumer {
 
     /**
      * @author ExodusCoder9
-     * @reason Use MemoryAcess to optimize BufferBuilder
+     * @reason Use MemoryAccess to optimize BufferBuilder
      */
     @Overwrite
     public void addVertex(

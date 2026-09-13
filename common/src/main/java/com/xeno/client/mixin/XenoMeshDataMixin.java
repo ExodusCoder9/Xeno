@@ -19,8 +19,8 @@ package com.xeno.client.mixin;
 
 import com.mojang.blaze3d.vertex.CompactVectorArray;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.VertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormatElement;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormatElement;
 import com.xeno.client.common.memory.MemoryAccess;
 import com.xeno.client.common.render.chunk.XenoVertexEncoder;
 import java.nio.ByteBuffer;
