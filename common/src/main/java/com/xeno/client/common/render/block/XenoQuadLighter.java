@@ -17,7 +17,10 @@
 
 package com.xeno.client.common.render.block;
 
+import org.joml.Vector3fc;
+
 import com.mojang.blaze3d.vertex.QuadInstance;
+
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
@@ -25,22 +28,41 @@ import net.minecraft.core.BlockPos.MutableBlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.LightCoordsUtil;
-import net.minecraft.util.Util;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.CardinalLighting;
 import net.minecraft.world.level.block.state.BlockState;
-import org.joml.Vector3fc;
 
 public final class XenoQuadLighter {
     public static final int CHECK_LIGHT = -1;
-
+    private static final float EPSILON = 1.0E-4F;
     private final XenoLightDataCache cache;
     private final MutableBlockPos scratchPos = new MutableBlockPos();
-    private boolean faceCubic;
-    private boolean facePartial;
-    private final float[] faceShape = new float[SizeInformation.COUNT];
+    private final MutableBlockPos baseScratchPos = new MutableBlockPos();
+    private final MutableBlockPos neighborScratchPos = new MutableBlockPos();
+    private final MutableBlockPos sideAPos = new MutableBlockPos();
+    private final MutableBlockPos sideBPos = new MutableBlockPos();
+    private final MutableBlockPos cornerDiagPos = new MutableBlockPos();
+    private final MutableBlockPos permScratchPos = new MutableBlockPos();
+    private final FaceData[] cubicFaceCache = new FaceData[6];
+    private final FaceData nonCubicFace = new FaceData();
+    private long cachedBlockPos = Long.MIN_VALUE;
 
     public XenoQuadLighter(XenoLightDataCache cache) {
         this.cache = cache;
+        for (int i = 0; i < 6; i++) {
+            this.cubicFaceCache[i] = new FaceData();
+        }
+    }
+
+    public void resetForBlock(BlockPos pos) {
+        long packed = pos.asLong();
+        if (this.cachedBlockPos != packed) {
+            this.cachedBlockPos = packed;
+            for (int i = 0; i < 6; i++) {
+                this.cubicFaceCache[i].computed = false;
+            }
+            this.nonCubicFace.computed = false;
+        }
     }
 
     public int getLightCoords(BlockState state, BlockAndTintGetter level, BlockPos relativePos) {
@@ -50,160 +72,78 @@ public final class XenoQuadLighter {
     public void prepareQuadAmbientOcclusion(
         BlockAndTintGetter level, BlockState state, BlockPos centerPosition, BakedQuad quad, QuadInstance outputInstance
     ) {
-        this.prepareQuadShape(level, state, centerPosition, quad, true);
         Direction direction = quad.direction();
-        BlockPos basePosition = this.faceCubic ? centerPosition.relative(direction) : centerPosition;
-        AdjacencyInfo info = AdjacencyInfo.fromFacing(direction);
-        MutableBlockPos pos = this.scratchPos;
-        pos.setWithOffset(basePosition, info.corners[0]);
-        BlockState state0 = this.cache.getState(level, pos);
-        int light0 = this.cache.getLightCoords(state0, level, pos);
-        float shade0 = this.cache.getShadeBrightness(state0, level, pos);
-        pos.setWithOffset(basePosition, info.corners[1]);
-        BlockState state1 = this.cache.getState(level, pos);
-        int light1 = this.cache.getLightCoords(state1, level, pos);
-        float shade1 = this.cache.getShadeBrightness(state1, level, pos);
-        pos.setWithOffset(basePosition, info.corners[2]);
-        BlockState state2 = this.cache.getState(level, pos);
-        int light2 = this.cache.getLightCoords(state2, level, pos);
-        float shade2 = this.cache.getShadeBrightness(state2, level, pos);
-        pos.setWithOffset(basePosition, info.corners[3]);
-        BlockState state3 = this.cache.getState(level, pos);
-        int light3 = this.cache.getLightCoords(state3, level, pos);
-        float shade3 = this.cache.getShadeBrightness(state3, level, pos);
-        BlockState corner0 = level.getBlockState(pos.setWithOffset(basePosition, info.corners[0]).move(direction));
-        boolean translucent0 = corner0.isLightPermeable();
-        BlockState corner1 = level.getBlockState(pos.setWithOffset(basePosition, info.corners[1]).move(direction));
-        boolean translucent1 = corner1.isLightPermeable();
-        BlockState corner2 = level.getBlockState(pos.setWithOffset(basePosition, info.corners[2]).move(direction));
-        boolean translucent2 = corner2.isLightPermeable();
-        BlockState corner3 = level.getBlockState(pos.setWithOffset(basePosition, info.corners[3]).move(direction));
-        boolean translucent3 = corner3.isLightPermeable();
-        float shadeCorner02;
-        int lightCorner02;
-        if (!translucent2 && !translucent0) {
-            shadeCorner02 = shade0;
-            lightCorner02 = light0;
-        } else {
-            pos.setWithOffset(basePosition, info.corners[0]).move(info.corners[2]);
-            BlockState state02 = this.cache.getState(level, pos);
-            shadeCorner02 = this.cache.getShadeBrightness(state02, level, pos);
-            lightCorner02 = this.cache.getLightCoords(state02, level, pos);
+        int faceIndex = direction.get3DDataValue();
+
+        float minX = 32.0F, minY = 32.0F, minZ = 32.0F;
+        float maxX = -32.0F, maxY = -32.0F, maxZ = -32.0F;
+        float minU = 1.0F, minV = 1.0F;
+        float maxU = 0.0F, maxV = 0.0F;
+        float[] vertexU = new float[4];
+        float[] vertexV = new float[4];
+
+        for (int i = 0; i < 4; i++) {
+            Vector3fc pos = quad.position(i);
+            float px = pos.x();
+            float py = pos.y();
+            float pz = pos.z();
+            minX = Math.min(minX, px);
+            minY = Math.min(minY, py);
+            minZ = Math.min(minZ, pz);
+            maxX = Math.max(maxX, px);
+            maxY = Math.max(maxY, py);
+            maxZ = Math.max(maxZ, pz);
+
+            float u = projectU(direction, px, py, pz);
+            float v = projectV(direction, px, py, pz);
+            vertexU[i] = u;
+            vertexV[i] = v;
+            minU = Math.min(minU, u);
+            minV = Math.min(minV, v);
+            maxU = Math.max(maxU, u);
+            maxV = Math.max(maxV, v);
         }
 
-        float shadeCorner03;
-        int lightCorner03;
-        if (!translucent3 && !translucent0) {
-            shadeCorner03 = shade0;
-            lightCorner03 = light0;
+        boolean cubic = isFaceCubic(level, state, centerPosition, direction, minX, minY, minZ, maxX, maxY, maxZ);
+        FaceData face;
+        if (cubic) {
+            face = this.cubicFaceCache[faceIndex];
+            if (!face.computed) {
+                this.computeFaceLighting(level, state, centerPosition, direction, true, face);
+                face.computed = true;
+            }
         } else {
-            pos.setWithOffset(basePosition, info.corners[0]).move(info.corners[3]);
-            BlockState state03 = this.cache.getState(level, pos);
-            shadeCorner03 = this.cache.getShadeBrightness(state03, level, pos);
-            lightCorner03 = this.cache.getLightCoords(state03, level, pos);
+            face = this.nonCubicFace;
+            this.computeFaceLighting(level, state, centerPosition, direction, false, face);
         }
 
-        float shadeCorner12;
-        int lightCorner12;
-        if (!translucent2 && !translucent1) {
-            shadeCorner12 = shade0;
-            lightCorner12 = light0;
-        } else {
-            pos.setWithOffset(basePosition, info.corners[1]).move(info.corners[2]);
-            BlockState state12 = this.cache.getState(level, pos);
-            shadeCorner12 = this.cache.getShadeBrightness(state12, level, pos);
-            lightCorner12 = this.cache.getLightCoords(state12, level, pos);
-        }
+        boolean isFullAligned = minU <= EPSILON && minV <= EPSILON && maxU >= 1.0F - EPSILON && maxV >= 1.0F - EPSILON;
 
-        float shadeCorner13;
-        int lightCorner13;
-        if (!translucent3 && !translucent1) {
-            shadeCorner13 = shade0;
-            lightCorner13 = light0;
+        if (isFullAligned) {
+            for (int i = 0; i < 4; i++) {
+                int cornerIndex = (vertexU[i] > 0.5F ? 2 : 0) | (vertexV[i] > 0.5F ? 1 : 0);
+                outputInstance.setColor(i, ARGB.gray(face.shades[cornerIndex]));
+                outputInstance.setLightCoords(i, face.lightCoords[cornerIndex]);
+            }
         } else {
-            pos.setWithOffset(basePosition, info.corners[1]).move(info.corners[3]);
-            BlockState state13 = this.cache.getState(level, pos);
-            shadeCorner13 = this.cache.getShadeBrightness(state13, level, pos);
-            lightCorner13 = this.cache.getLightCoords(state13, level, pos);
-        }
+            for (int i = 0; i < 4; i++) {
+                float u = Mth.clamp(vertexU[i], 0.0F, 1.0F);
+                float v = Mth.clamp(vertexV[i], 0.0F, 1.0F);
 
-        int lightCenter = this.cache.getLightCoords(state, level, centerPosition);
-        pos.setWithOffset(centerPosition, direction);
-        BlockState nextState = this.cache.getState(level, pos);
-        if (this.faceCubic || !nextState.isSolidRender()) {
-            lightCenter = this.cache.getLightCoords(nextState, level, pos);
-        }
+                float w00 = (1.0F - u) * (1.0F - v);
+                float w01 = (1.0F - u) * v;
+                float w11 = u * v;
+                float w10 = u * (1.0F - v);
 
-        float shadeCenter = this.faceCubic
-            ? this.cache.getShadeBrightness(this.cache.getState(level, basePosition), level, basePosition)
-            : this.cache.getShadeBrightness(this.cache.getState(level, centerPosition), level, centerPosition);
-        AmbientVertexRemapper remap = AmbientVertexRemapper.fromFacing(direction);
-        if (this.facePartial && info.doNonCubicWeight) {
-            float tempShade1 = (shade3 + shade0 + shadeCorner03 + shadeCenter) * 0.25F;
-            float tempShade2 = (shade2 + shade0 + shadeCorner02 + shadeCenter) * 0.25F;
-            float tempShade3 = (shade2 + shade1 + shadeCorner12 + shadeCenter) * 0.25F;
-            float tempShade4 = (shade3 + shade1 + shadeCorner13 + shadeCenter) * 0.25F;
-            float vert0weight01 = this.faceShape[info.vert0Weights[0].index] * this.faceShape[info.vert0Weights[1].index];
-            float vert0weight23 = this.faceShape[info.vert0Weights[2].index] * this.faceShape[info.vert0Weights[3].index];
-            float vert0weight45 = this.faceShape[info.vert0Weights[4].index] * this.faceShape[info.vert0Weights[5].index];
-            float vert0weight67 = this.faceShape[info.vert0Weights[6].index] * this.faceShape[info.vert0Weights[7].index];
-            float vert1weight01 = this.faceShape[info.vert1Weights[0].index] * this.faceShape[info.vert1Weights[1].index];
-            float vert1weight23 = this.faceShape[info.vert1Weights[2].index] * this.faceShape[info.vert1Weights[3].index];
-            float vert1weight45 = this.faceShape[info.vert1Weights[4].index] * this.faceShape[info.vert1Weights[5].index];
-            float vert1weight67 = this.faceShape[info.vert1Weights[6].index] * this.faceShape[info.vert1Weights[7].index];
-            float vert2weight01 = this.faceShape[info.vert2Weights[0].index] * this.faceShape[info.vert2Weights[1].index];
-            float vert2weight23 = this.faceShape[info.vert2Weights[2].index] * this.faceShape[info.vert2Weights[3].index];
-            float vert2weight45 = this.faceShape[info.vert2Weights[4].index] * this.faceShape[info.vert2Weights[5].index];
-            float vert2weight67 = this.faceShape[info.vert2Weights[6].index] * this.faceShape[info.vert2Weights[7].index];
-            float vert3weight01 = this.faceShape[info.vert3Weights[0].index] * this.faceShape[info.vert3Weights[1].index];
-            float vert3weight23 = this.faceShape[info.vert3Weights[2].index] * this.faceShape[info.vert3Weights[3].index];
-            float vert3weight45 = this.faceShape[info.vert3Weights[4].index] * this.faceShape[info.vert3Weights[5].index];
-            float vert3weight67 = this.faceShape[info.vert3Weights[6].index] * this.faceShape[info.vert3Weights[7].index];
-            outputInstance.setColor(
-                remap.vert0,
-                ARGB.gray(Math.clamp(tempShade1 * vert0weight01 + tempShade2 * vert0weight23 + tempShade3 * vert0weight45 + tempShade4 * vert0weight67, 0.0F, 1.0F))
-            );
-            outputInstance.setColor(
-                remap.vert1,
-                ARGB.gray(Math.clamp(tempShade1 * vert1weight01 + tempShade2 * vert1weight23 + tempShade3 * vert1weight45 + tempShade4 * vert1weight67, 0.0F, 1.0F))
-            );
-            outputInstance.setColor(
-                remap.vert2,
-                ARGB.gray(Math.clamp(tempShade1 * vert2weight01 + tempShade2 * vert2weight23 + tempShade3 * vert2weight45 + tempShade4 * vert2weight67, 0.0F, 1.0F))
-            );
-            outputInstance.setColor(
-                remap.vert3,
-                ARGB.gray(Math.clamp(tempShade1 * vert3weight01 + tempShade2 * vert3weight23 + tempShade3 * vert3weight45 + tempShade4 * vert3weight67, 0.0F, 1.0F))
-            );
-            int tc1 = LightCoordsUtil.smoothBlend(light3, light0, lightCorner03, lightCenter);
-            int tc2 = LightCoordsUtil.smoothBlend(light2, light0, lightCorner02, lightCenter);
-            int tc3 = LightCoordsUtil.smoothBlend(light2, light1, lightCorner12, lightCenter);
-            int tc4 = LightCoordsUtil.smoothBlend(light3, light1, lightCorner13, lightCenter);
-            outputInstance.setLightCoords(
-                remap.vert0, LightCoordsUtil.smoothWeightedBlend(tc1, tc2, tc3, tc4, vert0weight01, vert0weight23, vert0weight45, vert0weight67)
-            );
-            outputInstance.setLightCoords(
-                remap.vert1, LightCoordsUtil.smoothWeightedBlend(tc1, tc2, tc3, tc4, vert1weight01, vert1weight23, vert1weight45, vert1weight67)
-            );
-            outputInstance.setLightCoords(
-                remap.vert2, LightCoordsUtil.smoothWeightedBlend(tc1, tc2, tc3, tc4, vert2weight01, vert2weight23, vert2weight45, vert2weight67)
-            );
-            outputInstance.setLightCoords(
-                remap.vert3, LightCoordsUtil.smoothWeightedBlend(tc1, tc2, tc3, tc4, vert3weight01, vert3weight23, vert3weight45, vert3weight67)
-            );
-        } else {
-            float lightLevel1 = (shade3 + shade0 + shadeCorner03 + shadeCenter) * 0.25F;
-            float lightLevel2 = (shade2 + shade0 + shadeCorner02 + shadeCenter) * 0.25F;
-            float lightLevel3 = (shade2 + shade1 + shadeCorner12 + shadeCenter) * 0.25F;
-            float lightLevel4 = (shade3 + shade1 + shadeCorner13 + shadeCenter) * 0.25F;
-            outputInstance.setLightCoords(remap.vert0, LightCoordsUtil.smoothBlend(light3, light0, lightCorner03, lightCenter));
-            outputInstance.setLightCoords(remap.vert1, LightCoordsUtil.smoothBlend(light2, light0, lightCorner02, lightCenter));
-            outputInstance.setLightCoords(remap.vert2, LightCoordsUtil.smoothBlend(light2, light1, lightCorner12, lightCenter));
-            outputInstance.setLightCoords(remap.vert3, LightCoordsUtil.smoothBlend(light3, light1, lightCorner13, lightCenter));
-            outputInstance.setColor(remap.vert0, ARGB.gray(lightLevel1));
-            outputInstance.setColor(remap.vert1, ARGB.gray(lightLevel2));
-            outputInstance.setColor(remap.vert2, ARGB.gray(lightLevel3));
-            outputInstance.setColor(remap.vert3, ARGB.gray(lightLevel4));
+                float shade = w00 * face.shades[0] + w01 * face.shades[1] + w11 * face.shades[3] + w10 * face.shades[2];
+                int light = LightCoordsUtil.smoothWeightedBlend(
+                    face.lightCoords[0], face.lightCoords[1], face.lightCoords[3], face.lightCoords[2],
+                    w00, w01, w11, w10
+                );
+
+                outputInstance.setColor(i, ARGB.gray(Mth.clamp(shade, 0.0F, 1.0F)));
+                outputInstance.setLightCoords(i, light);
+            }
         }
 
         CardinalLighting cardinalLighting = level.cardinalLighting();
@@ -214,8 +154,20 @@ public final class XenoQuadLighter {
         BlockAndTintGetter level, BlockState state, BlockPos pos, int lightCoords, BakedQuad quad, QuadInstance outputInstance
     ) {
         if (lightCoords == CHECK_LIGHT) {
-            this.prepareQuadShape(level, state, pos, quad, false);
-            BlockPos lightPos = this.faceCubic ? this.scratchPos.setWithOffset(pos, quad.direction()) : pos;
+            Direction direction = quad.direction();
+            float minX = 32.0F, minY = 32.0F, minZ = 32.0F;
+            float maxX = -32.0F, maxY = -32.0F, maxZ = -32.0F;
+            for (int i = 0; i < 4; i++) {
+                Vector3fc p = quad.position(i);
+                minX = Math.min(minX, p.x());
+                minY = Math.min(minY, p.y());
+                minZ = Math.min(minZ, p.z());
+                maxX = Math.max(maxX, p.x());
+                maxY = Math.max(maxY, p.y());
+                maxZ = Math.max(maxZ, p.z());
+            }
+            boolean cubic = isFaceCubic(level, state, pos, direction, minX, minY, minZ, maxX, maxY, maxZ);
+            BlockPos lightPos = cubic ? this.scratchPos.setWithOffset(pos, direction) : pos;
             outputInstance.setLightCoords(this.cache.getLightCoords(state, level, lightPos));
         } else {
             outputInstance.setLightCoords(lightCoords);
@@ -225,426 +177,124 @@ public final class XenoQuadLighter {
         outputInstance.setColor(ARGB.gray(getDirectionalBrightness(cardinalLighting, quad, quad.direction())));
     }
 
+    private static boolean isFaceCubic(
+        BlockAndTintGetter level, BlockState state, BlockPos pos, Direction direction,
+        float minX, float minY, float minZ, float maxX, float maxY, float maxZ
+    ) {
+        return switch (direction) {
+            case DOWN -> minY == maxY && (minY < EPSILON || state.isCollisionShapeFullBlock(level, pos));
+            case UP -> minY == maxY && (maxY > 1.0F - EPSILON || state.isCollisionShapeFullBlock(level, pos));
+            case NORTH -> minZ == maxZ && (minZ < EPSILON || state.isCollisionShapeFullBlock(level, pos));
+            case SOUTH -> minZ == maxZ && (maxZ > 1.0F - EPSILON || state.isCollisionShapeFullBlock(level, pos));
+            case WEST -> minX == maxX && (minX < EPSILON || state.isCollisionShapeFullBlock(level, pos));
+            case EAST -> minX == maxX && (maxX > 1.0F - EPSILON || state.isCollisionShapeFullBlock(level, pos));
+        };
+    }
+
     private static float getDirectionalBrightness(CardinalLighting cardinalLighting, BakedQuad quad, Direction actualDirection) {
         Direction shadeDirectionOverride = quad.materialInfo().shadeDirectionOverride();
         return shadeDirectionOverride != null ? cardinalLighting.byFace(shadeDirectionOverride) : cardinalLighting.byFace(actualDirection);
     }
 
-    private void prepareQuadShape(BlockAndTintGetter level, BlockState state, BlockPos pos, BakedQuad quad, boolean ambientOcclusion) {
-        float minX = 32.0F;
-        float minY = 32.0F;
-        float minZ = 32.0F;
-        float maxX = -32.0F;
-        float maxY = -32.0F;
-        float maxZ = -32.0F;
+    private void computeFaceLighting(
+        BlockAndTintGetter level, BlockState state, BlockPos centerPosition, Direction direction, boolean cubic, FaceData out
+    ) {
+        BlockPos basePosition = cubic ? this.baseScratchPos.setWithOffset(centerPosition, direction) : centerPosition;
+        Direction uDir = getFaceTangentU(direction);
+        Direction vDir = getFaceTangentV(direction);
 
-        for (int i = 0; i < 4; i++) {
-            Vector3fc position = quad.position(i);
-            float x = position.x();
-            float y = position.y();
-            float z = position.z();
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            minZ = Math.min(minZ, z);
-            maxX = Math.max(maxX, x);
-            maxY = Math.max(maxY, y);
-            maxZ = Math.max(maxZ, z);
+        BlockPos neighborPos = this.neighborScratchPos.setWithOffset(centerPosition, direction);
+        BlockState neighborState = this.cache.getState(level, neighborPos);
+
+        int centerLight = this.cache.getLightCoords(state, level, centerPosition);
+        if (cubic || !neighborState.isSolidRender()) {
+            centerLight = this.cache.getLightCoords(neighborState, level, neighborPos);
         }
 
-        if (ambientOcclusion) {
-            this.faceShape[SizeInformation.WEST.index] = minX;
-            this.faceShape[SizeInformation.EAST.index] = maxX;
-            this.faceShape[SizeInformation.DOWN.index] = minY;
-            this.faceShape[SizeInformation.UP.index] = maxY;
-            this.faceShape[SizeInformation.NORTH.index] = minZ;
-            this.faceShape[SizeInformation.SOUTH.index] = maxZ;
-            this.faceShape[SizeInformation.FLIP_WEST.index] = 1.0F - minX;
-            this.faceShape[SizeInformation.FLIP_EAST.index] = 1.0F - maxX;
-            this.faceShape[SizeInformation.FLIP_DOWN.index] = 1.0F - minY;
-            this.faceShape[SizeInformation.FLIP_UP.index] = 1.0F - maxY;
-            this.faceShape[SizeInformation.FLIP_NORTH.index] = 1.0F - minZ;
-            this.faceShape[SizeInformation.FLIP_SOUTH.index] = 1.0F - maxZ;
-        }
+        BlockState baseState = cubic ? neighborState : state;
+        float centerShade = this.cache.getShadeBrightness(baseState, level, basePosition);
 
-        this.facePartial = switch (quad.direction()) {
-            case DOWN, UP -> minX >= 1.0E-4F || minZ >= 1.0E-4F || maxX <= 0.9999F || maxZ <= 0.9999F;
-            case NORTH, SOUTH -> minX >= 1.0E-4F || minY >= 1.0E-4F || maxX <= 0.9999F || maxY <= 0.9999F;
-            case WEST, EAST -> minY >= 1.0E-4F || minZ >= 1.0E-4F || maxY <= 0.9999F || maxZ <= 0.9999F;
-            default -> throw new MatchException(null, null);
-        };
+        out.computeCorner(0, level, this.cache, basePosition, direction, uDir.getOpposite(), vDir.getOpposite(), centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
+        out.computeCorner(1, level, this.cache, basePosition, direction, uDir.getOpposite(), vDir, centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
+        out.computeCorner(2, level, this.cache, basePosition, direction, uDir, vDir.getOpposite(), centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
+        out.computeCorner(3, level, this.cache, basePosition, direction, uDir, vDir, centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
+    }
 
-        this.faceCubic = switch (quad.direction()) {
-            case DOWN -> minY == maxY && (minY < 1.0E-4F || state.isCollisionShapeFullBlock(level, pos));
-            case UP -> minY == maxY && (maxY > 0.9999F || state.isCollisionShapeFullBlock(level, pos));
-            case NORTH -> minZ == maxZ && (minZ < 1.0E-4F || state.isCollisionShapeFullBlock(level, pos));
-            case SOUTH -> minZ == maxZ && (maxZ > 0.9999F || state.isCollisionShapeFullBlock(level, pos));
-            case WEST -> minX == maxX && (minX < 1.0E-4F || state.isCollisionShapeFullBlock(level, pos));
-            case EAST -> minX == maxX && (maxX > 0.9999F || state.isCollisionShapeFullBlock(level, pos));
-            default -> throw new MatchException(null, null);
+    private static Direction getFaceTangentU(Direction face) {
+        return switch (face) {
+            case DOWN, UP, NORTH, SOUTH -> Direction.EAST;
+            case WEST, EAST -> Direction.SOUTH;
         };
     }
 
-    private enum AdjacencyInfo {
-        DOWN(
-            new Direction[]{Direction.WEST, Direction.EAST, Direction.NORTH, Direction.SOUTH},
-            0.5F,
-            true,
-            new SizeInformation[]{
-                SizeInformation.FLIP_WEST,
-                SizeInformation.SOUTH,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.WEST,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.WEST,
-                SizeInformation.SOUTH
-            },
-            new SizeInformation[]{
-                SizeInformation.FLIP_WEST,
-                SizeInformation.NORTH,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.WEST,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.WEST,
-                SizeInformation.NORTH
-            },
-            new SizeInformation[]{
-                SizeInformation.FLIP_EAST,
-                SizeInformation.NORTH,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.EAST,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.EAST,
-                SizeInformation.NORTH
-            },
-            new SizeInformation[]{
-                SizeInformation.FLIP_EAST,
-                SizeInformation.SOUTH,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.EAST,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.EAST,
-                SizeInformation.SOUTH
-            }
-        ),
-        UP(
-            new Direction[]{Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH},
-            1.0F,
-            true,
-            new SizeInformation[]{
-                SizeInformation.EAST,
-                SizeInformation.SOUTH,
-                SizeInformation.EAST,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.SOUTH
-            },
-            new SizeInformation[]{
-                SizeInformation.EAST,
-                SizeInformation.NORTH,
-                SizeInformation.EAST,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.NORTH
-            },
-            new SizeInformation[]{
-                SizeInformation.WEST,
-                SizeInformation.NORTH,
-                SizeInformation.WEST,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.NORTH
-            },
-            new SizeInformation[]{
-                SizeInformation.WEST,
-                SizeInformation.SOUTH,
-                SizeInformation.WEST,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.SOUTH
-            }
-        ),
-        NORTH(
-            new Direction[]{Direction.UP, Direction.DOWN, Direction.EAST, Direction.WEST},
-            0.8F,
-            true,
-            new SizeInformation[]{
-                SizeInformation.UP,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.UP,
-                SizeInformation.WEST,
-                SizeInformation.FLIP_UP,
-                SizeInformation.WEST,
-                SizeInformation.FLIP_UP,
-                SizeInformation.FLIP_WEST
-            },
-            new SizeInformation[]{
-                SizeInformation.UP,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.UP,
-                SizeInformation.EAST,
-                SizeInformation.FLIP_UP,
-                SizeInformation.EAST,
-                SizeInformation.FLIP_UP,
-                SizeInformation.FLIP_EAST
-            },
-            new SizeInformation[]{
-                SizeInformation.DOWN,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.DOWN,
-                SizeInformation.EAST,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.EAST,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.FLIP_EAST
-            },
-            new SizeInformation[]{
-                SizeInformation.DOWN,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.DOWN,
-                SizeInformation.WEST,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.WEST,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.FLIP_WEST
-            }
-        ),
-        SOUTH(
-            new Direction[]{Direction.WEST, Direction.EAST, Direction.DOWN, Direction.UP},
-            0.8F,
-            true,
-            new SizeInformation[]{
-                SizeInformation.UP,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.FLIP_UP,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.FLIP_UP,
-                SizeInformation.WEST,
-                SizeInformation.UP,
-                SizeInformation.WEST
-            },
-            new SizeInformation[]{
-                SizeInformation.DOWN,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.FLIP_WEST,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.WEST,
-                SizeInformation.DOWN,
-                SizeInformation.WEST
-            },
-            new SizeInformation[]{
-                SizeInformation.DOWN,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.EAST,
-                SizeInformation.DOWN,
-                SizeInformation.EAST
-            },
-            new SizeInformation[]{
-                SizeInformation.UP,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.FLIP_UP,
-                SizeInformation.FLIP_EAST,
-                SizeInformation.FLIP_UP,
-                SizeInformation.EAST,
-                SizeInformation.UP,
-                SizeInformation.EAST
-            }
-        ),
-        WEST(
-            new Direction[]{Direction.UP, Direction.DOWN, Direction.NORTH, Direction.SOUTH},
-            0.6F,
-            true,
-            new SizeInformation[]{
-                SizeInformation.UP,
-                SizeInformation.SOUTH,
-                SizeInformation.UP,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.FLIP_UP,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.FLIP_UP,
-                SizeInformation.SOUTH
-            },
-            new SizeInformation[]{
-                SizeInformation.UP,
-                SizeInformation.NORTH,
-                SizeInformation.UP,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.FLIP_UP,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.FLIP_UP,
-                SizeInformation.NORTH
-            },
-            new SizeInformation[]{
-                SizeInformation.DOWN,
-                SizeInformation.NORTH,
-                SizeInformation.DOWN,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.NORTH
-            },
-            new SizeInformation[]{
-                SizeInformation.DOWN,
-                SizeInformation.SOUTH,
-                SizeInformation.DOWN,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.SOUTH
-            }
-        ),
-        EAST(
-            new Direction[]{Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH},
-            0.6F,
-            true,
-            new SizeInformation[]{
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.SOUTH,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.DOWN,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.DOWN,
-                SizeInformation.SOUTH
-            },
-            new SizeInformation[]{
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.NORTH,
-                SizeInformation.FLIP_DOWN,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.DOWN,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.DOWN,
-                SizeInformation.NORTH
-            },
-            new SizeInformation[]{
-                SizeInformation.FLIP_UP,
-                SizeInformation.NORTH,
-                SizeInformation.FLIP_UP,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.UP,
-                SizeInformation.FLIP_NORTH,
-                SizeInformation.UP,
-                SizeInformation.NORTH
-            },
-            new SizeInformation[]{
-                SizeInformation.FLIP_UP,
-                SizeInformation.SOUTH,
-                SizeInformation.FLIP_UP,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.UP,
-                SizeInformation.FLIP_SOUTH,
-                SizeInformation.UP,
-                SizeInformation.SOUTH
-            }
-        );
+    private static Direction getFaceTangentV(Direction face) {
+        return switch (face) {
+            case DOWN, UP -> Direction.SOUTH;
+            case NORTH, SOUTH, WEST, EAST -> Direction.UP;
+        };
+    }
 
-        private final Direction[] corners;
-        private final boolean doNonCubicWeight;
-        private final SizeInformation[] vert0Weights;
-        private final SizeInformation[] vert1Weights;
-        private final SizeInformation[] vert2Weights;
-        private final SizeInformation[] vert3Weights;
-        private static final AdjacencyInfo[] BY_FACING = Util.make(new AdjacencyInfo[6], map -> {
-            map[Direction.DOWN.get3DDataValue()] = DOWN;
-            map[Direction.UP.get3DDataValue()] = UP;
-            map[Direction.NORTH.get3DDataValue()] = NORTH;
-            map[Direction.SOUTH.get3DDataValue()] = SOUTH;
-            map[Direction.WEST.get3DDataValue()] = WEST;
-            map[Direction.EAST.get3DDataValue()] = EAST;
-        });
+    private static float projectU(Direction face, float x, float y, float z) {
+        return switch (face) {
+            case DOWN, UP, NORTH, SOUTH -> x;
+            case WEST, EAST -> z;
+        };
+    }
 
-        AdjacencyInfo(
-            Direction[] corners,
-            float shadeWeight,
-            boolean doNonCubicWeight,
-            SizeInformation[] vert0Weights,
-            SizeInformation[] vert1Weights,
-            SizeInformation[] vert2Weights,
-            SizeInformation[] vert3Weights
+    private static float projectV(Direction face, float x, float y, float z) {
+        return switch (face) {
+            case DOWN, UP -> z;
+            case NORTH, SOUTH, WEST, EAST -> y;
+        };
+    }
+
+    private static final class FaceData {
+        boolean computed;
+        final int[] lightCoords = new int[4];
+        final float[] shades = new float[4];
+
+        void computeCorner(
+            int cornerIndex,
+            BlockAndTintGetter level,
+            XenoLightDataCache cache,
+            BlockPos basePos,
+            Direction faceDir,
+            Direction dirA,
+            Direction dirB,
+            int centerLight,
+            float centerShade,
+            MutableBlockPos posA,
+            MutableBlockPos posB,
+            MutableBlockPos posDiag,
+            MutableBlockPos permScratch
         ) {
-            this.corners = corners;
-            this.doNonCubicWeight = doNonCubicWeight;
-            this.vert0Weights = vert0Weights;
-            this.vert1Weights = vert1Weights;
-            this.vert2Weights = vert2Weights;
-            this.vert3Weights = vert3Weights;
-        }
+            posA.setWithOffset(basePos, dirA);
+            BlockState stateA = cache.getState(level, posA);
+            int lightA = cache.getLightCoords(stateA, level, posA);
+            float shadeA = cache.getShadeBrightness(stateA, level, posA);
 
-        public static AdjacencyInfo fromFacing(Direction direction) {
-            return BY_FACING[direction.get3DDataValue()];
-        }
-    }
+            posB.setWithOffset(basePos, dirB);
+            BlockState stateB = cache.getState(level, posB);
+            int lightB = cache.getLightCoords(stateB, level, posB);
+            float shadeB = cache.getShadeBrightness(stateB, level, posB);
 
-    private enum AmbientVertexRemapper {
-        DOWN(0, 1, 2, 3),
-        UP(2, 3, 0, 1),
-        NORTH(3, 0, 1, 2),
-        SOUTH(0, 1, 2, 3),
-        WEST(3, 0, 1, 2),
-        EAST(1, 2, 3, 0);
+            boolean permeableA = cache.getState(level, permScratch.setWithOffset(posA, faceDir)).isLightPermeable();
+            boolean permeableB = cache.getState(level, permScratch.setWithOffset(posB, faceDir)).isLightPermeable();
 
-        private final int vert0;
-        private final int vert1;
-        private final int vert2;
-        private final int vert3;
-        private static final AmbientVertexRemapper[] BY_FACING = Util.make(new AmbientVertexRemapper[6], map -> {
-            map[Direction.DOWN.get3DDataValue()] = DOWN;
-            map[Direction.UP.get3DDataValue()] = UP;
-            map[Direction.NORTH.get3DDataValue()] = NORTH;
-            map[Direction.SOUTH.get3DDataValue()] = SOUTH;
-            map[Direction.WEST.get3DDataValue()] = WEST;
-            map[Direction.EAST.get3DDataValue()] = EAST;
-        });
+            int lightDiag;
+            float shadeDiag;
+            if (!permeableA && !permeableB) {
+                lightDiag = lightA;
+                shadeDiag = shadeA;
+            } else {
+                posDiag.setWithOffset(basePos, dirA).move(dirB);
+                BlockState stateDiag = cache.getState(level, posDiag);
+                lightDiag = cache.getLightCoords(stateDiag, level, posDiag);
+                shadeDiag = cache.getShadeBrightness(stateDiag, level, posDiag);
+            }
 
-        AmbientVertexRemapper(int vert0, int vert1, int vert2, int vert3) {
-            this.vert0 = vert0;
-            this.vert1 = vert1;
-            this.vert2 = vert2;
-            this.vert3 = vert3;
-        }
-
-        public static AmbientVertexRemapper fromFacing(Direction direction) {
-            return BY_FACING[direction.get3DDataValue()];
-        }
-    }
-
-    private enum SizeInformation {
-        DOWN(0),
-        UP(1),
-        NORTH(2),
-        SOUTH(3),
-        WEST(4),
-        EAST(5),
-        FLIP_DOWN(6),
-        FLIP_UP(7),
-        FLIP_NORTH(8),
-        FLIP_SOUTH(9),
-        FLIP_WEST(10),
-        FLIP_EAST(11);
-
-        public static final int COUNT = values().length;
-        private final int index;
-
-        SizeInformation(int index) {
-            this.index = index;
+            this.lightCoords[cornerIndex] = LightCoordsUtil.smoothBlend(lightA, lightB, lightDiag, centerLight);
+            this.shades[cornerIndex] = (shadeA + shadeB + shadeDiag + centerShade) * 0.25F;
         }
     }
 }

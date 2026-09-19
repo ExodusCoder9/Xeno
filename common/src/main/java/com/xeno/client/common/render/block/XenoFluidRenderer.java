@@ -24,6 +24,7 @@ import net.minecraft.client.renderer.block.FluidStateModelSet;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.BlockPos.MutableBlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
 import net.minecraft.core.Direction.Plane;
@@ -41,30 +42,52 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public record XenoFluidRenderer(FluidStateModelSet fluidModels) {
+public final class XenoFluidRenderer {
     private static final float MAX_FLUID_HEIGHT = 0.8888889F;
 
-    private static boolean isFaceOccludedByState(Direction direction, float height, BlockState state) {
-        VoxelShape occluder = state.getFaceOcclusionShape(direction.getOpposite());
-        if (occluder == Shapes.empty()) {
+    private final FluidStateModelSet fluidModels;
+    private final XenoLightDataCache lightCache;
+    private final XenoOcclusionCache occlusionCache = new XenoOcclusionCache();
+
+    private final MutableBlockPos scratchDown = new MutableBlockPos();
+    private final MutableBlockPos scratchUp = new MutableBlockPos();
+    private final MutableBlockPos scratchNorth = new MutableBlockPos();
+    private final MutableBlockPos scratchSouth = new MutableBlockPos();
+    private final MutableBlockPos scratchWest = new MutableBlockPos();
+    private final MutableBlockPos scratchEast = new MutableBlockPos();
+    private final MutableBlockPos scratchCorner = new MutableBlockPos();
+    private final MutableBlockPos scratchLight = new MutableBlockPos();
+
+    public XenoFluidRenderer(FluidStateModelSet fluidModels) {
+        this(fluidModels, XenoLightDataCache.get());
+    }
+
+    public XenoFluidRenderer(FluidStateModelSet fluidModels, XenoLightDataCache lightCache) {
+        this.fluidModels = fluidModels;
+        this.lightCache = lightCache;
+    }
+
+    private boolean isFaceOccludedByState(Direction direction, float height, BlockState state) {
+        if (!state.canOcclude()) {
             return false;
-        } else if (occluder == Shapes.block()) {
-            boolean fullBlock = height == 1.0F;
-            return direction != Direction.UP || fullBlock;
-        } else {
-            VoxelShape shape = Shapes.box(0.0, 0.0, 0.0, 1.0, height, 1.0);
-            return Shapes.blockOccludes(shape, occluder, direction);
         }
+        VoxelShape occluder = state.getFaceOcclusionShape(direction.getOpposite());
+        if (XenoOcclusionCache.isEmpty(occluder)) {
+            return false;
+        }
+        if (XenoOcclusionCache.isFullCube(occluder)) {
+            return direction != Direction.UP || height == 1.0F;
+        }
+        VoxelShape shape = height >= 1.0F ? Shapes.block() : Shapes.box(0.0, 0.0, 0.0, 1.0, height, 1.0);
+        return this.occlusionCache.occludes(shape, occluder, direction);
     }
 
-    private static boolean isFaceOccludedBySelf(BlockState state, Direction direction) {
-        return isFaceOccludedByState(direction.getOpposite(), 1.0F, state);
+    private boolean isFaceOccludedBySelf(BlockState state, Direction direction) {
+        return this.isFaceOccludedByState(direction.getOpposite(), 1.0F, state);
     }
 
-    public static boolean shouldRenderFace(
-            FluidState fluidState, BlockState blockState, Direction direction, FluidState neighborFluidState
-    ) {
-        return !neighborFluidState.getType().isSame(fluidState.getType()) && !isFaceOccludedBySelf(blockState, direction);
+    public boolean shouldRenderFace(FluidState fluidState, BlockState blockState, Direction direction, FluidState neighborFluidState) {
+        return !neighborFluidState.getType().isSame(fluidState.getType()) && !this.isFaceOccludedBySelf(blockState, direction);
     }
 
     public void tesselate(
@@ -74,373 +97,312 @@ public record XenoFluidRenderer(FluidStateModelSet fluidModels) {
             BlockState blockState,
             FluidState fluidState
     ) {
-        BlockState blockStateDown = level.getBlockState(pos.relative(Direction.DOWN));
+        int x = pos.getX();
+        int y = pos.getY();
+        int z = pos.getZ();
+
+        this.scratchDown.set(x, y - 1, z);
+        BlockState blockStateDown = this.getState(level, this.scratchDown);
         FluidState fluidStateDown = blockStateDown.getFluidState();
-        BlockState blockStateUp = level.getBlockState(pos.relative(Direction.UP));
+
+        this.scratchUp.set(x, y + 1, z);
+        BlockState blockStateUp = this.getState(level, this.scratchUp);
         FluidState fluidStateUp = blockStateUp.getFluidState();
-        BlockState blockStateNorth = level.getBlockState(pos.relative(Direction.NORTH));
+
+        this.scratchNorth.set(x, y, z - 1);
+        BlockState blockStateNorth = this.getState(level, this.scratchNorth);
         FluidState fluidStateNorth = blockStateNorth.getFluidState();
-        BlockState blockStateSouth = level.getBlockState(pos.relative(Direction.SOUTH));
+
+        this.scratchSouth.set(x, y, z + 1);
+        BlockState blockStateSouth = this.getState(level, this.scratchSouth);
         FluidState fluidStateSouth = blockStateSouth.getFluidState();
-        BlockState blockStateWest = level.getBlockState(pos.relative(Direction.WEST));
+
+        this.scratchWest.set(x - 1, y, z);
+        BlockState blockStateWest = this.getState(level, this.scratchWest);
         FluidState fluidStateWest = blockStateWest.getFluidState();
-        BlockState blockStateEast = level.getBlockState(pos.relative(Direction.EAST));
+
+        this.scratchEast.set(x + 1, y, z);
+        BlockState blockStateEast = this.getState(level, this.scratchEast);
         FluidState fluidStateEast = blockStateEast.getFluidState();
+
         boolean renderUp = !fluidStateUp.getType().isSame(fluidState.getType());
-        boolean renderDown = shouldRenderFace(fluidState, blockState, Direction.DOWN, fluidStateDown)
-                && !isFaceOccludedByState(Direction.DOWN, MAX_FLUID_HEIGHT, blockStateDown);
-        boolean renderNorth = shouldRenderFace(fluidState, blockState, Direction.NORTH, fluidStateNorth);
-        boolean renderSouth = shouldRenderFace(fluidState, blockState, Direction.SOUTH, fluidStateSouth);
-        boolean renderWest = shouldRenderFace(fluidState, blockState, Direction.WEST, fluidStateWest);
-        boolean renderEast = shouldRenderFace(fluidState, blockState, Direction.EAST, fluidStateEast);
-        if (renderUp || renderDown || renderEast || renderWest || renderNorth || renderSouth) {
-            FluidModel model = this.fluidModels.get(fluidState);
-            XenoSectionLayerBuffer builder = output.getBuffer(model.layer());
-            int tintColor = model.tintSource() != null ? model.tintSource().colorInWorld(blockState, level, pos) : -1;
-            CardinalLighting cardinalLighting = level.cardinalLighting();
-            Fluid type = fluidState.getType();
-            float heightSelf = this.getHeight(level, type, pos, blockState, fluidState);
-            float heightNorthEast;
-            float heightNorthWest;
-            float heightSouthEast;
-            float heightSouthWest;
-            if (heightSelf >= 1.0F) {
-                heightNorthEast = 1.0F;
-                heightNorthWest = 1.0F;
-                heightSouthEast = 1.0F;
-                heightSouthWest = 1.0F;
-            } else {
-                float heightNorth = this.getHeight(level, type, pos.north(), blockStateNorth, fluidStateNorth);
-                float heightSouth = this.getHeight(level, type, pos.south(), blockStateSouth, fluidStateSouth);
-                float heightEast = this.getHeight(level, type, pos.east(), blockStateEast, fluidStateEast);
-                float heightWest = this.getHeight(level, type, pos.west(), blockStateWest, fluidStateWest);
-                heightNorthEast = this.calculateAverageHeight(
-                        level, type, heightSelf, heightNorth, heightEast, pos.relative(Direction.NORTH).relative(Direction.EAST)
-                );
-                heightNorthWest = this.calculateAverageHeight(
-                        level, type, heightSelf, heightNorth, heightWest, pos.relative(Direction.NORTH).relative(Direction.WEST)
-                );
-                heightSouthEast = this.calculateAverageHeight(
-                        level, type, heightSelf, heightSouth, heightEast, pos.relative(Direction.SOUTH).relative(Direction.EAST)
-                );
-                heightSouthWest = this.calculateAverageHeight(
-                        level, type, heightSelf, heightSouth, heightWest, pos.relative(Direction.SOUTH).relative(Direction.WEST)
-                );
-            }
+        boolean renderDown = this.shouldRenderFace(fluidState, blockState, Direction.DOWN, fluidStateDown)
+                && !this.isFaceOccludedByState(Direction.DOWN, MAX_FLUID_HEIGHT, blockStateDown);
+        boolean renderNorth = this.shouldRenderFace(fluidState, blockState, Direction.NORTH, fluidStateNorth);
+        boolean renderSouth = this.shouldRenderFace(fluidState, blockState, Direction.SOUTH, fluidStateSouth);
+        boolean renderWest = this.shouldRenderFace(fluidState, blockState, Direction.WEST, fluidStateWest);
+        boolean renderEast = this.shouldRenderFace(fluidState, blockState, Direction.EAST, fluidStateEast);
 
-            float x = (float) (pos.getX() & 15);
-            float y = (float) (pos.getY() & 15);
-            float z = (float) (pos.getZ() & 15);
-            float bottomOffs = renderDown ? 0.001F : 0.0F;
-            if (renderUp
-                    && !isFaceOccludedByState(
-                    Direction.UP, Math.min(Math.min(heightNorthWest, heightSouthWest), Math.min(heightSouthEast, heightNorthEast)), blockStateUp
-            )) {
-                heightNorthWest -= 0.001F;
-                heightSouthWest -= 0.001F;
-                heightSouthEast -= 0.001F;
-                heightNorthEast -= 0.001F;
-                Vec3 flow = fluidState.getFlow(level, pos);
-                float u00;
-                float u01;
-                float u10;
-                float u11;
-                float v00;
-                float v01;
-                float v10;
-                float v11;
-                if (flow.x == 0.0 && flow.z == 0.0) {
-                    TextureAtlasSprite stillSprite = model.stillMaterial().sprite();
-                    u00 = stillSprite.getU0();
-                    v00 = stillSprite.getV0();
-                    u01 = u00;
-                    v01 = stillSprite.getV1();
-                    u10 = stillSprite.getU1();
-                    v10 = v01;
-                    u11 = u10;
-                    v11 = v00;
-                } else {
-                    float angle = (float) Mth.atan2(flow.z, flow.x) - (float) (Math.PI / 2);
-                    float s = Mth.sin(angle) * 0.25F;
-                    float c = Mth.cos(angle) * 0.25F;
-                    TextureAtlasSprite flowingSprite = model.flowingMaterial().sprite();
-                    u00 = flowingSprite.getU(0.5F + (-c - s));
-                    v00 = flowingSprite.getV(0.5F + (-c + s));
-                    u01 = flowingSprite.getU(0.5F + (-c + s));
-                    v01 = flowingSprite.getV(0.5F + (c + s));
-                    u10 = flowingSprite.getU(0.5F + (c + s));
-                    v10 = flowingSprite.getV(0.5F + (c - s));
-                    u11 = flowingSprite.getU(0.5F + (c - s));
-                    v11 = flowingSprite.getV(0.5F + (-c - s));
-                }
+        if (!renderUp && !renderDown && !renderEast && !renderWest && !renderNorth && !renderSouth) {
+            return;
+        }
 
-                int topLightCoords = this.getLightCoords(level, pos);
-                int topColor = ARGB.scaleRGB(tintColor, cardinalLighting.up());
-                this.addFace(
-                        builder,
-                        x + 0.0F,
-                        y + heightNorthWest,
-                        z + 0.0F,
-                        u00,
-                        v00,
-                        x + 0.0F,
-                        y + heightSouthWest,
-                        z + 1.0F,
-                        u01,
-                        v01,
-                        x + 1.0F,
-                        y + heightSouthEast,
-                        z + 1.0F,
-                        u10,
-                        v10,
-                        x + 1.0F,
-                        y + heightNorthEast,
-                        z + 0.0F,
-                        u11,
-                        v11,
-                        topColor,
-                        topLightCoords,
-                        fluidState.shouldRenderBackwardUpFace(level, pos.above())
-                );
-            }
+        FluidModel model = this.fluidModels.get(fluidState);
+        XenoSectionLayerBuffer builder = output.getBuffer(model.layer());
+        int tintColor = model.tintSource() != null ? model.tintSource().colorInWorld(blockState, level, pos) : -1;
+        CardinalLighting cardinalLighting = level.cardinalLighting();
+        Fluid type = fluidState.getType();
 
-            if (renderDown) {
+        float heightSelf = this.getHeight(level, type, pos, blockState, fluidState);
+        float heightNorthEast, heightNorthWest, heightSouthEast, heightSouthWest;
+
+        if (heightSelf >= 1.0F) {
+            heightNorthEast = 1.0F;
+            heightNorthWest = 1.0F;
+            heightSouthEast = 1.0F;
+            heightSouthWest = 1.0F;
+        } else {
+            float heightNorth = this.getHeight(level, type, this.scratchNorth, blockStateNorth, fluidStateNorth);
+            float heightSouth = this.getHeight(level, type, this.scratchSouth, blockStateSouth, fluidStateSouth);
+            float heightEast = this.getHeight(level, type, this.scratchEast, blockStateEast, fluidStateEast);
+            float heightWest = this.getHeight(level, type, this.scratchWest, blockStateWest, fluidStateWest);
+
+            heightNorthEast = this.calculateAverageHeight(level, type, heightSelf, heightNorth, heightEast, x + 1, y, z - 1);
+            heightNorthWest = this.calculateAverageHeight(level, type, heightSelf, heightNorth, heightWest, x - 1, y, z - 1);
+            heightSouthEast = this.calculateAverageHeight(level, type, heightSelf, heightSouth, heightEast, x + 1, y, z + 1);
+            heightSouthWest = this.calculateAverageHeight(level, type, heightSelf, heightSouth, heightWest, x - 1, y, z + 1);
+        }
+
+        float localX = (float) (x & 15);
+        float localY = (float) (y & 15);
+        float localZ = (float) (z & 15);
+        float bottomOffs = renderDown ? 0.001F : 0.0F;
+
+        if (renderUp && !this.isFaceOccludedByState(
+                Direction.UP, Math.min(Math.min(heightNorthWest, heightSouthWest), Math.min(heightSouthEast, heightNorthEast)), blockStateUp
+        )) {
+            heightNorthWest -= 0.001F;
+            heightSouthWest -= 0.001F;
+            heightSouthEast -= 0.001F;
+            heightNorthEast -= 0.001F;
+
+            Vec3 flow = fluidState.getFlow(level, pos);
+            float u00, u01, u10, u11, v00, v01, v10, v11;
+
+            if (flow.x == 0.0 && flow.z == 0.0) {
                 TextureAtlasSprite stillSprite = model.stillMaterial().sprite();
-                float u0 = stillSprite.getU0();
-                float u1 = stillSprite.getU1();
-                float v0 = stillSprite.getV0();
-                float v1 = stillSprite.getV1();
-                int belowLightCoords = this.getLightCoords(level, pos.below());
-                int belowColor = ARGB.scaleRGB(tintColor, cardinalLighting.down());
-                this.addFace(
-                        builder,
-                        x,
-                        y + bottomOffs,
-                        z,
-                        u0,
-                        v0,
-                        x + 1.0F,
-                        y + bottomOffs,
-                        z,
-                        u1,
-                        v0,
-                        x + 1.0F,
-                        y + bottomOffs,
-                        z + 1.0F,
-                        u1,
-                        v1,
-                        x,
-                        y + bottomOffs,
-                        z + 1.0F,
-                        u0,
-                        v1,
-                        belowColor,
-                        belowLightCoords,
-                        false
-                );
+                u00 = stillSprite.getU0();
+                v00 = stillSprite.getV0();
+                u01 = u00;
+                v01 = stillSprite.getV1();
+                u10 = stillSprite.getU1();
+                v10 = v01;
+                u11 = u10;
+                v11 = v00;
+            } else {
+                float angle = (float) Mth.atan2(flow.z, flow.x) - (float) (Math.PI / 2);
+                float s = Mth.sin(angle) * 0.25F;
+                float c = Mth.cos(angle) * 0.25F;
+                TextureAtlasSprite flowingSprite = model.flowingMaterial().sprite();
+                u00 = flowingSprite.getU(0.5F + (-c - s));
+                v00 = flowingSprite.getV(0.5F + (-c + s));
+                u01 = flowingSprite.getU(0.5F + (-c + s));
+                v01 = flowingSprite.getV(0.5F + (c + s));
+                u10 = flowingSprite.getU(0.5F + (c + s));
+                v10 = flowingSprite.getV(0.5F + (c - s));
+                u11 = flowingSprite.getU(0.5F + (c - s));
+                v11 = flowingSprite.getV(0.5F + (-c - s));
             }
 
-            int sideLightCoords = this.getLightCoords(level, pos);
+            int lightNW = this.getCornerLight(level, x, y, z);
+            int lightSW = this.getCornerLight(level, x, y, z + 1);
+            int lightSE = this.getCornerLight(level, x + 1, y, z + 1);
+            int lightNE = this.getCornerLight(level, x + 1, y, z);
 
-            for (Direction faceDir : Plane.HORIZONTAL) {
-                float hh0;
-                float hh1;
-                float x0;
-                float z0;
-                float x1;
-                float z1;
-                boolean renderCondition;
-                BlockState faceState;
-                switch (faceDir) {
-                    case NORTH:
-                        hh0 = heightNorthWest;
-                        hh1 = heightNorthEast;
-                        x0 = x;
-                        x1 = x + 1.0F;
-                        z0 = z + 0.001F;
-                        z1 = z + 0.001F;
-                        renderCondition = renderNorth;
-                        faceState = blockStateNorth;
-                        break;
-                    case SOUTH:
-                        hh0 = heightSouthEast;
-                        hh1 = heightSouthWest;
-                        x0 = x + 1.0F;
-                        x1 = x;
-                        z0 = z + 1.0F - 0.001F;
-                        z1 = z + 1.0F - 0.001F;
-                        renderCondition = renderSouth;
-                        faceState = blockStateSouth;
-                        break;
-                    case WEST:
-                        hh0 = heightSouthWest;
-                        hh1 = heightNorthWest;
-                        x0 = x + 0.001F;
-                        x1 = x + 0.001F;
-                        z0 = z + 1.0F;
-                        z1 = z;
-                        renderCondition = renderWest;
-                        faceState = blockStateWest;
-                        break;
-                    case EAST:
-                        hh0 = heightNorthEast;
-                        hh1 = heightSouthEast;
-                        x0 = x + 1.0F - 0.001F;
-                        x1 = x + 1.0F - 0.001F;
-                        z0 = z;
-                        z1 = z + 1.0F;
-                        renderCondition = renderEast;
-                        faceState = blockStateEast;
-                        break;
-                    default:
-                        throw new UnsupportedOperationException();
+            int topColor = ARGB.scaleRGB(tintColor, cardinalLighting.up());
+            boolean backwardFace = fluidState.shouldRenderBackwardUpFace(level, this.scratchUp);
+
+            builder.writeQuad(
+                    localX + 0.0F, localY + heightNorthWest, localZ + 0.0F, u00, v00,
+                    localX + 0.0F, localY + heightSouthWest, localZ + 1.0F, u01, v01,
+                    localX + 1.0F, localY + heightSouthEast, localZ + 1.0F, u10, v10,
+                    localX + 1.0F, localY + heightNorthEast, localZ + 0.0F, u11, v11,
+                    topColor, lightNW, lightSW, lightSE, lightNE, backwardFace
+            );
+        }
+
+        if (renderDown) {
+            TextureAtlasSprite stillSprite = model.stillMaterial().sprite();
+            float u0 = stillSprite.getU0();
+            float u1 = stillSprite.getU1();
+            float v0 = stillSprite.getV0();
+            float v1 = stillSprite.getV1();
+
+            int belowLight = this.getLightCoords(level, this.scratchDown);
+            int belowColor = ARGB.scaleRGB(tintColor, cardinalLighting.down());
+
+            builder.writeQuad(
+                    localX, localY + bottomOffs, localZ, u0, v0,
+                    localX + 1.0F, localY + bottomOffs, localZ, u1, v0,
+                    localX + 1.0F, localY + bottomOffs, localZ + 1.0F, u1, v1,
+                    localX, localY + bottomOffs, localZ + 1.0F, u0, v1,
+                    belowColor, belowLight, false
+            );
+        }
+
+        int sideLight = this.getLightCoords(level, pos);
+
+        for (Direction faceDir : Plane.HORIZONTAL) {
+            float hh0, hh1, x0, z0, x1, z1;
+            boolean renderCondition;
+            BlockState faceState;
+
+            switch (faceDir) {
+                case NORTH -> {
+                    hh0 = heightNorthWest;
+                    hh1 = heightNorthEast;
+                    x0 = localX;
+                    x1 = localX + 1.0F;
+                    z0 = localZ + 0.001F;
+                    z1 = localZ + 0.001F;
+                    renderCondition = renderNorth;
+                    faceState = blockStateNorth;
                 }
+                case SOUTH -> {
+                    hh0 = heightSouthEast;
+                    hh1 = heightSouthWest;
+                    x0 = localX + 1.0F;
+                    x1 = localX;
+                    z0 = localZ + 1.0F - 0.001F;
+                    z1 = localZ + 1.0F - 0.001F;
+                    renderCondition = renderSouth;
+                    faceState = blockStateSouth;
+                }
+                case WEST -> {
+                    hh0 = heightSouthWest;
+                    hh1 = heightNorthWest;
+                    x0 = localX + 0.001F;
+                    x1 = localX + 0.001F;
+                    z0 = localZ + 1.0F;
+                    z1 = localZ;
+                    renderCondition = renderWest;
+                    faceState = blockStateWest;
+                }
+                case EAST -> {
+                    hh0 = heightNorthEast;
+                    hh1 = heightSouthEast;
+                    x0 = localX + 1.0F - 0.001F;
+                    x1 = localX + 1.0F - 0.001F;
+                    z0 = localZ;
+                    z1 = localZ + 1.0F;
+                    renderCondition = renderEast;
+                    faceState = blockStateEast;
+                }
+                default -> throw new UnsupportedOperationException();
+            }
 
-                if (renderCondition && !isFaceOccludedByState(faceDir, Math.max(hh0, hh1), faceState)) {
-                    TextureAtlasSprite sprite = model.flowingMaterial().sprite();
-                    boolean isOverlay = false;
-                    if (model.overlayMaterial() != null) {
-                        Block relativeBlock = faceState.getBlock();
-                        if (relativeBlock instanceof HalfTransparentBlock || relativeBlock instanceof LeavesBlock) {
-                            sprite = model.overlayMaterial().sprite();
-                            isOverlay = true;
-                        }
+            if (renderCondition && !this.isFaceOccludedByState(faceDir, Math.max(hh0, hh1), faceState)) {
+                TextureAtlasSprite sprite = model.flowingMaterial().sprite();
+                boolean isOverlay = false;
+                if (model.overlayMaterial() != null) {
+                    Block relativeBlock = faceState.getBlock();
+                    if (relativeBlock instanceof HalfTransparentBlock || relativeBlock instanceof LeavesBlock) {
+                        sprite = model.overlayMaterial().sprite();
+                        isOverlay = true;
                     }
-
-                    float u0 = sprite.getU(0.0F);
-                    float u1 = sprite.getU(0.5F);
-                    float v01 = sprite.getV((1.0F - hh0) * 0.5F);
-                    float v02 = sprite.getV((1.0F - hh1) * 0.5F);
-                    float v1 = sprite.getV(0.5F);
-                    float shadeSide = faceDir.getAxis() == Axis.Z ? cardinalLighting.north() : cardinalLighting.west();
-                    int faceColor = ARGB.scaleRGB(tintColor, cardinalLighting.up() * shadeSide);
-                    this.addFace(
-                            builder,
-                            x0,
-                            y + hh0,
-                            z0,
-                            u0,
-                            v01,
-                            x1,
-                            y + hh1,
-                            z1,
-                            u1,
-                            v02,
-                            x1,
-                            y + bottomOffs,
-                            z1,
-                            u1,
-                            v1,
-                            x0,
-                            y + bottomOffs,
-                            z0,
-                            u0,
-                            v1,
-                            faceColor,
-                            sideLightCoords,
-                            !isOverlay
-                    );
                 }
+
+                float u0 = sprite.getU(0.0F);
+                float u1 = sprite.getU(0.5F);
+                float v01 = sprite.getV((1.0F - hh0) * 0.5F);
+                float v02 = sprite.getV((1.0F - hh1) * 0.5F);
+                float v1 = sprite.getV(0.5F);
+
+                float shadeSide = faceDir.getAxis() == Axis.Z ? cardinalLighting.north() : cardinalLighting.west();
+                int faceColor = ARGB.scaleRGB(tintColor, cardinalLighting.up() * shadeSide);
+
+                builder.writeQuad(
+                        x0, localY + hh0, z0, u0, v01,
+                        x1, localY + hh1, z1, u1, v02,
+                        x1, localY + bottomOffs, z1, u1, v1,
+                        x0, localY + bottomOffs, z0, u0, v1,
+                        faceColor, sideLight, !isOverlay
+                );
             }
         }
-    }
-
-    private void addFace(
-            XenoSectionLayerBuffer builder,
-            float x0,
-            float y0,
-            float z0,
-            float u0,
-            float v0,
-            float x1,
-            float y1,
-            float z1,
-            float u1,
-            float v1,
-            float x2,
-            float y2,
-            float z2,
-            float u2,
-            float v2,
-            float x3,
-            float y3,
-            float z3,
-            float u3,
-            float v3,
-            int color,
-            int lightCoords,
-            boolean addBackFace
-    ) {
-        builder.writeQuad(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2, x3, y3, z3, u3, v3, color, lightCoords, addBackFace);
     }
 
     private float calculateAverageHeight(
-            BlockAndTintGetter level, Fluid type, float heightSelf, float height2, float height1, BlockPos cornerPos
+            BlockAndTintGetter level, Fluid type, float heightSelf, float height2, float height1, int cornerX, int cornerY, int cornerZ
     ) {
-        if (!(height1 >= 1.0F) && !(height2 >= 1.0F)) {
-            float sum = 0.0F;
-            float count = 0.0F;
-            if (height1 > 0.0F || height2 > 0.0F) {
-                float heightCorner = this.getHeight(level, type, cornerPos);
-                if (heightCorner >= 1.0F) {
-                    return 1.0F;
-                }
-
-                if (heightCorner >= 0.8F) {
-                    sum += heightCorner * 10.0F;
-                    count += 10.0F;
-                } else if (heightCorner >= 0.0F) {
-                    sum += heightCorner;
-                    count += 1.0F;
-                }
-            }
-
-            if (heightSelf >= 0.8F) {
-                sum += heightSelf * 10.0F;
-                count += 10.0F;
-            } else if (heightSelf >= 0.0F) {
-                sum += heightSelf;
-                count += 1.0F;
-            }
-
-            if (height1 >= 0.8F) {
-                sum += height1 * 10.0F;
-                count += 10.0F;
-            } else if (height1 >= 0.0F) {
-                sum += height1;
-                count += 1.0F;
-            }
-
-            if (height2 >= 0.8F) {
-                sum += height2 * 10.0F;
-                count += 10.0F;
-            } else if (height2 >= 0.0F) {
-                sum += height2;
-                count += 1.0F;
-            }
-
-            return count > 0.0F ? sum / count : 0.0F;
-        } else {
+        if (height1 >= 1.0F || height2 >= 1.0F) {
             return 1.0F;
         }
+
+        float sum = 0.0F;
+        float count = 0.0F;
+
+        if (height1 > 0.0F || height2 > 0.0F) {
+            this.scratchCorner.set(cornerX, cornerY, cornerZ);
+            float heightCorner = this.getHeight(level, type, this.scratchCorner);
+            if (heightCorner >= 1.0F) {
+                return 1.0F;
+            }
+
+            if (heightCorner >= 0.8F) {
+                sum += heightCorner * 10.0F;
+                count += 10.0F;
+            } else if (heightCorner >= 0.0F) {
+                sum += heightCorner;
+                count += 1.0F;
+            }
+        }
+
+        if (heightSelf >= 0.8F) {
+            sum += heightSelf * 10.0F;
+            count += 10.0F;
+        } else if (heightSelf >= 0.0F) {
+            sum += heightSelf;
+            count += 1.0F;
+        }
+
+        if (height1 >= 0.8F) {
+            sum += height1 * 10.0F;
+            count += 10.0F;
+        } else if (height1 >= 0.0F) {
+            sum += height1;
+            count += 1.0F;
+        }
+
+        if (height2 >= 0.8F) {
+            sum += height2 * 10.0F;
+            count += 10.0F;
+        } else if (height2 >= 0.0F) {
+            sum += height2;
+            count += 1.0F;
+        }
+
+        return count > 0.0F ? sum / count : 0.0F;
     }
 
     private float getHeight(BlockAndTintGetter level, Fluid fluidType, BlockPos pos) {
-        BlockState state = level.getBlockState(pos);
+        BlockState state = this.getState(level, pos);
         return this.getHeight(level, fluidType, pos, state, state.getFluidState());
     }
 
     private float getHeight(BlockAndTintGetter level, Fluid fluidType, BlockPos pos, BlockState state, FluidState fluidState) {
         if (fluidType.isSame(fluidState.getType())) {
-            BlockState aboveState = level.getBlockState(pos.above());
+            this.scratchUp.setWithOffset(pos, Direction.UP);
+            BlockState aboveState = this.getState(level, this.scratchUp);
             return fluidType.isSame(aboveState.getFluidState().getType()) ? 1.0F : fluidState.getOwnHeight();
-        } else {
-            return !state.isSolid() ? 0.0F : -1.0F;
         }
+        return !state.isSolid() ? 0.0F : -1.0F;
     }
 
     private int getLightCoords(BlockAndTintGetter level, BlockPos pos) {
-        return LightCoordsUtil.max(LightCoordsUtil.getLightCoords(level, pos), LightCoordsUtil.getLightCoords(level, pos.above()));
+        this.scratchLight.setWithOffset(pos, Direction.UP);
+        int lightSelf = this.lightCache.getLightCoords(this.getState(level, pos), level, pos);
+        int lightAbove = this.lightCache.getLightCoords(this.getState(level, this.scratchLight), level, this.scratchLight);
+        return LightCoordsUtil.max(lightSelf, lightAbove);
+    }
+
+    private int getCornerLight(BlockAndTintGetter level, int x, int y, int z) {
+        this.scratchLight.set(x, y, z);
+        return this.getLightCoords(level, this.scratchLight);
+    }
+
+    private BlockState getState(BlockAndTintGetter level, BlockPos pos) {
+        return this.lightCache != null ? this.lightCache.getState(level, pos) : level.getBlockState(pos);
     }
 
     @FunctionalInterface

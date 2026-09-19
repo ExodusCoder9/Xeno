@@ -19,6 +19,8 @@ package com.xeno.client.mixin;
 
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 import com.xeno.client.common.render.entity.XenoBufferWriter;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,6 +35,8 @@ public abstract class BufferBuilderMixin implements XenoBufferWriter {
     @Shadow private int vertexSize;
     @Final
     @Shadow private boolean entityFormat;
+    @Final
+    @Shadow private VertexFormat format;
 
     @Shadow private void ensureBuilding() {}
     @Shadow private void endLastVertex() {}
@@ -40,6 +44,11 @@ public abstract class BufferBuilderMixin implements XenoBufferWriter {
     @Override
     public boolean xeno$isEntityFormat() {
         return this.entityFormat;
+    }
+
+    @Override
+    public boolean xeno$isGlyphFormat() {
+        return this.format == DefaultVertexFormat.POSITION_TEX_LIGHTMAP_COLOR;
     }
 
     @Override

@@ -25,92 +25,102 @@ import net.minecraft.client.renderer.chunk.SectionTaskDynamicQueue;
 import org.jspecify.annotations.NonNull;
 
 import java.util.List;
-/**
- * <p>This class snapshots the pending task set into a schedule we pre decide and
- * then polls from that schedule . Ordering follows the important/background split: <em>important</em> tasks (initial compiles, transparency
- * resorts, and recompile within a small radius of the camera,
- * {@code NEARBY_RECOMPILE_DISTANCE}) are scheduled ahead of <em>background</em> tasks (distant
- * recompiles), each tier ordered nearest-first. This supersedes vanillas recompile quota: all
- * initial compiles already outrank distant recompiles, and near recompile remain within the
- * important tier so nearby block updates stay responsive.
- *
- * <p>The schedule is rebuilt only when the camera moves to a different section, when the world
- * generation epoch advances, or when the snapshot finishes. Canceled tasks are pruned lazily
- * during a rebuild.
- *
- * <p>This class is thread-safe in the same way the vanilla queue is: all public entry points
- * are  synchronized because multiple SectionRenderDispatcher worker chains
- * (each resubmitted onto the background executor between tasks) poll from it concurrently.
- */
 public final class XenoSectionTaskQueue extends SectionTaskDynamicQueue {
-	/** Squared distance (16 blocks, below which recompiles are important. */
 	private static final double NEARBY_RECOMPILE_DISTANCE = 256.0;
+	private static final SectionRenderDispatcher.RenderSection.SectionTask[] EMPTY_TASKS = new SectionRenderDispatcher.RenderSection.SectionTask[0];
 
 	private final List<SectionRenderDispatcher.RenderSection.SectionTask> pending = Lists.newArrayList();
-
-	private SectionRenderDispatcher.RenderSection.SectionTask[] order = new SectionRenderDispatcher.RenderSection.SectionTask[0];
+	private final List<SectionRenderDispatcher.RenderSection.SectionTask> staging = Lists.newArrayList();
+	private SectionRenderDispatcher.RenderSection.SectionTask[] order = EMPTY_TASKS;
 	private int cursor;
-	private long generation;
-	private long cachedCameraSection;
-	private long cachedGeneration = Long.MIN_VALUE;
+	private long cachedCameraSection = Long.MIN_VALUE;
+	private boolean hasPendingImportant;
 
 	public XenoSectionTaskQueue() {
 	}
 
 	@Override
 	public synchronized SectionRenderDispatcher.RenderSection.SectionTask poll(@NonNull Vec3 cameraPos) {
-		if (this.cursor >= this.order.length && this.pending.size() > 0) {
-			this.rebuild(cameraPos);
-		}
-
-		if (this.cursor >= this.order.length) {
-			this.resetCaches();
-			return null;
-		}
-
 		long cameraSection = cameraSectionKey(cameraPos);
-		if (this.generation != this.cachedGeneration || cameraSection != this.cachedCameraSection) {
-			this.rebuild(cameraPos);
+		boolean cameraMoved = cameraSection != this.cachedCameraSection;
+
+		if (cameraMoved || this.hasPendingImportant || this.cursor >= this.order.length) {
+			if (cameraMoved || this.hasPendingImportant || !this.pending.isEmpty()) {
+				this.rebuild(cameraPos, cameraSection);
+			}
 		}
 
-		SectionRenderDispatcher.RenderSection.SectionTask task = this.order[this.cursor++];
-		this.pending.remove(task);
-		return task;
+		while (this.cursor < this.order.length) {
+			SectionRenderDispatcher.RenderSection.SectionTask task = this.order[this.cursor++];
+			if (!task.isCancelled.get()) {
+				return task;
+			}
+		}
+
+		if (!this.pending.isEmpty()) {
+			this.rebuild(cameraPos, cameraSection);
+			while (this.cursor < this.order.length) {
+				SectionRenderDispatcher.RenderSection.SectionTask task = this.order[this.cursor++];
+				if (!task.isCancelled.get()) {
+					return task;
+				}
+			}
+		}
+
+		return null;
 	}
 
 	@Override
 	public synchronized void add(SectionRenderDispatcher.RenderSection.@NonNull SectionTask task) {
 		this.pending.add(task);
-		this.generation++;
+		if (!task.isRecompile()) {
+			this.hasPendingImportant = true;
+		}
 	}
 
 	@Override
 	public synchronized int size() {
-		return this.pending.size();
+		return Math.max(0, this.order.length - this.cursor) + this.pending.size();
 	}
 
 	@Override
 	public synchronized void clear() {
-		this.pending.forEach(SectionRenderDispatcher.RenderSection.SectionTask::cancel);
+		for (int i = this.cursor; i < this.order.length; i++) {
+			this.order[i].cancel();
+		}
+		for (SectionRenderDispatcher.RenderSection.SectionTask task : this.pending) {
+			task.cancel();
+		}
 		this.pending.clear();
-		this.order = new SectionRenderDispatcher.RenderSection.SectionTask[0];
+		this.staging.clear();
+		this.order = EMPTY_TASKS;
 		this.cursor = 0;
-		this.resetCaches();
+		this.cachedCameraSection = Long.MIN_VALUE;
+		this.hasPendingImportant = false;
 	}
 
-	private void rebuild(Vec3 cameraPos) {
-		if (this.pending.isEmpty()) {
-			this.order = new SectionRenderDispatcher.RenderSection.SectionTask[0];
-			this.cursor = 0;
-			this.resetCaches();
-			return;
+	private void rebuild(Vec3 cameraPos, long cameraSection) {
+		this.staging.clear();
+
+		for (int i = this.cursor; i < this.order.length; i++) {
+			SectionRenderDispatcher.RenderSection.SectionTask task = this.order[i];
+			if (!task.isCancelled.get()) {
+				this.staging.add(task);
+			}
 		}
 
-		this.pending.removeIf(task -> task.isCancelled.get());
-		if (this.pending.isEmpty()) {
-			this.order = new SectionRenderDispatcher.RenderSection.SectionTask[0];
+		for (SectionRenderDispatcher.RenderSection.SectionTask task : this.pending) {
+			if (!task.isCancelled.get()) {
+				this.staging.add(task);
+			}
+		}
+		this.pending.clear();
+
+		if (this.staging.isEmpty()) {
+			this.order = EMPTY_TASKS;
 			this.cursor = 0;
-			this.resetCaches();
+			this.cachedCameraSection = cameraSection;
+			this.hasPendingImportant = false;
 			return;
 		}
 
@@ -118,7 +128,7 @@ public final class XenoSectionTaskQueue extends SectionTaskDynamicQueue {
 		double camY = cameraPos.y;
 		double camZ = cameraPos.z;
 
-		this.pending.sort((taskA, taskB) -> {
+		this.staging.sort((taskA, taskB) -> {
 			boolean impA = isImportant(taskA, camX, camY, camZ);
 			boolean impB = isImportant(taskB, camX, camY, camZ);
 			if (impA != impB) {
@@ -129,19 +139,15 @@ public final class XenoSectionTaskQueue extends SectionTaskDynamicQueue {
 			return Double.compare(distA, distB);
 		});
 
-		this.order = this.pending.toArray(new SectionRenderDispatcher.RenderSection.SectionTask[0]);
+		this.order = this.staging.toArray(new SectionRenderDispatcher.RenderSection.SectionTask[this.staging.size()]);
 		this.cursor = 0;
-		this.cachedCameraSection = cameraSectionKey(cameraPos);
-		this.cachedGeneration = this.generation;
+		this.cachedCameraSection = cameraSection;
+		this.hasPendingImportant = false;
+		this.staging.clear();
 	}
 
 	private static boolean isImportant(SectionRenderDispatcher.RenderSection.SectionTask task, double camX, double camY, double camZ) {
 		return !task.isRecompile() || task.getRenderOrigin().distToCenterSqr(camX, camY, camZ) < NEARBY_RECOMPILE_DISTANCE;
-	}
-
-	private void resetCaches() {
-		this.cachedCameraSection = 0L;
-		this.cachedGeneration = Long.MIN_VALUE;
 	}
 
 	private static long cameraSectionKey(Vec3 cameraPos) {

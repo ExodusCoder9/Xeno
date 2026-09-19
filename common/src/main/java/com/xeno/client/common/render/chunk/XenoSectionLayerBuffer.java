@@ -135,18 +135,28 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
             float x3, float y3, float z3, float u3, float v3,
             int color, int lightCoords, boolean addBackFace
     ) {
+        this.writeQuad(x0, y0, z0, u0, v0, x1, y1, z1, u1, v1, x2, y2, z2, u2, v2, x3, y3, z3, u3, v3, color, lightCoords, lightCoords, lightCoords, lightCoords, addBackFace);
+    }
+
+    public void writeQuad(
+            float x0, float y0, float z0, float u0, float v0,
+            float x1, float y1, float z1, float u1, float v1,
+            float x2, float y2, float z2, float u2, float v2,
+            float x3, float y3, float z3, float u3, float v3,
+            int color, int light0, int light1, int light2, int light3, boolean addBackFace
+    ) {
         int vertexCount = addBackFace ? 8 : 4;
         long ptr = this.buffer.reserve(VERTEX_SIZE * vertexCount);
 
-        this.writeVertex(ptr, x0, y0, z0, color, u0, v0, lightCoords);
-        this.writeVertex(ptr + VERTEX_SIZE, x1, y1, z1, color, u1, v1, lightCoords);
-        this.writeVertex(ptr + VERTEX_SIZE * 2, x2, y2, z2, color, u2, v2, lightCoords);
-        this.writeVertex(ptr + VERTEX_SIZE * 3, x3, y3, z3, color, u3, v3, lightCoords);
+        this.writeVertex(ptr, x0, y0, z0, color, u0, v0, light0);
+        this.writeVertex(ptr + VERTEX_SIZE, x1, y1, z1, color, u1, v1, light1);
+        this.writeVertex(ptr + VERTEX_SIZE * 2, x2, y2, z2, color, u2, v2, light2);
+        this.writeVertex(ptr + VERTEX_SIZE * 3, x3, y3, z3, color, u3, v3, light3);
         if (addBackFace) {
-            this.writeVertex(ptr + VERTEX_SIZE * 4, x0, y0, z0, color, u0, v0, lightCoords);
-            this.writeVertex(ptr + VERTEX_SIZE * 5, x3, y3, z3, color, u3, v3, lightCoords);
-            this.writeVertex(ptr + VERTEX_SIZE * 6, x2, y2, z2, color, u2, v2, lightCoords);
-            this.writeVertex(ptr + VERTEX_SIZE * 7, x1, y1, z1, color, u1, v1, lightCoords);
+            this.writeVertex(ptr + VERTEX_SIZE * 4, x0, y0, z0, color, u0, v0, light0);
+            this.writeVertex(ptr + VERTEX_SIZE * 5, x3, y3, z3, color, u3, v3, light3);
+            this.writeVertex(ptr + VERTEX_SIZE * 6, x2, y2, z2, color, u2, v2, light2);
+            this.writeVertex(ptr + VERTEX_SIZE * 7, x1, y1, z1, color, u1, v1, light1);
         }
         this.vertexCount += vertexCount;
     }

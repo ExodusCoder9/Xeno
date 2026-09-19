@@ -10,6 +10,7 @@
     "RenderSectionRegionAccessor",
     "SectionCopyAccessor",
     "ViewAreaAccessor",
+    "XenoBakedGlyphMixin",
     "XenoBufferBuilderMixin",
     "XenoChunkSectionLayerMixin",
     "XenoChunkSectionsToRenderMixin",

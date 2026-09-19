@@ -48,6 +48,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import org.jspecify.annotations.NonNull;
 
+import java.util.Arrays;
+
 public final class XenoSectionCompiler extends SectionCompiler {
     private static final int SECTION_MAX = 15;
 
@@ -100,9 +102,9 @@ public final class XenoSectionCompiler extends SectionCompiler {
             results.visibilitySet = visGraph.resolve();
             return results;
         }
-        XenoLightDataCache lightDataCache = XenoLightDataCache.get().reset(sectionPos);
+        XenoLightDataCache.get().reset(sectionPos);
         Workspace workspace = this.workspaces.get();
-        workspace.bind(builders, lightDataCache);
+        workspace.bind(builders);
         XenoModelRenderer blockRenderer = workspace.blockRenderer;
         XenoFluidRenderer fluidRenderer = workspace.fluidRenderer;
         XenoSectionLayerBuffer[] sinks = workspace.sinks;
@@ -159,7 +161,9 @@ public final class XenoSectionCompiler extends SectionCompiler {
             MeshData mesh = sink.build();
             if (mesh != null) {
                 if (sink.layer() == ChunkSectionLayer.TRANSLUCENT) {
-                    results.transparencyState = mesh.sortQuads(builders.buffer(sink.layer()), vertexSorting);
+                    if (!net.minecraft.client.Minecraft.getInstance().gameRenderer.useImprovedTransparency()) {
+                        results.transparencyState = mesh.sortQuads(builders.buffer(sink.layer()), vertexSorting);
+                    }
                 }
 
                 results.renderedLayers.put(sink.layer(), mesh);
@@ -168,16 +172,6 @@ public final class XenoSectionCompiler extends SectionCompiler {
 
         results.visibilitySet = visGraph.resolve();
         return results;
-    }
-
-    private XenoSectionLayerBuffer sink(XenoSectionLayerBuffer[] sinks, SectionBufferBuilderPack builders, ChunkSectionLayer layer) {
-        int ordinal = layer.ordinal();
-        XenoSectionLayerBuffer sink = sinks[ordinal];
-        if (sink == null) {
-            sink = new XenoSectionLayerBuffer(builders.buffer(layer), XenoVertexFormats.TERRAIN, layer);
-            sinks[ordinal] = sink;
-        }
-        return sink;
     }
 
     private static boolean isBlockLayout(VertexFormat format) {
@@ -203,38 +197,41 @@ public final class XenoSectionCompiler extends SectionCompiler {
 
     private final class Workspace {
         final XenoSectionLayerBuffer[] sinks = new XenoSectionLayerBuffer[ChunkSectionLayer.values().length];
-        XenoModelRenderer blockRenderer;
-        XenoFluidRenderer fluidRenderer;
-        BlockQuadOutput quadOutput;
-        BlockQuadOutput opaqueQuadOutput;
-        XenoFluidRenderer.Output fluidOutput;
-        SectionBufferBuilderPack boundPack;
-        XenoLightDataCache boundCache;
+        final XenoModelRenderer blockRenderer;
+        final XenoFluidRenderer fluidRenderer;
+        final BlockQuadOutput quadOutput;
+        final BlockQuadOutput opaqueQuadOutput;
+        final XenoFluidRenderer.Output fluidOutput;
+        SectionBufferBuilderPack currentPack;
 
-        void bind(SectionBufferBuilderPack pack, XenoLightDataCache cache) {
-            if (this.boundPack == pack && this.boundCache == cache) {
-                for (XenoSectionLayerBuffer xenoSectionLayerBuffer : this.sinks) {
-                    if (xenoSectionLayerBuffer != null) {
-                        xenoSectionLayerBuffer.resetForReuse();
-                    }
-                }
-                return;
-            }
-
-            java.util.Arrays.fill(this.sinks, null);
+        Workspace() {
+            XenoLightDataCache cache = XenoLightDataCache.get();
             this.blockRenderer = new XenoModelRenderer(XenoSectionCompiler.this.ambientOcclusion, true, XenoSectionCompiler.this.blockColors, cache);
-            this.fluidRenderer = new XenoFluidRenderer(XenoSectionCompiler.this.fluidModelSet);
+            this.fluidRenderer = new XenoFluidRenderer(XenoSectionCompiler.this.fluidModelSet, cache);
             this.quadOutput = (x, y, z, quad, instance) -> {
-                XenoSectionLayerBuffer sink = XenoSectionCompiler.this.sink(this.sinks, pack, quad.materialInfo().layer());
+                XenoSectionLayerBuffer sink = this.getSink(quad.materialInfo().layer());
                 sink.writeBlockQuad(x, y, z, quad, instance);
             };
             this.opaqueQuadOutput = (x, y, z, quad, instance) -> {
-                XenoSectionLayerBuffer sink = XenoSectionCompiler.this.sink(this.sinks, pack, ChunkSectionLayer.SOLID);
+                XenoSectionLayerBuffer sink = this.getSink(ChunkSectionLayer.SOLID);
                 sink.writeBlockQuad(x, y, z, quad, instance);
             };
-            this.fluidOutput = layer -> XenoSectionCompiler.this.sink(this.sinks, pack, layer);
-            this.boundPack = pack;
-            this.boundCache = cache;
+            this.fluidOutput = this::getSink;
+        }
+
+        void bind(SectionBufferBuilderPack pack) {
+            this.currentPack = pack;
+            Arrays.fill(this.sinks, null);
+        }
+
+        XenoSectionLayerBuffer getSink(ChunkSectionLayer layer) {
+            int ordinal = layer.ordinal();
+            XenoSectionLayerBuffer sink = this.sinks[ordinal];
+            if (sink == null) {
+                sink = new XenoSectionLayerBuffer(this.currentPack.buffer(layer), XenoVertexFormats.TERRAIN, layer);
+                this.sinks[ordinal] = sink;
+            }
+            return sink;
         }
     }
 }

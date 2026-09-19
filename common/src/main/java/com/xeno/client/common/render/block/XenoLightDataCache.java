@@ -34,6 +34,8 @@ public final class XenoLightDataCache {
     private final BlockState[] states = new BlockState[BLOCK_COUNT];
     private final int[] packedBrightness = new int[BLOCK_COUNT];
     private final float[] shade = new float[BLOCK_COUNT];
+    private final int[] epoch = new int[BLOCK_COUNT];
+    private int currentEpoch = 1;
     private int baseX;
     private int baseY;
     private int baseZ;
@@ -42,31 +44,34 @@ public final class XenoLightDataCache {
         return THREAD_LOCAL.get();
     }
 
-    public XenoLightDataCache reset(SectionPos sectionPos) {
+    public void reset(SectionPos sectionPos) {
         this.baseX = sectionPos.minBlockX();
         this.baseY = sectionPos.minBlockY();
         this.baseZ = sectionPos.minBlockZ();
-        Arrays.fill(this.states, null);
-        return this;
+        this.currentEpoch++;
+        if (this.currentEpoch == 0) {
+            Arrays.fill(this.epoch, 0);
+            this.currentEpoch = 1;
+        }
     }
 
     public BlockState getState(BlockAndTintGetter level, BlockPos pos) {
         int index = this.index(pos);
-        BlockState state = this.states[index];
-        if (state == null) {
-            state = level.getBlockState(pos);
-            this.states[index] = state;
-            this.packedBrightness[index] = BrightnessGetter.DEFAULT.packedBrightness(level, pos);
-            this.shade[index] = state.getShadeBrightness(level, pos);
+        if (this.epoch[index] != this.currentEpoch) {
+            this.populate(level, pos, index);
         }
-        return state;
+        return this.states[index];
     }
 
     public int getLightCoords(BlockState state, BlockAndTintGetter level, BlockPos pos) {
         if (state.emissiveRendering()) {
             return LightCoordsUtil.FULL_BRIGHT;
         }
-        int packed = this.getPackedBrightness(level, pos);
+        int index = this.index(pos);
+        if (this.epoch[index] != this.currentEpoch) {
+            this.populate(level, pos, index);
+        }
+        int packed = this.packedBrightness[index];
         int blockLight = LightCoordsUtil.block(packed);
         int emission = state.getLightEmission();
         if (blockLight < emission) {
@@ -76,21 +81,19 @@ public final class XenoLightDataCache {
     }
 
     public float getShadeBrightness(BlockState state, BlockAndTintGetter level, BlockPos pos) {
-        return this.shade[this.ensureComputed(level, pos)];
-    }
-
-    private int getPackedBrightness(BlockAndTintGetter level, BlockPos pos) {
-        return this.packedBrightness[this.ensureComputed(level, pos)];
-    }
-
-    private int ensureComputed(BlockAndTintGetter level, BlockPos pos) {
         int index = this.index(pos);
-        if (this.states[index] == null) {
-            this.states[index] = level.getBlockState(pos);
-            this.packedBrightness[index] = BrightnessGetter.DEFAULT.packedBrightness(level, pos);
-            this.shade[index] = this.states[index].getShadeBrightness(level, pos);
+        if (this.epoch[index] != this.currentEpoch) {
+            this.populate(level, pos, index);
         }
-        return index;
+        return this.shade[index];
+    }
+
+    private void populate(BlockAndTintGetter level, BlockPos pos, int index) {
+        BlockState state = level.getBlockState(pos);
+        this.states[index] = state;
+        this.packedBrightness[index] = BrightnessGetter.DEFAULT.packedBrightness(level, pos);
+        this.shade[index] = state.getShadeBrightness(level, pos);
+        this.epoch[index] = this.currentEpoch;
     }
 
     private int index(BlockPos pos) {

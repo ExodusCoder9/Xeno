@@ -28,6 +28,8 @@ import com.xeno.client.common.render.XenoChunkRenderer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import net.minecraft.client.renderer.oit.OitRenderPassProvider;
+import net.minecraft.client.renderer.oit.OitStage;
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -49,9 +51,12 @@ public abstract class XenoChunkSectionsToRenderMixin {
 		final @Nullable RenderPipeline renderPipelineOverrideMultidraw
 	);
 
+	@org.spongepowered.asm.mixin.Unique
+	private final XenoChunkRenderer.RenderInvoker xeno$renderInvoker = this::render;
+
 	/**
 	 * @author ExodusCoder9
-	 * @reason Route chunk draw call submission through the Xeno chunk renderer.
+	 * @reason Delegate the chunk layer group rendering to XenoChunkRenderer
 	 */
 	@Overwrite
 	public void renderGroup(
@@ -70,7 +75,32 @@ public abstract class XenoChunkSectionsToRenderMixin {
 			renderWireframeTerrain,
 			this.maxIndicesRequired,
 			this.terrainTransformUBO,
-			this::render
+			this.xeno$renderInvoker
+		);
+	}
+
+	/**
+	 * @author ExodusCoder9
+	 * @reason Delegate the OIT chunk rendering to XenoChunkRenderer
+	 */
+	@Overwrite
+	public void renderOit(
+		final GpuSampler sampler,
+		final OitStage stage,
+		final OitRenderPassProvider.Parameters params,
+		final GpuTextureView atlas,
+		final GpuTextureView lightmap
+	) {
+		XenoChunkRenderer.INSTANCE.renderOit(
+			(ChunkSectionsToRender) (Object) this,
+			sampler,
+			stage,
+			params,
+			atlas,
+			lightmap,
+			this.maxIndicesRequired,
+			this.terrainTransformUBO,
+			this.xeno$renderInvoker
 		);
 	}
 }

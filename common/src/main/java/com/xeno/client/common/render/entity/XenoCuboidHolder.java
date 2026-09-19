@@ -12,13 +12,11 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://gnu.org>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 package com.xeno.client.common.render.entity;
 
-public interface XenoBufferWriter {
-    boolean xeno$isEntityFormat();
-    boolean xeno$isGlyphFormat();
-    long xeno$reserveVertices(int count);
+public interface XenoCuboidHolder {
+    XenoCuboidData xeno$getCuboidData();
 }

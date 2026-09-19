@@ -32,6 +32,8 @@ import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
 import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
+import net.minecraft.client.renderer.oit.OitRenderPassProvider;
+import net.minecraft.client.renderer.oit.OitStage;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -54,12 +56,34 @@ public final class XenoChunkRenderer {
         );
     }
 
+    private static final java.util.function.Supplier<String>[] LAYER_DEBUG_GROUPS;
+    private static final java.util.function.Supplier<String>[][] OIT_DEBUG_GROUPS;
+    private static final java.util.function.Supplier<String>[] OIT_PASS_NAMES;
+
+    static {
+        ChunkSectionLayer[] layers = ChunkSectionLayer.values();
+        LAYER_DEBUG_GROUPS = new java.util.function.Supplier[layers.length];
+        for (int i = 0; i < layers.length; i++) {
+            String label = "Xeno terrain layer: " + layers[i].label();
+            LAYER_DEBUG_GROUPS[i] = () -> label;
+        }
+
+        OitStage[] stages = OitStage.values();
+        OIT_DEBUG_GROUPS = new java.util.function.Supplier[stages.length][layers.length];
+        OIT_PASS_NAMES = new java.util.function.Supplier[stages.length];
+        for (int s = 0; s < stages.length; s++) {
+            String passLabel = "Xeno terrain OIT: " + stages[s].name();
+            OIT_PASS_NAMES[s] = () -> passLabel;
+            for (int l = 0; l < layers.length; l++) {
+                String label = "Xeno OIT terrain layer: " + layers[l].label() + " (" + stages[s].name() + ")";
+                OIT_DEBUG_GROUPS[s][l] = () -> label;
+            }
+        }
+    }
+
     private XenoChunkRenderer() {
     }
 
-    /**
-     * Submits terrain draws for the given layer group to the active render pass.
-     */
     public void renderChunks(
         ChunkSectionsToRender chunkRenders,
         ChunkSectionLayerGroup group,
@@ -85,11 +109,45 @@ public final class XenoChunkRenderer {
         renderPass.setUniform("Sampler2", lightmap, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
 
         for (ChunkSectionLayer layer : group.layers()) {
-            renderPass.pushDebugGroup(() -> "Xeno terrain layer: " + layer.label());
+            renderPass.pushDebugGroup(LAYER_DEBUG_GROUPS[layer.ordinal()]);
             RenderPipeline normalPipeline = XenoRenderPipelines.getPipeline(layer, renderWireframeTerrain, false);
             RenderPipeline multiDrawPipeline = XenoRenderPipelines.getPipeline(layer, renderWireframeTerrain, true);
             renderInvoker.render(layer, renderPass, defaultIndexBuffer, defaultIndexType, normalPipeline, multiDrawPipeline);
             renderPass.popDebugGroup();
+        }
+    }
+
+    public void renderOit(
+        ChunkSectionsToRender chunkRenders,
+        GpuSampler sampler,
+        OitStage stage,
+        OitRenderPassProvider.Parameters params,
+        GpuTextureView atlas,
+        GpuTextureView lightmap,
+        int maxIndicesRequired,
+        GpuBufferSlice terrainTransformUBO,
+        RenderInvoker renderInvoker
+    ) {
+        SHARED_INDEX_BUFFER.ensureCapacity(maxIndicesRequired);
+        GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || !SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
+            ? null
+            : SHARED_INDEX_BUFFER.buffer();
+        IndexType defaultIndexType = defaultIndexBuffer == null ? null : SHARED_INDEX_BUFFER.type();
+
+        try (RenderPass renderPass = OitRenderPassProvider.createRenderPass(stage, OIT_PASS_NAMES[stage.ordinal()], params)) {
+            renderPass.setUniform("TerrainUniform", terrainTransformUBO);
+            renderPass.setUniform("Sampler0", atlas, sampler);
+            renderPass.setUniform("Sampler2", lightmap, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+
+            RenderPipeline normalPipeline = XenoRenderPipelines.getOitPipeline(stage, false);
+            RenderPipeline multiDrawPipeline = XenoRenderPipelines.getOitPipeline(stage, true);
+
+            int stageOrdinal = stage.ordinal();
+            for (ChunkSectionLayer layer : ChunkSectionLayerGroup.TRANSLUCENT.layers()) {
+                renderPass.pushDebugGroup(OIT_DEBUG_GROUPS[stageOrdinal][layer.ordinal()]);
+                renderInvoker.render(layer, renderPass, defaultIndexBuffer, defaultIndexType, normalPipeline, multiDrawPipeline);
+                renderPass.popDebugGroup();
+            }
         }
     }
 }

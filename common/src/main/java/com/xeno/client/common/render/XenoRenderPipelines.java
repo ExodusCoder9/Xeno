@@ -27,6 +27,8 @@ import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.xeno.client.common.render.chunk.XenoVertexFormats;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.client.renderer.oit.OitPipelineSet;
+import net.minecraft.client.renderer.oit.OitStage;
 import net.minecraft.resources.Identifier;
 
 public final class XenoRenderPipelines {
@@ -62,7 +64,6 @@ public final class XenoRenderPipelines {
             .withFragmentShader(FRAGMENT_SHADER)
             .buildSnippet();
 
-    // Separate draw pipelines
     public static final RenderPipeline SOLID_TERRAIN = RenderPipeline.builder(XENO_TERRAIN_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath("xeno", "pipeline/solid_terrain"))
             .withColorTargetState(ColorTargetState.DEFAULT)
@@ -86,7 +87,6 @@ public final class XenoRenderPipelines {
             .withColorTargetState(ColorTargetState.DEFAULT)
             .build();
 
-    // MultiDraw indirect pipelines
     public static final RenderPipeline SOLID_TERRAIN_MULTIDRAW = RenderPipeline.builder(XENO_MULTIDRAW_TERRAIN_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath("xeno", "pipeline/solid_terrain_multidraw"))
             .withColorTargetState(ColorTargetState.DEFAULT)
@@ -110,6 +110,22 @@ public final class XenoRenderPipelines {
             .withColorTargetState(ColorTargetState.DEFAULT)
             .build();
 
+    public static final OitPipelineSet OIT_TERRAIN = OitPipelineSet.builder(
+            "xeno_terrain",
+            RenderPipeline.builder(XENO_TERRAIN_SNIPPET)
+                .withShaderDefine("ALPHA_CUTOUT", 0.1F)
+        )
+        .withAccumulateModifier(accumulate -> accumulate.withBindGroupLayout(BindGroupLayouts.SAMPLER2))
+        .build();
+
+    public static final OitPipelineSet OIT_TERRAIN_MULTIDRAW = OitPipelineSet.builder(
+            "xeno_terrain_multidraw",
+            RenderPipeline.builder(XENO_MULTIDRAW_TERRAIN_SNIPPET)
+                .withShaderDefine("ALPHA_CUTOUT", 0.1F)
+        )
+        .withAccumulateModifier(accumulate -> accumulate.withBindGroupLayout(BindGroupLayouts.SAMPLER2))
+        .build();
+
     public static RenderPipeline getPipeline(ChunkSectionLayer layer, boolean wireframe) {
         return getPipeline(layer, wireframe, false);
     }
@@ -123,6 +139,10 @@ public final class XenoRenderPipelines {
             case CUTOUT -> multiDraw ? CUTOUT_TERRAIN_MULTIDRAW : CUTOUT_TERRAIN;
             case TRANSLUCENT -> multiDraw ? TRANSLUCENT_TERRAIN_MULTIDRAW : TRANSLUCENT_TERRAIN;
         };
+    }
+
+    public static RenderPipeline getOitPipeline(OitStage stage, boolean multiDraw) {
+        return multiDraw ? OIT_TERRAIN_MULTIDRAW.getPipeline(stage) : OIT_TERRAIN.getPipeline(stage);
     }
 
     private XenoRenderPipelines() {
