@@ -94,8 +94,8 @@ public final class XenoQuadLighter {
             maxY = Math.max(maxY, py);
             maxZ = Math.max(maxZ, pz);
 
-            float u = projectU(direction, px, py, pz);
-            float v = projectV(direction, px, py, pz);
+            float u = projectU(direction, px, pz);
+            float v = projectV(direction, py, pz);
             vertexU[i] = u;
             vertexV[i] = v;
             minU = Math.min(minU, u);
@@ -211,8 +211,7 @@ public final class XenoQuadLighter {
             centerLight = this.cache.getLightCoords(neighborState, level, neighborPos);
         }
 
-        BlockState baseState = cubic ? neighborState : state;
-        float centerShade = this.cache.getShadeBrightness(baseState, level, basePosition);
+        float centerShade = this.cache.getShadeBrightness(level, basePosition);
 
         out.computeCorner(0, level, this.cache, basePosition, direction, uDir.getOpposite(), vDir.getOpposite(), centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
         out.computeCorner(1, level, this.cache, basePosition, direction, uDir.getOpposite(), vDir, centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
@@ -234,14 +233,14 @@ public final class XenoQuadLighter {
         };
     }
 
-    private static float projectU(Direction face, float x, float y, float z) {
+    private static float projectU(Direction face, float x, float z) {
         return switch (face) {
             case DOWN, UP, NORTH, SOUTH -> x;
             case WEST, EAST -> z;
         };
     }
 
-    private static float projectV(Direction face, float x, float y, float z) {
+    private static float projectV(Direction face, float y, float z) {
         return switch (face) {
             case DOWN, UP -> z;
             case NORTH, SOUTH, WEST, EAST -> y;
@@ -271,12 +270,12 @@ public final class XenoQuadLighter {
             posA.setWithOffset(basePos, dirA);
             BlockState stateA = cache.getState(level, posA);
             int lightA = cache.getLightCoords(stateA, level, posA);
-            float shadeA = cache.getShadeBrightness(stateA, level, posA);
+            float shadeA = cache.getShadeBrightness(level, posA);
 
             posB.setWithOffset(basePos, dirB);
             BlockState stateB = cache.getState(level, posB);
             int lightB = cache.getLightCoords(stateB, level, posB);
-            float shadeB = cache.getShadeBrightness(stateB, level, posB);
+            float shadeB = cache.getShadeBrightness(level, posB);
 
             boolean permeableA = cache.getState(level, permScratch.setWithOffset(posA, faceDir)).isLightPermeable();
             boolean permeableB = cache.getState(level, permScratch.setWithOffset(posB, faceDir)).isLightPermeable();
@@ -290,7 +289,7 @@ public final class XenoQuadLighter {
                 posDiag.setWithOffset(basePos, dirA).move(dirB);
                 BlockState stateDiag = cache.getState(level, posDiag);
                 lightDiag = cache.getLightCoords(stateDiag, level, posDiag);
-                shadeDiag = cache.getShadeBrightness(stateDiag, level, posDiag);
+                shadeDiag = cache.getShadeBrightness(level, posDiag);
             }
 
             this.lightCoords[cornerIndex] = LightCoordsUtil.smoothBlend(lightA, lightB, lightDiag, centerLight);

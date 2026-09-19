@@ -126,10 +126,6 @@ public final class XenoRenderPipelines {
         .withAccumulateModifier(accumulate -> accumulate.withBindGroupLayout(BindGroupLayouts.SAMPLER2))
         .build();
 
-    public static RenderPipeline getPipeline(ChunkSectionLayer layer, boolean wireframe) {
-        return getPipeline(layer, wireframe, false);
-    }
-
     public static RenderPipeline getPipeline(ChunkSectionLayer layer, boolean wireframe, boolean multiDraw) {
         if (wireframe) {
             return multiDraw ? WIREFRAME_MULTIDRAW : WIREFRAME;

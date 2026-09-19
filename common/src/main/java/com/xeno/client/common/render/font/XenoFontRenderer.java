@@ -65,30 +65,6 @@ public final class XenoFontRenderer {
         emitQuad(writer, pose, px0, py0, px1, py1, px2, py2, px3, py3, z, u0, u1, v0, v1, color, packedLightCoords);
     }
 
-    public static void renderEffect(
-        XenoBufferWriter writer,
-        Matrix4fc pose,
-        float x0, float y0, float x1, float y1,
-        float offset, float z,
-        float u0, float u1, float v0, float v1,
-        int color,
-        int packedLightCoords
-    ) {
-        float px0 = x0 + offset;
-        float py0 = y1 + offset;
-
-        float px1 = x1 + offset;
-        float py1 = y1 + offset;
-
-        float px2 = x1 + offset;
-        float py2 = y0 + offset;
-
-        float px3 = x0 + offset;
-        float py3 = y0 + offset;
-
-        emitQuad(writer, pose, px0, py0, px1, py1, px2, py2, px3, py3, z, u0, u1, v0, v1, color, packedLightCoords);
-    }
-
     private static void emitQuad(
         XenoBufferWriter writer,
         Matrix4fc pose,

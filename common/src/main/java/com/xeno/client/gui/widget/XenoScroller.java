@@ -42,15 +42,14 @@ public final class XenoScroller extends AbstractContainerEventHandler implements
 
     private int x;
     private int y;
-    private int trackHeight;
-    private int thumbWidth;
-    private int thumbHeight;
+    private final int trackHeight;
+    private final int thumbWidth;
+    private final int thumbHeight;
 
     private float scrollAmount;
     private float maxScroll;
     private boolean dragging;
     private double dragOffsetY;
-    private boolean thumbHovered;
 
     public XenoScroller(int x, int y, int trackHeight, int thumbWidth, int thumbHeight) {
         this.x = x;
@@ -114,18 +113,6 @@ public final class XenoScroller extends AbstractContainerEventHandler implements
         this.y = y;
     }
 
-    public int getTrackHeight() {
-        return this.trackHeight;
-    }
-
-    public void setTrackHeight(int height) {
-        this.trackHeight = height;
-    }
-
-    public boolean isThumbHovered() {
-        return this.thumbHovered;
-    }
-
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
         int trackX = this.x + (this.thumbWidth - 1) / 2;
@@ -133,10 +120,10 @@ public final class XenoScroller extends AbstractContainerEventHandler implements
 
         int thumbX = this.x;
         int thumbY = this.getThumbY();
-        this.thumbHovered = mouseX >= thumbX && mouseX < thumbX + this.thumbWidth
+        boolean thumbHovered = mouseX >= thumbX && mouseX < thumbX + this.thumbWidth
                 && mouseY >= thumbY && mouseY < thumbY + this.thumbHeight;
 
-        int thumbColor = this.thumbHovered || this.dragging ? THUMB_HOVER_COLOR : THUMB_COLOR;
+        int thumbColor = thumbHovered || this.dragging ? THUMB_HOVER_COLOR : THUMB_COLOR;
         graphics.fill(thumbX, thumbY, thumbX + this.thumbWidth, thumbY + this.thumbHeight, thumbColor);
     }
 

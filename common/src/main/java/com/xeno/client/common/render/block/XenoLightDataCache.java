@@ -80,7 +80,7 @@ public final class XenoLightDataCache {
         return packed;
     }
 
-    public float getShadeBrightness(BlockState state, BlockAndTintGetter level, BlockPos pos) {
+    public float getShadeBrightness(BlockAndTintGetter level, BlockPos pos) {
         int index = this.index(pos);
         if (this.epoch[index] != this.currentEpoch) {
             this.populate(level, pos, index);

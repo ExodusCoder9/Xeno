@@ -61,10 +61,6 @@ public class XenoTab extends AbstractButton {
         return this.selected;
     }
 
-    public void setSelected(boolean selected) {
-        this.selected = selected;
-    }
-
     @Override
     public void onPress(@NonNull InputWithModifiers input) {
         if (this.onPress != null) {

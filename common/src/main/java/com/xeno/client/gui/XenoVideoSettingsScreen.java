@@ -866,7 +866,6 @@ public final class XenoVideoSettingsScreen extends Screen {
             AbstractWidget widget = entry.widget();
 
             int yPos = 40 + i * ROW_HEIGHT - (int) this.scrollOffset;
-            int controlWidth = widget.getWidth();
             int controlHeight = widget.getHeight();
 
             int widgetX = (widget instanceof XenoSlider) ? (this.width - 30 - 80) : (this.width - 30 - 120);
@@ -972,9 +971,8 @@ public final class XenoVideoSettingsScreen extends Screen {
 
         int labelWidth = this.font.width(impactLabel);
         int valueWidth = this.font.width(impactValue);
-        int impactWidth = labelWidth + valueWidth;
 
-        int maxLineWidth = impactWidth;
+        int maxLineWidth = labelWidth + valueWidth;
         for (FormattedCharSequence line : lines) {
             maxLineWidth = Math.max(maxLineWidth, this.font.width(line));
         }

@@ -19,7 +19,6 @@ package com.xeno.client.common.render.entity;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.util.ARGB;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -43,16 +42,6 @@ public final class FastCuboidRenderer {
     private FastCuboidRenderer() {
     }
 
-    public static void renderCube(ModelPart.Cube cube, PoseStack.Pose pose, VertexConsumer builder, int light, int overlay, int color) {
-        XenoCuboidData data;
-        if (cube instanceof XenoCuboidHolder holder) {
-            data = holder.xeno$getCuboidData();
-        } else {
-            data = new XenoCuboidData(cube);
-        }
-        renderCuboid(data, pose, builder, light, overlay, color);
-    }
-
     public static void renderCuboid(XenoCuboidData data, PoseStack.Pose pose, VertexConsumer builder, int light, int overlay, int color) {
         int faceCount = data.faceCount;
         if (faceCount == 0) {
@@ -60,10 +49,10 @@ public final class FastCuboidRenderer {
         }
 
         Matrix4f matrix = pose.pose();
-        float m00 = matrix.m00(), m01 = matrix.m01(), m02 = matrix.m02(), m03 = matrix.m03();
-        float m10 = matrix.m10(), m11 = matrix.m11(), m12 = matrix.m12(), m13 = matrix.m13();
-        float m20 = matrix.m20(), m21 = matrix.m21(), m22 = matrix.m22(), m23 = matrix.m23();
-        float m30 = matrix.m30(), m31 = matrix.m31(), m32 = matrix.m32(), m33 = matrix.m33();
+        float m00 = matrix.m00(), m01 = matrix.m01(), m02 = matrix.m02();
+        float m10 = matrix.m10(), m11 = matrix.m11(), m12 = matrix.m12();
+        float m20 = matrix.m20(), m21 = matrix.m21(), m22 = matrix.m22();
+        float m30 = matrix.m30(), m31 = matrix.m31(), m32 = matrix.m32();
 
         ScratchBuffers scratch = SCRATCH.get();
         float[] transformedX = scratch.transformedX;

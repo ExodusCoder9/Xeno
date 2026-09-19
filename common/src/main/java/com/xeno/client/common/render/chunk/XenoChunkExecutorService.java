@@ -55,10 +55,6 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 		}
 	}
 
-	static int optimalWorkerCount() {
-		return optimalThreadCount();
-	}
-
 	private void workerLoop() {
 		while (this.running.get()) {
 			Runnable task = this.waitForNextJob();

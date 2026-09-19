@@ -67,8 +67,7 @@ public abstract class XenoChunkSectionsToRenderMixin {
 		final boolean renderWireframeTerrain
 	) {
 		XenoChunkRenderer.INSTANCE.renderChunks(
-			(ChunkSectionsToRender) (Object) this,
-			group,
+				group,
 			renderPass,
 			sampler,
 			atlas,
@@ -92,8 +91,7 @@ public abstract class XenoChunkSectionsToRenderMixin {
 		final GpuTextureView lightmap
 	) {
 		XenoChunkRenderer.INSTANCE.renderOit(
-			(ChunkSectionsToRender) (Object) this,
-			sampler,
+				sampler,
 			stage,
 			params,
 			atlas,

@@ -22,6 +22,8 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+
 import net.minecraft.client.renderer.ShaderManager;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackResources;
@@ -50,7 +52,7 @@ public abstract class XenoShaderManagerMixin {
             PackResources defaultPack = manager.getResource(Identifier.withDefaultNamespace("shaders/core/terrain.vsh"))
                 .map(Resource::source)
                 .orElse(null);
-            mutableFiles.put(terrainVsh, new Resource(defaultPack, () -> {
+            mutableFiles.put(terrainVsh, new Resource(Objects.requireNonNull(defaultPack), () -> {
                 InputStream is = XenoSectionCompiler.class.getResourceAsStream("/assets/xeno/shaders/core/terrain.vsh");
                 if (is == null) {
                     throw new FileNotFoundException("Could not find xeno terrain shader in classpath: /assets/xeno/shaders/core/terrain.vsh");

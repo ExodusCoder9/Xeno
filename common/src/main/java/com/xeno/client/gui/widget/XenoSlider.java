@@ -65,10 +65,6 @@ public class XenoSlider extends AbstractButton {
         return this.value;
     }
 
-    public void setDoubleValue(double value) {
-        this.value = Mth.clamp(value, 0.0, 1.0);
-    }
-
     @Override
     public void onPress(@NonNull InputWithModifiers input) {
     }

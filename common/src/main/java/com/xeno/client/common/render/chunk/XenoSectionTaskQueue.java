@@ -139,7 +139,7 @@ public final class XenoSectionTaskQueue extends SectionTaskDynamicQueue {
 			return Double.compare(distA, distB);
 		});
 
-		this.order = this.staging.toArray(new SectionRenderDispatcher.RenderSection.SectionTask[this.staging.size()]);
+		this.order = this.staging.toArray(new SectionRenderDispatcher.RenderSection.SectionTask[0]);
 		this.cursor = 0;
 		this.cachedCameraSection = cameraSection;
 		this.hasPendingImportant = false;

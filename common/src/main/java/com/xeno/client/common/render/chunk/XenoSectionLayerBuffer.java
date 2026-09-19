@@ -72,10 +72,6 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
         return new MeshData(vertexBuffer, new MeshData.DrawState(this.format, this.vertexCount, indexCount, PrimitiveTopology.QUADS, indexType));
     }
 
-    void resetForReuse() {
-        this.vertexCount = 0;
-    }
-
     public void writeBlockQuad(float x, float y, float z, BakedQuad quad, QuadInstance instance) {
         long ptr = this.buffer.reserve(VERTEX_SIZE * 4);
         int emission = quad.materialInfo().lightEmission();

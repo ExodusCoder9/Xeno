@@ -21,8 +21,6 @@ import com.mojang.renderpearl.api.GpuFormat;
 import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 public final class XenoVertexFormats {
-    public static final int TERRAIN_VERTEX_SIZE = 20;
-
     public static final VertexFormat TERRAIN = VertexFormat.builder(0)
             .addAttribute("Position", GpuFormat.RG32_UINT)
             .addAttribute("Color", GpuFormat.RGBA8_UNORM)

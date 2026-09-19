@@ -58,10 +58,6 @@ public final class XenoFluidRenderer {
     private final MutableBlockPos scratchCorner = new MutableBlockPos();
     private final MutableBlockPos scratchLight = new MutableBlockPos();
 
-    public XenoFluidRenderer(FluidStateModelSet fluidModels) {
-        this(fluidModels, XenoLightDataCache.get());
-    }
-
     public XenoFluidRenderer(FluidStateModelSet fluidModels, XenoLightDataCache lightCache) {
         this.fluidModels = fluidModels;
         this.lightCache = lightCache;

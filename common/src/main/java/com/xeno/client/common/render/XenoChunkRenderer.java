@@ -31,7 +31,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayerGroup;
-import net.minecraft.client.renderer.chunk.ChunkSectionsToRender;
 import net.minecraft.client.renderer.oit.OitRenderPassProvider;
 import net.minecraft.client.renderer.oit.OitStage;
 import org.jspecify.annotations.Nullable;
@@ -85,7 +84,6 @@ public final class XenoChunkRenderer {
     }
 
     public void renderChunks(
-        ChunkSectionsToRender chunkRenders,
         ChunkSectionLayerGroup group,
         RenderPass renderPass,
         GpuSampler sampler,
@@ -99,7 +97,7 @@ public final class XenoChunkRenderer {
         GpuTextureView lightmap = gameRenderer.lightmap();
 
         SHARED_INDEX_BUFFER.ensureCapacity(maxIndicesRequired);
-        GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || !SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
+        GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
             ? null
             : SHARED_INDEX_BUFFER.buffer();
         IndexType defaultIndexType = defaultIndexBuffer == null ? null : SHARED_INDEX_BUFFER.type();
@@ -118,7 +116,6 @@ public final class XenoChunkRenderer {
     }
 
     public void renderOit(
-        ChunkSectionsToRender chunkRenders,
         GpuSampler sampler,
         OitStage stage,
         OitRenderPassProvider.Parameters params,
@@ -129,7 +126,7 @@ public final class XenoChunkRenderer {
         RenderInvoker renderInvoker
     ) {
         SHARED_INDEX_BUFFER.ensureCapacity(maxIndicesRequired);
-        GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || !SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
+        GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
             ? null
             : SHARED_INDEX_BUFFER.buffer();
         IndexType defaultIndexType = defaultIndexBuffer == null ? null : SHARED_INDEX_BUFFER.type();
