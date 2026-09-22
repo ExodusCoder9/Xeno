@@ -56,6 +56,9 @@ public final class XenoLightDataCache {
     }
 
     public BlockState getState(BlockAndTintGetter level, BlockPos pos) {
+        if (!this.isWithinBounds(pos.getX(), pos.getY(), pos.getZ())) {
+            return level.getBlockState(pos);
+        }
         int index = this.index(pos);
         if (this.epoch[index] != this.currentEpoch) {
             this.populate(level, pos, index);
@@ -66,6 +69,15 @@ public final class XenoLightDataCache {
     public int getLightCoords(BlockState state, BlockAndTintGetter level, BlockPos pos) {
         if (state.emissiveRendering()) {
             return LightCoordsUtil.FULL_BRIGHT;
+        }
+        if (!this.isWithinBounds(pos.getX(), pos.getY(), pos.getZ())) {
+            int packed = BrightnessGetter.DEFAULT.packedBrightness(level, pos);
+            int blockLight = LightCoordsUtil.block(packed);
+            int emission = state.getLightEmission();
+            if (blockLight < emission) {
+                return LightCoordsUtil.withBlock(packed, emission);
+            }
+            return packed;
         }
         int index = this.index(pos);
         if (this.epoch[index] != this.currentEpoch) {
@@ -81,6 +93,9 @@ public final class XenoLightDataCache {
     }
 
     public float getShadeBrightness(BlockAndTintGetter level, BlockPos pos) {
+        if (!this.isWithinBounds(pos.getX(), pos.getY(), pos.getZ())) {
+            return level.getBlockState(pos).getShadeBrightness(level, pos);
+        }
         int index = this.index(pos);
         if (this.epoch[index] != this.currentEpoch) {
             this.populate(level, pos, index);
@@ -94,6 +109,13 @@ public final class XenoLightDataCache {
         this.packedBrightness[index] = BrightnessGetter.DEFAULT.packedBrightness(level, pos);
         this.shade[index] = state.getShadeBrightness(level, pos);
         this.epoch[index] = this.currentEpoch;
+    }
+
+    private boolean isWithinBounds(int x, int y, int z) {
+        int relX = x - this.baseX + NEIGHBOR_BLOCK_RADIUS;
+        int relY = y - this.baseY + NEIGHBOR_BLOCK_RADIUS;
+        int relZ = z - this.baseZ + NEIGHBOR_BLOCK_RADIUS;
+        return relX >= 0 && relX < BLOCK_LENGTH && relY >= 0 && relY < BLOCK_LENGTH && relZ >= 0 && relZ < BLOCK_LENGTH;
     }
 
     private int index(BlockPos pos) {

@@ -28,6 +28,7 @@ import net.minecraft.core.BlockPos.MutableBlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
 import net.minecraft.core.Direction.Plane;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
@@ -56,7 +57,6 @@ public final class XenoFluidRenderer {
     private final MutableBlockPos scratchWest = new MutableBlockPos();
     private final MutableBlockPos scratchEast = new MutableBlockPos();
     private final MutableBlockPos scratchCorner = new MutableBlockPos();
-    private final MutableBlockPos scratchLight = new MutableBlockPos();
 
     public XenoFluidRenderer(FluidStateModelSet fluidModels, XenoLightDataCache lightCache) {
         this.fluidModels = fluidModels;
@@ -164,6 +164,13 @@ public final class XenoFluidRenderer {
         float localZ = (float) (z & 15);
         float bottomOffs = renderDown ? 0.001F : 0.0F;
 
+        int lightSelf = this.getLightCoords(level, blockState, pos);
+        int lightAbove = this.getLightCoords(level, blockStateUp, this.scratchUp);
+        int topLight = LightCoordsUtil.max(lightSelf, lightAbove);
+        if (fluidState.is(FluidTags.LAVA)) {
+            topLight = LightCoordsUtil.withBlock(topLight, 15);
+        }
+
         if (renderUp && !this.isFaceOccludedByState(
                 Direction.UP, Math.min(Math.min(heightNorthWest, heightSouthWest), Math.min(heightSouthEast, heightNorthEast)), blockStateUp
         )) {
@@ -200,11 +207,6 @@ public final class XenoFluidRenderer {
                 v11 = flowingSprite.getV(0.5F + (-c - s));
             }
 
-            int lightNW = this.getCornerLight(level, x, y, z);
-            int lightSW = this.getCornerLight(level, x, y, z + 1);
-            int lightSE = this.getCornerLight(level, x + 1, y, z + 1);
-            int lightNE = this.getCornerLight(level, x + 1, y, z);
-
             int topColor = ARGB.scaleRGB(tintColor, cardinalLighting.up());
             boolean backwardFace = fluidState.shouldRenderBackwardUpFace(level, this.scratchUp);
 
@@ -213,7 +215,7 @@ public final class XenoFluidRenderer {
                     localX + 0.0F, localY + heightSouthWest, localZ + 1.0F, u01, v01,
                     localX + 1.0F, localY + heightSouthEast, localZ + 1.0F, u10, v10,
                     localX + 1.0F, localY + heightNorthEast, localZ + 0.0F, u11, v11,
-                    topColor, lightNW, lightSW, lightSE, lightNE, backwardFace
+                    topColor, topLight, backwardFace
             );
         }
 
@@ -224,7 +226,11 @@ public final class XenoFluidRenderer {
             float v0 = stillSprite.getV0();
             float v1 = stillSprite.getV1();
 
-            int belowLight = this.getLightCoords(level, this.scratchDown);
+            int lightBelow = this.getLightCoords(level, blockStateDown, this.scratchDown);
+            int belowLight = LightCoordsUtil.max(lightBelow, lightSelf);
+            if (fluidState.is(FluidTags.LAVA)) {
+                belowLight = LightCoordsUtil.withBlock(belowLight, 15);
+            }
             int belowColor = ARGB.scaleRGB(tintColor, cardinalLighting.down());
 
             builder.writeQuad(
@@ -236,7 +242,7 @@ public final class XenoFluidRenderer {
             );
         }
 
-        int sideLight = this.getLightCoords(level, pos);
+        int sideLight = topLight;
 
         for (Direction faceDir : Plane.HORIZONTAL) {
             float hh0, hh1, x0, z0, x1, z1;
@@ -385,16 +391,8 @@ public final class XenoFluidRenderer {
         return !state.isSolid() ? 0.0F : -1.0F;
     }
 
-    private int getLightCoords(BlockAndTintGetter level, BlockPos pos) {
-        this.scratchLight.setWithOffset(pos, Direction.UP);
-        int lightSelf = this.lightCache.getLightCoords(this.getState(level, pos), level, pos);
-        int lightAbove = this.lightCache.getLightCoords(this.getState(level, this.scratchLight), level, this.scratchLight);
-        return LightCoordsUtil.max(lightSelf, lightAbove);
-    }
-
-    private int getCornerLight(BlockAndTintGetter level, int x, int y, int z) {
-        this.scratchLight.set(x, y, z);
-        return this.getLightCoords(level, this.scratchLight);
+    private int getLightCoords(BlockAndTintGetter level, BlockState state, BlockPos pos) {
+        return this.lightCache != null ? this.lightCache.getLightCoords(state, level, pos) : LightCoordsUtil.getLightCoords(level, pos);
     }
 
     private BlockState getState(BlockAndTintGetter level, BlockPos pos) {
