@@ -52,7 +52,6 @@ import java.util.Arrays;
 
 public final class XenoSectionCompiler extends SectionCompiler {
     private static final int SECTION_MAX = 15;
-
     private final boolean ambientOcclusion;
     private final boolean cutoutLeaves;
     private final BlockStateModelSet blockModelSet;

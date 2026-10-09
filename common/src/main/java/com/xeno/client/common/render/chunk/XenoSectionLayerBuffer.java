@@ -34,7 +34,6 @@ import org.jspecify.annotations.NonNull;
 
 public final class XenoSectionLayerBuffer implements VertexConsumer {
     private static final int VERTEX_SIZE = 20;
-
     private static final long Q_COLOR0 = MemoryAccess.fieldOffset(QuadInstance.class, "color0");
     private static final long Q_COLOR1 = MemoryAccess.fieldOffset(QuadInstance.class, "color1");
     private static final long Q_COLOR2 = MemoryAccess.fieldOffset(QuadInstance.class, "color2");

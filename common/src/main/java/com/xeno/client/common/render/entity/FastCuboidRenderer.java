@@ -27,9 +27,7 @@ import com.xeno.client.common.memory.MemoryAccess;
 import java.nio.ByteOrder;
 
 public final class FastCuboidRenderer {
-
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
-
     private static final class ScratchBuffers {
         final float[] transformedX = new float[32];
         final float[] transformedY = new float[32];

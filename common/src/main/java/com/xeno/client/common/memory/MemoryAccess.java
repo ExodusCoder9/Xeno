@@ -68,20 +68,12 @@ public final class MemoryAccess {
         return UNSAFE.getLong(buffer, BUFFER_ADDRESS_OFFSET);
     }
 
-    /**
-     * Packs two unsigned-16 values into one int in memory (little-endian lane
-     * order), swapping lanes on big-endian hosts.
-     */
     @Deprecated(since="0.1.0", forRemoval=true)
     public static int packShorts(short first, short second) {
         int packed = ((int) second & 0xFFFF) << 16 | ((int) first & 0xFFFF);
         return IS_LITTLE_ENDIAN ? packed : Integer.reverseBytes(packed);
     }
 
-    /**
-     * Packs four unsigned-16 values into one long in memory (little-endian lane
-     * order), swapping lanes on big-endian hosts.
-     */
     @Deprecated(since="0.1.0", forRemoval=true)
     public static long packShorts(short first, short second, short third, short fourth) {
         long packed = ((long) fourth & 0xFFFFL) << 48

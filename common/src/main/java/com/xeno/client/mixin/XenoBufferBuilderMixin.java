@@ -88,7 +88,6 @@ public abstract class XenoBufferBuilderMixin implements VertexConsumer {
             MemoryAccess.putLong(ptr + 16L, MemoryAccess.packInts(Float.floatToRawIntBits(v), ARGB.toABGR(color)));
             xeno$putPackedUv(ptr + 24L, lightCoords);
         } else {
-            // Emulate VertexConsumer.super.addVertex manually to avoid Mixin resolution issues
             this.addVertex(x, y, z).setColor(color).setUv(u, v).setOverlay(overlayCoords).setLight(lightCoords).setNormal(nx, ny, nz);
         }
     }

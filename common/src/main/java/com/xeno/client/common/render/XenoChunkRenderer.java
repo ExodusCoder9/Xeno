@@ -35,10 +35,6 @@ import net.minecraft.client.renderer.oit.OitRenderPassProvider;
 import net.minecraft.client.renderer.oit.OitStage;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Owns GPU draw-call submission for terrain in Xeno.
- * Coordinates shared index buffers, bindings, and MultiDrawIndirect pipeline execution.
- */
 public final class XenoChunkRenderer {
     public static final XenoChunkRenderer INSTANCE = new XenoChunkRenderer();
     public static final XenoSharedQuadIndexBuffer SHARED_INDEX_BUFFER = new XenoSharedQuadIndexBuffer();
