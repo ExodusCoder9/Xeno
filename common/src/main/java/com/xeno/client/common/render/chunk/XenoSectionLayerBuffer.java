@@ -33,7 +33,7 @@ import org.joml.Vector3fc;
 import org.jspecify.annotations.NonNull;
 
 public final class XenoSectionLayerBuffer implements VertexConsumer {
-    private static final int VERTEX_SIZE = 20;
+    private static final int VERTEX_SIZE = 16;
     private static final long Q_COLOR0 = MemoryAccess.fieldOffset(QuadInstance.class, "color0");
     private static final long Q_COLOR1 = MemoryAccess.fieldOffset(QuadInstance.class, "color1");
     private static final long Q_COLOR2 = MemoryAccess.fieldOffset(QuadInstance.class, "color2");
@@ -161,14 +161,15 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
         int qy = XenoVertexEncoder.quantizePosition(py);
         int qz = XenoVertexEncoder.quantizePosition(pz);
 
-        int posHi = XenoVertexEncoder.packPositionHi(qx, qy, qz);
-        int posLo = XenoVertexEncoder.packPositionLo(qx, qy, qz);
         int packedUv = XenoVertexEncoder.packUV(u, v);
-        int lightAndData = XenoVertexEncoder.packLightAndData(light, 0, 0);
+        int packedLight = XenoVertexEncoder.packLight(light);
 
-        MemoryAccess.putLong(ptr, MemoryAccess.packInts(posHi, posLo));
-        MemoryAccess.putLong(ptr + 8L, MemoryAccess.packInts(ARGB.toABGR(color), packedUv));
-        MemoryAccess.putInt(ptr + 16L, lightAndData);
+        MemoryAccess.putShort(ptr, (short) qx);
+        MemoryAccess.putShort(ptr + 2L, (short) qy);
+        MemoryAccess.putShort(ptr + 4L, (short) qz);
+        MemoryAccess.putInt(ptr + 6L, ARGB.toABGR(color));
+        MemoryAccess.putInt(ptr + 10L, packedUv);
+        MemoryAccess.putShort(ptr + 14L, (short) packedLight);
     }
 
     @Override

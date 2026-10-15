@@ -111,6 +111,11 @@ public final class MemoryAccess {
     }
 
     @Deprecated(since="0.1.0", forRemoval=true)
+    public static short getShort(long address) {
+        return UNSAFE.getShort(null, address);
+    }
+
+    @Deprecated(since="0.1.0", forRemoval=true)
     public static void putLong(long address, long value) {
         UNSAFE.putLong(null, address, value);
     }

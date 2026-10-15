@@ -22,9 +22,9 @@ import net.minecraft.util.Mth;
 public final class XenoVertexEncoder {
     public static final float MODEL_ORIGIN = 8.0F;
     public static final float MODEL_RANGE = 32.0F;
-    public static final int POSITION_BITS = 20;
-    public static final int POSITION_MAX_COORD = 1 << POSITION_BITS; // 1048576
-    public static final float POSITION_QUANT_SCALE = POSITION_MAX_COORD / MODEL_RANGE; // 32768.0F
+    public static final int POSITION_BITS = 16;
+    public static final int POSITION_MAX_COORD = 1 << POSITION_BITS; // 65536
+    public static final float POSITION_QUANT_SCALE = POSITION_MAX_COORD / MODEL_RANGE; // 2048.0F
     public static final float POSITION_DEQUANT_SCALE = MODEL_RANGE / (float) POSITION_MAX_COORD;
 
     private XenoVertexEncoder() {
@@ -36,16 +36,8 @@ public final class XenoVertexEncoder {
         return Mth.clamp(quantized, 0, POSITION_MAX_COORD - 1);
     }
 
-    public static int packPositionHi(int x, int y, int z) {
-        return (((x >>> 10) & 0x3FF) << 0)
-             | (((y >>> 10) & 0x3FF) << 10)
-             | (((z >>> 10) & 0x3FF) << 20);
-    }
-
-    public static int packPositionLo(int x, int y, int z) {
-        return ((x & 0x3FF) << 0)
-             | ((y & 0x3FF) << 10)
-             | ((z & 0x3FF) << 20);
+    public static float dequantizePosition(int quantized) {
+        return ((quantized & 0xFFFF) * POSITION_DEQUANT_SCALE) - MODEL_ORIGIN;
     }
 
     public static int packUV(float u, float v) {
@@ -54,17 +46,10 @@ public final class XenoVertexEncoder {
         return (v16 << 16) | u16;
     }
 
-    public static int packLightAndData(int light, int material, int section) {
+    public static int packLight(int light) {
         int block = light & 0xFF;
         int sky = (light >>> 16) & 0xFF;
         return (block & 0xFF)
-             | ((sky & 0xFF) << 8)
-             | ((material & 0xFF) << 16)
-             | ((section & 0xFF) << 24);
-    }
-
-    public static float unpackCoord(int hi, int lo, int shift) {
-        int raw = (((hi >>> shift) & 0x3FF) << 10) | ((lo >>> shift) & 0x3FF);
-        return ((float) raw * POSITION_DEQUANT_SCALE) - MODEL_ORIGIN;
+             | ((sky & 0xFF) << 8);
     }
 }

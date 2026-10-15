@@ -22,10 +22,10 @@ import com.mojang.renderpearl.api.vertex.VertexFormat;
 
 public final class XenoVertexFormats {
     public static final VertexFormat TERRAIN = VertexFormat.builder(0)
-            .addAttribute("Position", GpuFormat.RG32_UINT)
+            .addAttribute("Position", GpuFormat.RGB16_UINT)
             .addAttribute("Color", GpuFormat.RGBA8_UNORM)
             .addAttribute("UV0", GpuFormat.RG16_UNORM)
-            .addAttribute("UV2", GpuFormat.RGBA8_UINT)
+            .addAttribute("UV2", GpuFormat.RG8_UINT)
             .build();
 
     private XenoVertexFormats() {
