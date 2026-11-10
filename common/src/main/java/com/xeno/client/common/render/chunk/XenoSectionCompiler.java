@@ -48,8 +48,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import org.jspecify.annotations.NonNull;
 
-import java.util.Arrays;
-
 public final class XenoSectionCompiler extends SectionCompiler {
     private static final int SECTION_MAX = 15;
     private final boolean ambientOcclusion;
@@ -154,7 +152,7 @@ public final class XenoSectionCompiler extends SectionCompiler {
         }
 
         for (XenoSectionLayerBuffer sink : sinks) {
-            if (sink == null) {
+            if (sink == null || sink.buffer() == null || sink.vertexCount() == 0) {
                 continue;
             }
             MeshData mesh = sink.build();
@@ -207,6 +205,9 @@ public final class XenoSectionCompiler extends SectionCompiler {
             XenoLightDataCache cache = XenoLightDataCache.get();
             this.blockRenderer = new XenoModelRenderer(XenoSectionCompiler.this.ambientOcclusion, true, XenoSectionCompiler.this.blockColors, cache);
             this.fluidRenderer = new XenoFluidRenderer(XenoSectionCompiler.this.fluidModelSet, cache);
+            for (ChunkSectionLayer layer : ChunkSectionLayer.values()) {
+                this.sinks[layer.ordinal()] = new XenoSectionLayerBuffer(layer, XenoVertexFormats.TERRAIN);
+            }
             this.quadOutput = (x, y, z, quad, instance) -> {
                 XenoSectionLayerBuffer sink = this.getSink(quad.materialInfo().layer());
                 sink.writeBlockQuad(x, y, z, quad, instance);
@@ -220,15 +221,16 @@ public final class XenoSectionCompiler extends SectionCompiler {
 
         void bind(SectionBufferBuilderPack pack) {
             this.currentPack = pack;
-            Arrays.fill(this.sinks, null);
+            for (int i = 0; i < this.sinks.length; i++) {
+                this.sinks[i].reset(null);
+            }
         }
 
         XenoSectionLayerBuffer getSink(ChunkSectionLayer layer) {
             int ordinal = layer.ordinal();
             XenoSectionLayerBuffer sink = this.sinks[ordinal];
-            if (sink == null) {
-                sink = new XenoSectionLayerBuffer(this.currentPack.buffer(layer), XenoVertexFormats.TERRAIN, layer);
-                this.sinks[ordinal] = sink;
+            if (sink.buffer() == null) {
+                sink.reset(this.currentPack.buffer(layer));
             }
             return sink;
         }

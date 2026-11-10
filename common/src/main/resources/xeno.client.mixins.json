@@ -14,11 +14,20 @@
     "XenoChunkSectionLayerMixin",
     "XenoChunkSectionsToRenderMixin",
     "XenoCloudRendererMixin",
+    "XenoCompileTaskMixin",
     "XenoDebugEntrySimplePerformanceImpactorsMixin",
+    "XenoEntityRendererMixin",
+    "XenoFrustumMixin",
     "XenoMeshDataMixin",
+    "XenoLevelExtractorMixin",
     "XenoLevelRendererMixin",
+    "XenoOctreeLeafMixin",
+    "XenoRenderSectionSortMixin",
+    "XenoResortTransparencyTaskMixin",
     "XenoSectionRenderDispatcherMixin",
-    "XenoShaderManagerMixin"
+    "XenoShaderManagerMixin",
+    "XenoSortStateMixin",
+    "XenoVertexSortingMixin"
   ],
   "injectors": {
     "defaultRequire": 1

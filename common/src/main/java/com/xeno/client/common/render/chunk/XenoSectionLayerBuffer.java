@@ -43,10 +43,14 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
     private static final long Q_LIGHT2 = MemoryAccess.fieldOffset(QuadInstance.class, "lightCoords2");
     private static final long Q_LIGHT3 = MemoryAccess.fieldOffset(QuadInstance.class, "lightCoords3");
 
-    private final ByteBufferBuilder buffer;
+    private ByteBufferBuilder buffer;
     private final VertexFormat format;
     private final ChunkSectionLayer layer;
     private int vertexCount;
+
+    public XenoSectionLayerBuffer(ChunkSectionLayer layer, VertexFormat format) {
+        this(null, format, layer);
+    }
 
     public XenoSectionLayerBuffer(ByteBufferBuilder buffer, VertexFormat format, ChunkSectionLayer layer) {
         this.buffer = buffer;
@@ -54,12 +58,25 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
         this.layer = layer;
     }
 
+    public void reset(ByteBufferBuilder buffer) {
+        this.buffer = buffer;
+        this.vertexCount = 0;
+    }
+
+    public ByteBufferBuilder buffer() {
+        return this.buffer;
+    }
+
+    public int vertexCount() {
+        return this.vertexCount;
+    }
+
     public ChunkSectionLayer layer() {
         return this.layer;
     }
 
     public MeshData build() {
-        if (this.vertexCount == 0) {
+        if (this.vertexCount == 0 || this.buffer == null) {
             return null;
         }
         ByteBufferBuilder.Result vertexBuffer = this.buffer.build();
