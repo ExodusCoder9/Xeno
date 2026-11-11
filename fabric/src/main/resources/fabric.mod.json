@@ -16,6 +16,9 @@
 	"icon": "assets/xeno/icon.png",
 	"environment": "*",
 	"accessWidener": "xeno.accesswidener",
+	"custom": {
+		"fabric-renderer-api-v1:contains_renderer": true
+	},
 	"entrypoints": {
 		"main": [
 			"com.xeno.fabric.Xeno"

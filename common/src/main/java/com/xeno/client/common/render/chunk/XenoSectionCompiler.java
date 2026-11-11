@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://gnu.org>.
  */
 
 package com.xeno.client.common.render.chunk;
@@ -26,6 +26,7 @@ import net.minecraft.CrashReportCategory;
 import net.minecraft.ReportedException;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;
+import com.xeno.client.common.render.block.XenoBlockModelDispatcher;
 import com.xeno.client.common.render.block.XenoLightDataCache;
 import com.xeno.client.common.render.block.XenoModelRenderer;
 import com.xeno.client.common.render.block.XenoFluidRenderer;
@@ -50,6 +51,8 @@ import org.jspecify.annotations.NonNull;
 
 public final class XenoSectionCompiler extends SectionCompiler {
     private static final int SECTION_MAX = 15;
+    public static volatile XenoBlockModelDispatcher MODEL_DISPATCHER = XenoBlockModelDispatcher.DEFAULT;
+
     private final boolean ambientOcclusion;
     private final boolean cutoutLeaves;
     private final BlockStateModelSet blockModelSet;
@@ -128,7 +131,7 @@ public final class XenoSectionCompiler extends SectionCompiler {
                                 fluidRenderer.tesselate(region, currentPos, workspace.fluidOutput, blockState, fluidState);
                             }
                             if (blockState.getRenderShape() == RenderShape.MODEL) {
-                                blockRenderer.emit(
+                                MODEL_DISPATCHER.tesselate(
                                     ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? workspace.opaqueQuadOutput : workspace.quadOutput,
                                     SectionPos.sectionRelative(x),
                                     SectionPos.sectionRelative(y),
@@ -137,7 +140,9 @@ public final class XenoSectionCompiler extends SectionCompiler {
                                     currentPos,
                                     blockState,
                                     this.blockModelSet.get(blockState),
-                                    blockState.getSeed(currentPos)
+                                    blockState.getSeed(currentPos),
+                                    blockRenderer,
+                                    workspace::getSink
                                 );
                             }
                         } catch (Throwable t) {

@@ -12,15 +12,17 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://gnu.org>.
  */
 
 package com.xeno.fabric;
 
+import com.xeno.fabric.client.render.XenoFabricBlockModelDispatcher;
 import net.fabricmc.api.ClientModInitializer;
 
 public final class XenoClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
+		XenoFabricBlockModelDispatcher.register();
 	}
 }

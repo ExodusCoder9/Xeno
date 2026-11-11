@@ -39,6 +39,9 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
+	implementation "net.fabricmc.fabric-api:fabric-renderer-api-v1:17.0.17+79385d0b5d"
+	implementation "net.fabricmc.fabric-api:fabric-rendering-v1:27.2.0+eb9fe70b5d"
+	implementation "net.fabricmc.fabric-api:fabric-api-base:1.1.1+79385d0b5d"
 	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
