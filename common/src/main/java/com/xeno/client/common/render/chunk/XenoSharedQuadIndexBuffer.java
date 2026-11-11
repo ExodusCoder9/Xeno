@@ -89,7 +89,7 @@ public final class XenoSharedQuadIndexBuffer {
 	}
 
 	public boolean hasCapacity(int indexCount) {
-		return indexCount > this.indexCount || this.buffer == null;
+		return this.buffer != null && indexCount <= this.indexCount;
 	}
 
 	public @Nullable GpuBuffer buffer() {

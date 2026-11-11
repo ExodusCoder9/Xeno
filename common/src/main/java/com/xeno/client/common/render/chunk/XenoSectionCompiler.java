@@ -62,11 +62,11 @@ public final class XenoSectionCompiler extends SectionCompiler {
     private final ThreadLocal<Workspace> workspaces = ThreadLocal.withInitial(Workspace::new);
 
     public XenoSectionCompiler(
-        boolean ambientOcclusion,
-        boolean cutoutLeaves,
-        BlockStateModelSet blockModelSet,
-        FluidStateModelSet fluidStateModelSet,
-        BlockColors blockColors
+            boolean ambientOcclusion,
+            boolean cutoutLeaves,
+            BlockStateModelSet blockModelSet,
+            FluidStateModelSet fluidStateModelSet,
+            BlockColors blockColors
     ) {
         super(ambientOcclusion, cutoutLeaves, blockModelSet, fluidStateModelSet, blockColors);
         this.ambientOcclusion = ambientOcclusion;
@@ -132,17 +132,17 @@ public final class XenoSectionCompiler extends SectionCompiler {
                             }
                             if (blockState.getRenderShape() == RenderShape.MODEL) {
                                 MODEL_DISPATCHER.tesselate(
-                                    ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? workspace.opaqueQuadOutput : workspace.quadOutput,
-                                    SectionPos.sectionRelative(x),
-                                    SectionPos.sectionRelative(y),
-                                    SectionPos.sectionRelative(z),
-                                    region,
-                                    currentPos,
-                                    blockState,
-                                    this.blockModelSet.get(blockState),
-                                    blockState.getSeed(currentPos),
-                                    blockRenderer,
-                                    workspace::getSink
+                                        ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? workspace.opaqueQuadOutput : workspace.quadOutput,
+                                        SectionPos.sectionRelative(x),
+                                        SectionPos.sectionRelative(y),
+                                        SectionPos.sectionRelative(z),
+                                        region,
+                                        currentPos,
+                                        blockState,
+                                        this.blockModelSet.get(blockState),
+                                        blockState.getSeed(currentPos),
+                                        blockRenderer,
+                                        workspace::getSink
                                 );
                             }
                         } catch (Throwable t) {
@@ -188,13 +188,13 @@ public final class XenoSectionCompiler extends SectionCompiler {
         VertexFormatElement uv0 = format.getElement("UV0");
         VertexFormatElement uv2 = format.getElement("UV2");
         return position != null
-            && position.offset() == 0
-            && color != null
-            && color.offset() == 12
-            && uv0 != null
-            && uv0.offset() == 16
-            && uv2 != null
-            && uv2.offset() == 24;
+                && position.offset() == 0
+                && color != null
+                && color.offset() == 12
+                && uv0 != null
+                && uv0.offset() == 16
+                && uv2 != null
+                && uv2.offset() == 24;
     }
 
     private final class Workspace {

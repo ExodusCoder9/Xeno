@@ -93,9 +93,9 @@ public final class XenoChunkRenderer {
         GpuTextureView lightmap = gameRenderer.lightmap();
 
         SHARED_INDEX_BUFFER.ensureCapacity(maxIndicesRequired);
-        GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
-            ? null
-            : SHARED_INDEX_BUFFER.buffer();
+        GpuBuffer defaultIndexBuffer = maxIndicesRequired > 0 && SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
+            ? SHARED_INDEX_BUFFER.buffer()
+            : null;
         IndexType defaultIndexType = defaultIndexBuffer == null ? null : SHARED_INDEX_BUFFER.type();
 
         renderPass.setUniform("TerrainUniform", terrainTransformUBO);
@@ -122,9 +122,9 @@ public final class XenoChunkRenderer {
         RenderInvoker renderInvoker
     ) {
         SHARED_INDEX_BUFFER.ensureCapacity(maxIndicesRequired);
-        GpuBuffer defaultIndexBuffer = maxIndicesRequired == 0 || SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
-            ? null
-            : SHARED_INDEX_BUFFER.buffer();
+        GpuBuffer defaultIndexBuffer = maxIndicesRequired > 0 && SHARED_INDEX_BUFFER.hasCapacity(maxIndicesRequired)
+            ? SHARED_INDEX_BUFFER.buffer()
+            : null;
         IndexType defaultIndexType = defaultIndexBuffer == null ? null : SHARED_INDEX_BUFFER.type();
 
         try (RenderPass renderPass = OitRenderPassProvider.createRenderPass(stage, OIT_PASS_NAMES[stage.ordinal()], params)) {

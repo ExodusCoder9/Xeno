@@ -90,7 +90,7 @@ public final class XenoParallelEntityExtractor {
                 final boolean frozen = tickRateManager.isEntityFrozen(entity);
                 final float partialTick = deltaTracker.getGameTimeDeltaPartialTick(!frozen);
 
-                if (isEntityVisible(entity, frustum, camX, camY, camZ, partialTick, chunkSectionFadeInTime, level, levelRenderer, player)) {
+                if (isEntityCulled(entity, frustum, camX, camY, camZ, partialTick, chunkSectionFadeInTime, level, levelRenderer, player)) {
                     continue;
                 }
 
@@ -138,7 +138,7 @@ public final class XenoParallelEntityExtractor {
         return true;
     }
 
-    private static boolean isEntityVisible(
+    private static boolean isEntityCulled(
             Entity entity,
             Frustum frustum,
             double camX, double camY, double camZ,
@@ -222,7 +222,7 @@ public final class XenoParallelEntityExtractor {
                     final boolean frozen = this.tickRateManager.isEntityFrozen(entity);
                     final float partialTick = this.deltaTracker.getGameTimeDeltaPartialTick(!frozen);
 
-                    if (isEntityVisible(entity, this.frustum, this.camX, this.camY, this.camZ, partialTick, this.chunkSectionFadeInTime, this.level, this.levelRenderer, this.player)) {
+                    if (isEntityCulled(entity, this.frustum, this.camX, this.camY, this.camZ, partialTick, this.chunkSectionFadeInTime, this.level, this.levelRenderer, this.player)) {
                         continue;
                     }
 

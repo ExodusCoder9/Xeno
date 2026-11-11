@@ -45,6 +45,8 @@ public final class XenoQuadLighter {
     private final MutableBlockPos permScratchPos = new MutableBlockPos();
     private final FaceData[] cubicFaceCache = new FaceData[6];
     private final FaceData nonCubicFace = new FaceData();
+    private final float[] vertexU = new float[4];
+    private final float[] vertexV = new float[4];
     private long cachedBlockPos = Long.MIN_VALUE;
 
     public XenoQuadLighter(XenoLightDataCache cache) {
@@ -79,8 +81,8 @@ public final class XenoQuadLighter {
         float maxX = -32.0F, maxY = -32.0F, maxZ = -32.0F;
         float minU = 1.0F, minV = 1.0F;
         float maxU = 0.0F, maxV = 0.0F;
-        float[] vertexU = new float[4];
-        float[] vertexV = new float[4];
+        float[] vertexU = this.vertexU;
+        float[] vertexV = this.vertexV;
 
         for (int i = 0; i < 4; i++) {
             Vector3fc pos = quad.position(i);

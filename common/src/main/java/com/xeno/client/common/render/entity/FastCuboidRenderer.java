@@ -29,10 +29,19 @@ import java.nio.ByteOrder;
 public final class FastCuboidRenderer {
     private static final boolean IS_LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
     private static final class ScratchBuffers {
-        final float[] transformedX = new float[32];
-        final float[] transformedY = new float[32];
-        final float[] transformedZ = new float[32];
+        float[] transformedX = new float[32];
+        float[] transformedY = new float[32];
+        float[] transformedZ = new float[32];
         final Vector3f scratchNormal = new Vector3f();
+
+        void ensureCapacity(int capacity) {
+            if (this.transformedX.length < capacity) {
+                int newCap = Math.max(capacity, this.transformedX.length * 2);
+                this.transformedX = new float[newCap];
+                this.transformedY = new float[newCap];
+                this.transformedZ = new float[newCap];
+            }
+        }
     }
 
     private static final ThreadLocal<ScratchBuffers> SCRATCH = ThreadLocal.withInitial(ScratchBuffers::new);
@@ -52,18 +61,13 @@ public final class FastCuboidRenderer {
         float m20 = matrix.m20(), m21 = matrix.m21(), m22 = matrix.m22();
         float m30 = matrix.m30(), m31 = matrix.m31(), m32 = matrix.m32();
 
+        int cornerCount = data.cornerCount;
         ScratchBuffers scratch = SCRATCH.get();
+        scratch.ensureCapacity(cornerCount);
         float[] transformedX = scratch.transformedX;
         float[] transformedY = scratch.transformedY;
         float[] transformedZ = scratch.transformedZ;
 
-        int cornerCount = data.cornerCount;
-        if (cornerCount > transformedX.length) {
-            scratch = new ScratchBuffers();
-            transformedX = new float[cornerCount];
-            transformedY = new float[cornerCount];
-            transformedZ = new float[cornerCount];
-        }
 
         float[] cornerX = data.cornerX;
         float[] cornerY = data.cornerY;
