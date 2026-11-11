@@ -17,6 +17,10 @@
 
 package com.xeno.fabric.client.render.frapi.render;
 
+import com.xeno.client.common.render.block.XenoLightDataCache;
+import com.xeno.client.common.render.block.XenoQuadGeometry;
+import com.xeno.client.common.render.block.XenoQuadLightResult;
+import com.xeno.client.common.render.block.XenoQuadLighter;
 import com.xeno.fabric.client.render.frapi.quad.XenoMutableQuadView;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -24,16 +28,20 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.MutableQuadView;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadTransform;
+import net.fabricmc.fabric.api.client.renderer.v1.mesh.ShadeMode;
 import net.fabricmc.fabric.api.client.renderer.v1.model.FabricBlockStateModel;
 import net.fabricmc.fabric.api.client.renderer.v1.render.AltModelBlockRenderer;
+import net.fabricmc.fabric.api.client.renderer.v1.render.ExtraLightCoordsUtil;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockColorRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockTintsFactory;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.SectionPos;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.RandomSource;
@@ -44,10 +52,14 @@ import org.joml.Vector3f;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
 public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTransform {
+    private static final ThreadLocal<XenoQuadLighter> LIGHTER =
+        ThreadLocal.withInitial(() -> new XenoQuadLighter(XenoLightDataCache.get()));
+
     private final boolean ambientOcclusion;
     private final boolean cull;
     private final BlockColors blockColors;
@@ -57,6 +69,9 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
     private final BlockPos.MutableBlockPos scratchPos = new BlockPos.MutableBlockPos();
     private final BlockPos.MutableBlockPos neighborPos = new BlockPos.MutableBlockPos();
     private final Vector3f offset = new Vector3f();
+    private final MutableQuadViewGeometry quadGeometry = new MutableQuadViewGeometry();
+
+    private long currentSection = Long.MIN_VALUE;
 
     private int cacheValidMask;
     private int shouldCullFaceCache;
@@ -66,6 +81,7 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
     private boolean tintSourcesInitialized;
     private final List<@Nullable BlockTintSource> tintSources = new ObjectArrayList<>();
     private final IntList computedTintValues = new IntArrayList();
+    private final List<BlockStateModelPart> scratchParts = new ArrayList<>();
 
     private BlockAndTintGetter level;
     private BlockPos pos;
@@ -95,10 +111,30 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
         this.blockState = blockState;
         this.defaultAo = this.ambientOcclusion && blockState.getLightEmission() == 0;
 
+        int sectionX = SectionPos.blockToSectionCoord(pos.getX());
+        int sectionY = SectionPos.blockToSectionCoord(pos.getY());
+        int sectionZ = SectionPos.blockToSectionCoord(pos.getZ());
+        long section = SectionPos.asLong(sectionX, sectionY, sectionZ);
+        if (section != this.currentSection) {
+            this.currentSection = section;
+            XenoLightDataCache.get().bindSection(sectionX, sectionY, sectionZ);
+        }
+        LIGHTER.get().resetForBlock(pos);
+
         this.cacheValidMask = 0;
         this.shouldCullFaceCache = 0;
 
         this.random.setSeed(seed);
+        this.defaultAo = this.ambientOcclusion && blockState.getLightEmission() == 0;
+        if (this.defaultAo) {
+            this.scratchParts.clear();
+            model.collectParts(this.random, this.scratchParts);
+            if (!this.scratchParts.isEmpty() && !this.scratchParts.get(0).useAmbientOcclusion()) {
+                this.defaultAo = false;
+            }
+            this.scratchParts.clear();
+        }
+
         output.clear();
         output.pushTransform(this);
 
@@ -121,8 +157,9 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
 
         boolean useAo = this.ambientOcclusion && quad.ambientOcclusion().orElse(this.defaultAo);
         boolean isEmissive = quad.emissive();
+        boolean vanillaShade = quad.shadeMode() == ShadeMode.VANILLA;
 
-        shadeQuad((XenoMutableQuadView) quad, useAo, isEmissive);
+        shadeQuad(quad, useAo, isEmissive, vanillaShade);
         tintQuad(quad);
         quad.translate(this.offset.x, this.offset.y, this.offset.z);
         return true;
@@ -144,7 +181,7 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
         return (this.shouldCullFaceCache & mask) != 0;
     }
 
-    private void shadeQuad(XenoMutableQuadView quad, boolean ao, boolean emissive) {
+    private void shadeQuad(MutableQuadView quad, boolean ao, boolean emissive, boolean vanillaShade) {
         if (emissive) {
             quad.lightmap(0, LightCoordsUtil.FULL_BRIGHT);
             quad.lightmap(1, LightCoordsUtil.FULL_BRIGHT);
@@ -153,26 +190,51 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
             return;
         }
 
+        if (ao) {
+            XenoQuadLightResult result = LIGHTER.get().computeAmbientOcclusion(
+                this.level, this.blockState, this.pos, this.quadGeometry.bind(quad), !vanillaShade
+            );
+
+            for (int i = 0; i < 4; i++) {
+                applyQuadShade(quad, i, result.shades[i]);
+                quad.lightmap(i, ExtraLightCoordsUtil.smoothMax(quad.lightmap(i), result.lightCoords[i]));
+            }
+
+            applyQuadColorScale(quad, result.directionalBrightness);
+            return;
+        }
+
         Direction lightFace = quad.lightFace();
         Direction shadeDir = quad.shadeDirectionOverride();
         Direction effectiveDir = shadeDir != null ? shadeDir : lightFace;
 
-        float brightness = this.level.cardinalLighting().byFace(effectiveDir);
-        if (ao) {
-            this.scratchPos.setWithOffset(this.pos, lightFace);
-            if (this.level.getBlockState(this.scratchPos).isSolidRender()) {
-                brightness *= 0.85F;
-            }
-        }
-
         int lightCoords = LightCoordsUtil.getLightCoords(this.level, this.neighborPos.setWithOffset(this.pos, lightFace));
 
         for (int i = 0; i < 4; i++) {
-            quad.color(i, ARGB.scaleRGB(quad.color(i), brightness));
             int existingLight = quad.lightmap(i);
             int blockLight = Math.max(LightCoordsUtil.block(existingLight), LightCoordsUtil.block(lightCoords));
             int skyLight = Math.max(LightCoordsUtil.sky(existingLight), LightCoordsUtil.sky(lightCoords));
             quad.lightmap(i, LightCoordsUtil.pack(blockLight, skyLight));
+        }
+
+        applyQuadColorScale(quad, this.level.cardinalLighting().byFace(effectiveDir));
+    }
+
+    private static void applyQuadShade(MutableQuadView quad, int vertexIndex, float shade) {
+        if (quad instanceof XenoMutableQuadView xenoQuad) {
+            xenoQuad.applyShade(vertexIndex, shade);
+        } else {
+            quad.color(vertexIndex, ARGB.scaleRGB(quad.color(vertexIndex), shade));
+        }
+    }
+
+    private static void applyQuadColorScale(MutableQuadView quad, float factor) {
+        if (quad instanceof XenoMutableQuadView xenoQuad) {
+            xenoQuad.scaleColor(factor);
+        } else {
+            for (int i = 0; i < 4; i++) {
+                quad.color(i, ARGB.scaleRGB(quad.color(i), factor));
+            }
         }
     }
 
@@ -239,6 +301,40 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
             this.tintSources.clear();
             this.computedTintValues.clear();
             this.tintSourcesInitialized = false;
+        }
+    }
+
+    private static final class MutableQuadViewGeometry implements XenoQuadGeometry {
+        private MutableQuadView quad;
+
+        MutableQuadViewGeometry bind(MutableQuadView quad) {
+            this.quad = quad;
+            return this;
+        }
+
+        @Override
+        public Direction direction() {
+            return this.quad.lightFace();
+        }
+
+        @Override
+        public @Nullable Direction shadeDirectionOverride() {
+            return this.quad.shadeDirectionOverride();
+        }
+
+        @Override
+        public float x(int vertexIndex) {
+            return this.quad.x(vertexIndex);
+        }
+
+        @Override
+        public float y(int vertexIndex) {
+            return this.quad.y(vertexIndex);
+        }
+
+        @Override
+        public float z(int vertexIndex) {
+            return this.quad.z(vertexIndex);
         }
     }
 }

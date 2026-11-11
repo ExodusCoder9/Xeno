@@ -173,6 +173,24 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
         this.vertexCount += vertexCount;
     }
 
+    public void writeFrapiQuad(
+            float x0, float y0, float z0, float u0, float v0,
+            float x1, float y1, float z1, float u1, float v1,
+            float x2, float y2, float z2, float u2, float v2,
+            float x3, float y3, float z3, float u3, float v3,
+            int color0, int color1, int color2, int color3,
+            int light0, int light1, int light2, int light3
+    ) {
+        long ptr = this.buffer.reserve(VERTEX_SIZE * 4);
+
+        this.writeVertex(ptr, x0, y0, z0, color0, u0, v0, light0);
+        this.writeVertex(ptr + VERTEX_SIZE, x1, y1, z1, color1, u1, v1, light1);
+        this.writeVertex(ptr + VERTEX_SIZE * 2, x2, y2, z2, color2, u2, v2, light2);
+        this.writeVertex(ptr + VERTEX_SIZE * 3, x3, y3, z3, color3, u3, v3, light3);
+
+        this.vertexCount += 4;
+    }
+
     private void writeVertex(long ptr, float px, float py, float pz, int color, float u, float v, int light) {
         int qx = XenoVertexEncoder.quantizePosition(px);
         int qy = XenoVertexEncoder.quantizePosition(py);

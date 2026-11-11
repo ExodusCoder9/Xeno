@@ -36,6 +36,9 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 public class XenoQuadView implements QuadView {
+    private static final ThreadLocal<Vector3f> SCRATCH_POS = ThreadLocal.withInitial(Vector3f::new);
+    private static final ThreadLocal<Vector3f> SCRATCH_NORM = ThreadLocal.withInitial(Vector3f::new);
+
     protected int[] data;
     protected int baseIndex;
 
@@ -45,11 +48,31 @@ public class XenoQuadView implements QuadView {
     public void load(int[] data, int baseIndex) {
         this.data = data;
         this.baseIndex = baseIndex;
+        int bits = data[baseIndex + XenoMeshFormat.HEADER_BITS];
+        if (XenoMeshFormat.isGeometryValid(bits)) {
+            int packed = data[baseIndex + XenoMeshFormat.HEADER_FACE_NORMAL];
+            this.cachedFaceNormal.set(
+                XenoMeshFormat.unpackNormalX(packed),
+                XenoMeshFormat.unpackNormalY(packed),
+                XenoMeshFormat.unpackNormalZ(packed)
+            );
+            this.faceNormalComputed = true;
+        } else {
+            this.faceNormalComputed = false;
+        }
+    }
+
+    public void unload() {
+        this.data = null;
         this.faceNormalComputed = false;
     }
 
     public int[] data() {
         return this.data;
+    }
+
+    public int baseIndex() {
+        return this.baseIndex;
     }
 
     private int vertexOffset(int vertexIndex) {
@@ -141,24 +164,56 @@ public class XenoQuadView implements QuadView {
         return target;
     }
 
-    @Override
-    public @NonNull Vector3fc faceNormal() {
-        if (!this.faceNormalComputed) {
+    public void computeGeometry() {
+        int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
+        if (!XenoMeshFormat.isGeometryValid(bits)) {
+            Direction nominal = XenoMeshFormat.getNominalFace(bits);
             XenoMeshFormat.computeFaceNormal(
-                this.cachedFaceNormal,
+                this.cachedFaceNormal, nominal,
                 x(0), y(0), z(0),
                 x(1), y(1), z(1),
                 x(2), y(2), z(2),
                 x(3), y(3), z(3)
             );
             this.faceNormalComputed = true;
+            this.data[this.baseIndex + XenoMeshFormat.HEADER_FACE_NORMAL] =
+                XenoMeshFormat.packNormal(this.cachedFaceNormal.x(), this.cachedFaceNormal.y(), this.cachedFaceNormal.z());
+            Direction lightFace = XenoMeshFormat.lightFace(this.cachedFaceNormal.x(), this.cachedFaceNormal.y(), this.cachedFaceNormal.z());
+            bits = XenoMeshFormat.setLightFace(bits, lightFace);
+            bits = XenoMeshFormat.setGeometryValid(bits, true);
+            this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = bits;
+        }
+    }
+
+    @Override
+    public @NonNull Vector3fc faceNormal() {
+        if (!this.faceNormalComputed) {
+            int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
+            if (XenoMeshFormat.isGeometryValid(bits)) {
+                int packed = this.data[this.baseIndex + XenoMeshFormat.HEADER_FACE_NORMAL];
+                this.cachedFaceNormal.set(
+                    XenoMeshFormat.unpackNormalX(packed),
+                    XenoMeshFormat.unpackNormalY(packed),
+                    XenoMeshFormat.unpackNormalZ(packed)
+                );
+                this.faceNormalComputed = true;
+            } else {
+                computeGeometry();
+            }
         }
         return this.cachedFaceNormal;
     }
 
     @Override
     public @NonNull Direction lightFace() {
-        return Direction.getApproximateNearest(faceNormal().x(), faceNormal().y(), faceNormal().z());
+        int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
+        Direction cached = XenoMeshFormat.getLightFace(bits);
+        if (cached != null) {
+            return cached;
+        }
+        computeGeometry();
+        Direction face = XenoMeshFormat.getLightFace(this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS]);
+        return face != null ? face : Direction.UP;
     }
 
     @Override
@@ -173,7 +228,8 @@ public class XenoQuadView implements QuadView {
 
     @Override
     public @NonNull QuadAtlas atlas() {
-        return XenoItemRenderTypes.getAtlasForRenderType(itemRenderType());
+        QuadAtlas stored = XenoMeshFormat.getAtlas(this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS]);
+        return stored != null ? stored : QuadAtlas.BLOCK;
     }
 
     @Override
@@ -249,20 +305,15 @@ public class XenoQuadView implements QuadView {
             float nx = hasNormal(i) ? normalX(i) : fn.x();
             float ny = hasNormal(i) ? normalY(i) : fn.y();
             float nz = hasNormal(i) ? normalZ(i) : fn.z();
-            vertexConsumer.addVertex(x(i), y(i), z(i));
-            vertexConsumer.setColor(color(i));
-            vertexConsumer.setUv(u(i), v(i));
-            vertexConsumer.setOverlay(overlayCoords);
-            vertexConsumer.setLight(lightmap(i));
-            vertexConsumer.setNormal(nx, ny, nz);
+            vertexConsumer.addVertex(x(i), y(i), z(i), color(i), u(i), v(i), overlayCoords, lightmap(i), nx, ny, nz);
         }
     }
 
     @Override
     public void buffer(int overlayCoords, PoseStack.@NonNull Pose pose, @NonNull VertexConsumer vertexConsumer) {
         Vector3fc fn = faceNormal();
-        Vector3f tempPos = new Vector3f();
-        Vector3f tempNorm = new Vector3f();
+        Vector3f tempPos = SCRATCH_POS.get();
+        Vector3f tempNorm = SCRATCH_NORM.get();
 
         for (int i = 0; i < 4; i++) {
             pose.pose().transformPosition(x(i), y(i), z(i), tempPos);
@@ -271,16 +322,17 @@ public class XenoQuadView implements QuadView {
             float nz = hasNormal(i) ? normalZ(i) : fn.z();
             pose.normal().transform(nx, ny, nz, tempNorm);
 
-            vertexConsumer.addVertex(tempPos.x(), tempPos.y(), tempPos.z());
-            vertexConsumer.setColor(color(i));
-            vertexConsumer.setUv(u(i), v(i));
-            vertexConsumer.setOverlay(overlayCoords);
-            vertexConsumer.setLight(lightmap(i));
-            vertexConsumer.setNormal(tempNorm.x(), tempNorm.y(), tempNorm.z());
+            vertexConsumer.addVertex(
+                tempPos.x(), tempPos.y(), tempPos.z(),
+                color(i), u(i), v(i), overlayCoords, lightmap(i),
+                tempNorm.x(), tempNorm.y(), tempNorm.z()
+            );
         }
     }
 
-    protected void invalidateFaceNormal() {
+    protected void invalidateGeometry() {
         this.faceNormalComputed = false;
+        int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
+        this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = XenoMeshFormat.setGeometryValid(bits, false);
     }
 }

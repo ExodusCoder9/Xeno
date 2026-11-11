@@ -17,7 +17,9 @@
 
 package com.xeno.fabric.client.render.frapi.mesh;
 
+import com.xeno.fabric.client.render.frapi.quad.XenoQuadEmitter;
 import com.xeno.fabric.client.render.frapi.quad.XenoQuadView;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.MeshView;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadView;
@@ -26,6 +28,9 @@ import org.jspecify.annotations.NonNull;
 import java.util.function.Consumer;
 
 public abstract class XenoMeshView implements MeshView {
+    private static final ThreadLocal<ObjectArrayList<XenoQuadView>> CURSOR_POOLS =
+        ThreadLocal.withInitial(ObjectArrayList::new);
+
     protected int[] data;
     protected int limit;
 
@@ -40,22 +45,47 @@ public abstract class XenoMeshView implements MeshView {
 
     @Override
     public void forEach(@NonNull Consumer<? super QuadView> action) {
-        XenoQuadView quad = new XenoQuadView();
-        int end = this.limit;
-        for (int i = 0; i < end; i += XenoMeshFormat.TOTAL_STRIDE) {
-            quad.load(this.data, i);
-            action.accept(quad);
+        ObjectArrayList<XenoQuadView> pool = CURSOR_POOLS.get();
+        XenoQuadView quad = pool.isEmpty() ? new XenoQuadView() : pool.pop();
+        try {
+            int end = this.limit;
+            for (int i = 0; i < end; i += XenoMeshFormat.TOTAL_STRIDE) {
+                quad.load(this.data, i);
+                action.accept(quad);
+            }
+        } finally {
+            quad.unload();
+            pool.push(quad);
         }
     }
 
     @Override
     public void outputTo(@NonNull QuadEmitter emitter) {
-        XenoQuadView quad = new XenoQuadView();
         int end = this.limit;
-        for (int i = 0; i < end; i += XenoMeshFormat.TOTAL_STRIDE) {
-            quad.load(this.data, i);
-            emitter.copyFrom(quad);
-            emitter.emit();
+
+        if (emitter instanceof XenoQuadEmitter xenoEmitter) {
+            int[] destination = xenoEmitter.data();
+            int baseIndex = xenoEmitter.baseIndex();
+            for (int i = 0; i < end; i += XenoMeshFormat.TOTAL_STRIDE) {
+                System.arraycopy(this.data, i, destination, baseIndex, XenoMeshFormat.TOTAL_STRIDE);
+                xenoEmitter.emit();
+                destination = xenoEmitter.data();
+                baseIndex = xenoEmitter.baseIndex();
+            }
+            return;
+        }
+
+        ObjectArrayList<XenoQuadView> pool = CURSOR_POOLS.get();
+        XenoQuadView quad = pool.isEmpty() ? new XenoQuadView() : pool.pop();
+        try {
+            for (int i = 0; i < end; i += XenoMeshFormat.TOTAL_STRIDE) {
+                quad.load(this.data, i);
+                emitter.copyFrom(quad);
+                emitter.emit();
+            }
+        } finally {
+            quad.unload();
+            pool.push(quad);
         }
     }
 }

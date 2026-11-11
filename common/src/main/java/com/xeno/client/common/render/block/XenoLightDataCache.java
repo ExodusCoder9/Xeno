@@ -55,6 +55,23 @@ public final class XenoLightDataCache {
         }
     }
 
+    public void bindSection(int sectionX, int sectionY, int sectionZ) {
+        int minX = sectionX << 4;
+        int minY = sectionY << 4;
+        int minZ = sectionZ << 4;
+        if (this.baseX == minX && this.baseY == minY && this.baseZ == minZ) {
+            return;
+        }
+        this.baseX = minX;
+        this.baseY = minY;
+        this.baseZ = minZ;
+        this.currentEpoch++;
+        if (this.currentEpoch == 0) {
+            Arrays.fill(this.epoch, 0);
+            this.currentEpoch = 1;
+        }
+    }
+
     public BlockState getState(BlockAndTintGetter level, BlockPos pos) {
         if (!this.isWithinBounds(pos.getX(), pos.getY(), pos.getZ())) {
             return level.getBlockState(pos);
@@ -90,6 +107,17 @@ public final class XenoLightDataCache {
             return LightCoordsUtil.withBlock(packed, emission);
         }
         return packed;
+    }
+
+    public int getRawLightCoords(BlockAndTintGetter level, BlockPos pos) {
+        if (!this.isWithinBounds(pos.getX(), pos.getY(), pos.getZ())) {
+            return BrightnessGetter.DEFAULT.packedBrightness(level, pos);
+        }
+        int index = this.index(pos);
+        if (this.epoch[index] != this.currentEpoch) {
+            this.populate(level, pos, index);
+        }
+        return this.packedBrightness[index];
     }
 
     public float getShadeBrightness(BlockAndTintGetter level, BlockPos pos) {

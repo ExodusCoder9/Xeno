@@ -12,84 +12,99 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://gnu.org>.
  */
 
 package com.xeno.fabric.client.render.frapi.mesh;
 
-import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadAtlas;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class XenoItemRenderTypes {
     private XenoItemRenderTypes() {}
 
-    public static final RenderType[] ITEM_RENDER_TYPES = new RenderType[] {
-        Sheets.cutoutBlockItemSheet(),
-        Sheets.translucentBlockItemSheet(),
-        Sheets.cutoutItemSheet(),
-        Sheets.translucentItemSheet()
-    };
+    private static final Logger LOGGER = LoggerFactory.getLogger("XenoFrapi");
+    private static final Set<RenderType> WARNED_RENDER_TYPES =
+        Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    public static final RenderType[] ITEM_GLINT_RENDER_TYPES = new RenderType[] {
-        Sheets.cutoutBlockItemGlintSheet(),
-        Sheets.translucentBlockItemGlintSheet(),
-        Sheets.cutoutItemGlintSheet(),
-        Sheets.translucentItemGlintSheet()
-    };
+    private static final class Holder {
+        static final RenderType[] ITEM_RENDER_TYPES = new RenderType[] {
+            Sheets.cutoutBlockItemSheet(),
+            Sheets.translucentBlockItemSheet(),
+            Sheets.cutoutItemSheet(),
+            Sheets.translucentItemSheet()
+        };
 
-    public static final RenderType[] ITEM_GLINT_SPECIAL_RENDER_TYPES = new RenderType[] {
-        Sheets.cutoutBlockItemGlintSpecialSheet(),
-        Sheets.translucentBlockItemGlintSpecialSheet(),
-        Sheets.cutoutItemGlintSpecialSheet(),
-        Sheets.translucentItemGlintSpecialSheet()
-    };
+        static final RenderType[] ITEM_GLINT_RENDER_TYPES = new RenderType[] {
+            Sheets.cutoutBlockItemGlintSheet(),
+            Sheets.translucentBlockItemGlintSheet(),
+            Sheets.cutoutItemGlintSheet(),
+            Sheets.translucentItemGlintSheet()
+        };
+
+        static final RenderType[] ITEM_GLINT_SPECIAL_RENDER_TYPES = new RenderType[] {
+            Sheets.cutoutBlockItemGlintSpecialSheet(),
+            Sheets.translucentBlockItemGlintSpecialSheet(),
+            Sheets.cutoutItemGlintSpecialSheet(),
+            Sheets.translucentItemGlintSpecialSheet()
+        };
+    }
 
     public static int toItemRenderTypeIndex(RenderType renderType) {
-        if (renderType == null) return 0;
-        for (int i = 0; i < ITEM_RENDER_TYPES.length; i++) {
-            if (ITEM_RENDER_TYPES[i].equals(renderType)) return i;
+        if (renderType == null) return -1;
+        RenderType[] types = Holder.ITEM_RENDER_TYPES;
+        for (int i = 0; i < types.length; i++) {
+            if (types[i].equals(renderType)) return i;
         }
-        return 0;
+        warnUnknown(renderType, "item render type");
+        return -1;
     }
 
     public static RenderType toItemRenderType(int index) {
-        if (index < 0 || index >= ITEM_RENDER_TYPES.length) return ITEM_RENDER_TYPES[0];
-        return ITEM_RENDER_TYPES[index];
+        RenderType[] types = Holder.ITEM_RENDER_TYPES;
+        if (index < 0 || index >= types.length) return types[0];
+        return types[index];
     }
 
     public static int toItemGlintRenderTypeIndex(RenderType renderType) {
-        if (renderType == null) return 0;
-        for (int i = 0; i < ITEM_GLINT_RENDER_TYPES.length; i++) {
-            if (ITEM_GLINT_RENDER_TYPES[i].equals(renderType)) return i;
+        if (renderType == null) return -1;
+        RenderType[] types = Holder.ITEM_GLINT_RENDER_TYPES;
+        for (int i = 0; i < types.length; i++) {
+            if (types[i].equals(renderType)) return i;
         }
-        return 0;
+        return -1;
     }
 
     public static RenderType toItemGlintRenderType(int index) {
-        if (index < 0 || index >= ITEM_GLINT_RENDER_TYPES.length) return ITEM_GLINT_RENDER_TYPES[0];
-        return ITEM_GLINT_RENDER_TYPES[index];
+        RenderType[] types = Holder.ITEM_GLINT_RENDER_TYPES;
+        if (index < 0 || index >= types.length) return types[0];
+        return types[index];
     }
 
     public static int toItemGlintSpecialRenderTypeIndex(RenderType renderType) {
-        if (renderType == null) return 0;
-        for (int i = 0; i < ITEM_GLINT_SPECIAL_RENDER_TYPES.length; i++) {
-            if (ITEM_GLINT_SPECIAL_RENDER_TYPES[i].equals(renderType)) return i;
+        if (renderType == null) return -1;
+        RenderType[] types = Holder.ITEM_GLINT_SPECIAL_RENDER_TYPES;
+        for (int i = 0; i < types.length; i++) {
+            if (types[i].equals(renderType)) return i;
         }
-        return 0;
+        return -1;
     }
 
     public static RenderType toItemGlintSpecialRenderType(int index) {
-        if (index < 0 || index >= ITEM_GLINT_SPECIAL_RENDER_TYPES.length) return ITEM_GLINT_SPECIAL_RENDER_TYPES[0];
-        return ITEM_GLINT_SPECIAL_RENDER_TYPES[index];
+        RenderType[] types = Holder.ITEM_GLINT_SPECIAL_RENDER_TYPES;
+        if (index < 0 || index >= types.length) return types[0];
+        return types[index];
     }
 
-    public static QuadAtlas getAtlasForRenderType(RenderType renderType) {
-        if (renderType == Sheets.cutoutItemSheet() || renderType == Sheets.translucentItemSheet()
-            || renderType == Sheets.cutoutItemGlintSheet() || renderType == Sheets.translucentItemGlintSheet()
-            || renderType == Sheets.cutoutItemGlintSpecialSheet() || renderType == Sheets.translucentItemGlintSpecialSheet()) {
-            return QuadAtlas.ITEM;
+    private static void warnUnknown(RenderType renderType, String what) {
+        if (WARNED_RENDER_TYPES.add(renderType)) {
+            LOGGER.debug("Unknown {} '{}'; falling back to the block atlas", what, renderType);
         }
-        return QuadAtlas.BLOCK;
     }
 }

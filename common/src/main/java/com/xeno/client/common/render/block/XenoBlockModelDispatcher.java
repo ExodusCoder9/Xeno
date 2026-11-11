@@ -17,7 +17,7 @@
 
 package com.xeno.client.common.render.block;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.xeno.client.common.render.chunk.XenoSectionLayerBuffer;
 import net.minecraft.client.renderer.block.BlockQuadOutput;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
@@ -41,6 +41,6 @@ public interface XenoBlockModelDispatcher {
         BlockStateModel model,
         long seed,
         XenoModelRenderer blockRenderer,
-        Function<ChunkSectionLayer, VertexConsumer> sinkProvider
+        Function<ChunkSectionLayer, XenoSectionLayerBuffer> sinkProvider
     );
 }

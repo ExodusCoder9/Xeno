@@ -19,6 +19,7 @@ package com.xeno.fabric.client.render.frapi.mesh;
 
 import com.xeno.fabric.client.render.frapi.quad.XenoMutableQuadView;
 import com.xeno.fabric.client.render.frapi.quad.XenoQuadEmitter;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.Mesh;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.MutableMesh;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.MutableQuadView;
@@ -55,13 +56,22 @@ public final class XenoMutableMesh extends XenoMeshView implements MutableMesh {
         return this.emitter;
     }
 
+    private static final ThreadLocal<ObjectArrayList<XenoMutableQuadView>> MUTABLE_CURSOR_POOLS =
+        ThreadLocal.withInitial(ObjectArrayList::new);
+
     @Override
     public void forEachMutable(@NonNull Consumer<? super MutableQuadView> action) {
-        XenoMutableQuadView quad = new XenoMutableQuadView();
-        int end = this.limit;
-        for (int i = 0; i < end; i += XenoMeshFormat.TOTAL_STRIDE) {
-            quad.load(this.data, i);
-            action.accept(quad);
+        ObjectArrayList<XenoMutableQuadView> pool = MUTABLE_CURSOR_POOLS.get();
+        XenoMutableQuadView quad = pool.isEmpty() ? new XenoMutableQuadView() : pool.pop();
+        try {
+            int end = this.limit;
+            for (int i = 0; i < end; i += XenoMeshFormat.TOTAL_STRIDE) {
+                quad.load(this.data, i);
+                action.accept(quad);
+            }
+        } finally {
+            quad.unload();
+            pool.push(quad);
         }
     }
 
@@ -85,9 +95,9 @@ public final class XenoMutableMesh extends XenoMeshView implements MutableMesh {
 
         @Override
         protected void emitDirectly() {
-            faceNormal();
-            XenoMutableMesh.this.limit += XenoMeshFormat.TOTAL_STRIDE;
+            computeGeometry();
             XenoMutableMesh.this.ensureCapacity();
+            XenoMutableMesh.this.limit += XenoMeshFormat.TOTAL_STRIDE;
             setBackingData(XenoMutableMesh.this.data, XenoMutableMesh.this.limit);
         }
     }

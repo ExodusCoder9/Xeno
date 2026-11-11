@@ -23,7 +23,9 @@ import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 public final class XenoFabricMixinConfigPlugin implements IMixinConfigPlugin {
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        if (mixinClassName.contains("FeatureRenderDispatcherMixin") || mixinClassName.contains("ItemFeatureRendererAccessor")) {
+        // Only used by XenoExtendedItemRenderer, which is registered only when the Fabric
+        // Renderer API is present.
+        if (mixinClassName.contains("ItemFeatureRendererAccessor")) {
             return FabricLoader.getInstance().isModLoaded("fabric-renderer-api-v1");
         }
         return true;

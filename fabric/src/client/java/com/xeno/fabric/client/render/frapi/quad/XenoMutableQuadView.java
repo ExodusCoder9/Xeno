@@ -30,6 +30,7 @@ import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.Direction;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.LightCoordsUtil;
 import org.joml.Vector3fc;
 import org.jspecify.annotations.NonNull;
@@ -49,7 +50,7 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
         this.data[off + XenoMeshFormat.OFFSET_X] = Float.floatToRawIntBits(x);
         this.data[off + XenoMeshFormat.OFFSET_Y] = Float.floatToRawIntBits(y);
         this.data[off + XenoMeshFormat.OFFSET_Z] = Float.floatToRawIntBits(z);
-        invalidateFaceNormal();
+        invalidateGeometry();
         return this;
     }
 
@@ -73,6 +74,19 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
         return this;
     }
 
+    public @NonNull MutableQuadView applyShade(int vertexIndex, float shade) {
+        int offset = vertexOffset(vertexIndex) + XenoMeshFormat.OFFSET_COLOR;
+        this.data[offset] = ARGB.scaleRGB(this.data[offset], shade);
+        return this;
+    }
+
+    public @NonNull MutableQuadView scaleColor(float factor) {
+        for (int i = 0; i < 4; i++) {
+            applyShade(i, factor);
+        }
+        return this;
+    }
+
     @Override
     public @NonNull MutableQuadView normal(int vertexIndex, float x, float y, float z) {
         int packed = (Float.isNaN(x) || Float.isNaN(y) || Float.isNaN(z))
@@ -92,12 +106,16 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
     @Override
     public @NonNull MutableQuadView cullFace(@Nullable Direction face) {
         int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
-        this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = XenoMeshFormat.setCullFace(bits, face);
+        bits = XenoMeshFormat.setCullFace(bits, face);
+        bits = XenoMeshFormat.setNominalFace(bits, face);
+        this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = bits;
         return this;
     }
 
     @Override
     public @NonNull MutableQuadView atlas(@NonNull QuadAtlas quadAtlas) {
+        int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
+        this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = XenoMeshFormat.setAtlas(bits, quadAtlas);
         return this;
     }
 
@@ -110,25 +128,31 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
 
     @Override
     public @NonNull MutableQuadView itemRenderType(@NonNull RenderType renderType) {
-        int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
         int idx = XenoItemRenderTypes.toItemRenderTypeIndex(renderType);
-        this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = XenoMeshFormat.setItemRenderType(bits, idx);
+        if (idx >= 0) {
+            int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
+            this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = XenoMeshFormat.setItemRenderType(bits, idx);
+        }
         return this;
     }
 
     @Override
     public @NonNull MutableQuadView itemGlintRenderType(@NonNull RenderType renderType) {
-        int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
         int idx = XenoItemRenderTypes.toItemGlintRenderTypeIndex(renderType);
-        this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = XenoMeshFormat.setItemGlintRenderType(bits, idx);
+        if (idx >= 0) {
+            int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
+            this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = XenoMeshFormat.setItemGlintRenderType(bits, idx);
+        }
         return this;
     }
 
     @Override
     public @NonNull MutableQuadView itemGlintSpecialRenderType(@NonNull RenderType renderType) {
-        int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
         int idx = XenoItemRenderTypes.toItemGlintSpecialRenderTypeIndex(renderType);
-        this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = XenoMeshFormat.setItemGlintSpecialRenderType(bits, idx);
+        if (idx >= 0) {
+            int bits = this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS];
+            this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = XenoMeshFormat.setItemGlintSpecialRenderType(bits, idx);
+        }
         return this;
     }
 
@@ -188,18 +212,25 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
 
     @Override
     public @NonNull MutableQuadView copyFrom(QuadView quad) {
-        cullFace(quad.cullFace());
-        nominalFace(quad.nominalFace());
-        chunkLayer(quad.chunkLayer());
-        itemRenderType(quad.itemRenderType());
-        itemGlintRenderType(quad.itemGlintRenderType());
-        itemGlintSpecialRenderType(quad.itemGlintSpecialRenderType());
-        emissive(quad.emissive());
-        shadeDirectionOverride(quad.shadeDirectionOverride());
-        ambientOcclusion(quad.ambientOcclusion());
-        foilType(quad.foilType());
-        shadeMode(quad.shadeMode());
-        animated(quad.animated());
+        if (quad instanceof XenoQuadView xenoQuad) {
+            this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] =
+                xenoQuad.data()[xenoQuad.baseIndex() + XenoMeshFormat.HEADER_BITS];
+            this.data[this.baseIndex + XenoMeshFormat.HEADER_FACE_NORMAL] =
+                xenoQuad.data()[xenoQuad.baseIndex() + XenoMeshFormat.HEADER_FACE_NORMAL];
+        } else {
+            cullFace(quad.cullFace());
+            nominalFace(quad.nominalFace());
+            chunkLayer(quad.chunkLayer());
+            itemRenderType(quad.itemRenderType());
+            itemGlintRenderType(quad.itemGlintRenderType());
+            itemGlintSpecialRenderType(quad.itemGlintSpecialRenderType());
+            emissive(quad.emissive());
+            shadeDirectionOverride(quad.shadeDirectionOverride());
+            ambientOcclusion(quad.ambientOcclusion());
+            foilType(quad.foilType());
+            shadeMode(quad.shadeMode());
+            animated(quad.animated());
+        }
         tintIndex(quad.tintIndex());
         tag(quad.tag());
 
@@ -220,7 +251,6 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
     @Override
     public @NonNull MutableQuadView fromBakedQuad(BakedQuad quad) {
         clear();
-        cullFace(quad.direction());
         nominalFace(quad.direction());
 
         BakedQuad.MaterialInfo mat = quad.materialInfo();
@@ -230,10 +260,12 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
         itemGlintSpecialRenderType(mat.itemGlintSpecialRenderType());
         tintIndex(mat.tintIndex());
         shadeDirectionOverride(mat.shadeDirectionOverride());
-
-        boolean isEmissive = mat.lightEmission() > 0;
-        emissive(isEmissive);
-        int defaultLight = isEmissive ? LightCoordsUtil.pack(mat.lightEmission(), mat.lightEmission()) : 0;
+        ambientOcclusion(mat.lightEmission() > 0 ? TriState.FALSE : TriState.DEFAULT);
+        animated(mat.sprite().contents().isAnimated());
+        QuadAtlas atlas = QuadAtlas.ofLocation(mat.sprite().atlasLocation());
+        atlas(atlas != null ? atlas : QuadAtlas.BLOCK);
+        emissive(mat.lightEmission() == 15);
+        int defaultLight = LightCoordsUtil.lightCoordsWithEmission(0, mat.lightEmission());
 
         for (int i = 0; i < 4; i++) {
             Vector3fc p = quad.position(i);
@@ -244,6 +276,7 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
             lightmap(i, defaultLight);
             normal(i, Float.NaN, Float.NaN, Float.NaN);
         }
+        computeGeometry();
         return this;
     }
 
@@ -251,15 +284,18 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
     public @NonNull MutableQuadView clear() {
         Arrays.fill(this.data, this.baseIndex, this.baseIndex + XenoMeshFormat.TOTAL_STRIDE, 0);
         int bits = 0;
-        bits = XenoMeshFormat.setChunkLayer(bits, ChunkSectionLayer.SOLID);
+        bits = XenoMeshFormat.setChunkLayer(bits, ChunkSectionLayer.CUTOUT);
+        bits = XenoMeshFormat.setShadeMode(bits, ShadeMode.ENHANCED);
         bits = XenoMeshFormat.setAmbientOcclusion(bits, TriState.DEFAULT);
+        bits = XenoMeshFormat.setAtlas(bits, QuadAtlas.BLOCK);
         this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = bits;
+        this.data[this.baseIndex + XenoMeshFormat.HEADER_FACE_NORMAL] = 0;
         this.data[this.baseIndex + XenoMeshFormat.HEADER_TINT_INDEX] = -1;
 
         for (int i = 0; i < 4; i++) {
             color(i, 0xFFFFFFFF);
         }
-        invalidateFaceNormal();
+        invalidateGeometry();
         return this;
     }
 }

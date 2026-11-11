@@ -61,6 +61,14 @@ public final class XenoModelRenderer {
         this.blockColors = blockColors;
     }
 
+    public boolean ambientOcclusion() {
+        return this.ambientOcclusion;
+    }
+
+    public BlockColors blockColors() {
+        return this.blockColors;
+    }
+
     public void emit(
         BlockQuadOutput output,
         float x,
@@ -74,22 +82,41 @@ public final class XenoModelRenderer {
     ) {
         this.random.setSeed(seed);
         model.collectParts(this.random, this.parts);
-        if (!this.parts.isEmpty()) {
-            try {
-                Vec3 offset = blockState.getOffset(pos);
-                float renderX = offset == Vec3.ZERO || (offset.x == 0.0 && offset.y == 0.0 && offset.z == 0.0) ? x : x + (float) offset.x;
-                float renderY = offset == Vec3.ZERO || (offset.x == 0.0 && offset.y == 0.0 && offset.z == 0.0) ? y : y + (float) offset.y;
-                float renderZ = offset == Vec3.ZERO || (offset.x == 0.0 && offset.y == 0.0 && offset.z == 0.0) ? z : z + (float) offset.z;
-                this.lighter.resetForBlock(pos);
-                if (this.ambientOcclusion && blockState.getLightEmission() == 0 && this.parts.getFirst().useAmbientOcclusion()) {
-                    this.emitAmbientOcclusion(output, renderX, renderY, renderZ, level, blockState, pos);
-                } else {
-                    this.emitFlat(output, renderX, renderY, renderZ, level, blockState, pos);
-                }
-            } finally {
-                this.parts.clear();
-                this.resetTintCache();
+        try {
+            this.emitCollected(output, x, y, z, level, pos, blockState, this.parts);
+        } finally {
+            this.parts.clear();
+        }
+    }
+
+    public void emitCollected(
+        BlockQuadOutput output,
+        float x,
+        float y,
+        float z,
+        BlockAndTintGetter level,
+        BlockPos pos,
+        BlockState blockState,
+        List<BlockStateModelPart> parts
+    ) {
+        if (parts.isEmpty()) {
+            return;
+        }
+
+        try {
+            Vec3 offset = blockState.getOffset(pos);
+            boolean zeroOffset = offset == Vec3.ZERO || (offset.x == 0.0 && offset.y == 0.0 && offset.z == 0.0);
+            float renderX = zeroOffset ? x : x + (float) offset.x;
+            float renderY = zeroOffset ? y : y + (float) offset.y;
+            float renderZ = zeroOffset ? z : z + (float) offset.z;
+            this.lighter.resetForBlock(pos);
+            if (this.ambientOcclusion && blockState.getLightEmission() == 0 && parts.getFirst().useAmbientOcclusion()) {
+                this.emitAmbientOcclusion(output, renderX, renderY, renderZ, level, blockState, pos, parts);
+            } else {
+                this.emitFlat(output, renderX, renderY, renderZ, level, blockState, pos, parts);
             }
+        } finally {
+            this.resetTintCache();
         }
     }
 
@@ -120,12 +147,13 @@ public final class XenoModelRenderer {
         float z,
         BlockAndTintGetter level,
         BlockState state,
-        BlockPos pos
+        BlockPos pos,
+        List<BlockStateModelPart> parts
     ) {
         int cacheValid = 0;
         int shouldRenderFaceCache = 0;
 
-        for (BlockStateModelPart part : this.parts) {
+        for (BlockStateModelPart part : parts) {
             for (Direction direction : DIRECTIONS) {
                 int cacheMask = 1 << direction.ordinal();
                 boolean validCacheForDirection = (cacheValid & cacheMask) != 0;
@@ -157,11 +185,11 @@ public final class XenoModelRenderer {
         }
     }
 
-    private void emitFlat(BlockQuadOutput output, float x, float y, float z, BlockAndTintGetter level, BlockState state, BlockPos pos) {
+    private void emitFlat(BlockQuadOutput output, float x, float y, float z, BlockAndTintGetter level, BlockState state, BlockPos pos, List<BlockStateModelPart> parts) {
         int cacheValid = 0;
         int shouldRenderFaceCache = 0;
 
-        for (BlockStateModelPart part : this.parts) {
+        for (BlockStateModelPart part : parts) {
             for (Direction direction : DIRECTIONS) {
                 int cacheMask = 1 << direction.ordinal();
                 boolean validCacheForDirection = (cacheValid & cacheMask) != 0;

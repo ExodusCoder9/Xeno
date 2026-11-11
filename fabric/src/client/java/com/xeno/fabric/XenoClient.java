@@ -19,10 +19,27 @@ package com.xeno.fabric;
 
 import com.xeno.fabric.client.render.XenoFabricBlockModelDispatcher;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
 
 public final class XenoClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		XenoFabricBlockModelDispatcher.register();
+		if (FabricLoader.getInstance().isModLoaded("fabric-renderer-api-v1")) {
+			FrapiFeatureRenderers.register();
+		}
+	}
+
+	private static final class FrapiFeatureRenderers {
+		static void register() {
+			net.fabricmc.fabric.api.client.rendering.v1.FeatureRendererRegistry.register(
+				net.fabricmc.fabric.api.client.renderer.v1.render.submit.ExtendedBlockModelSubmit.TYPE,
+				com.xeno.fabric.client.render.frapi.render.XenoExtendedBlockModelRenderer::new
+			);
+			net.fabricmc.fabric.api.client.rendering.v1.FeatureRendererRegistry.register(
+				net.fabricmc.fabric.api.client.renderer.v1.render.submit.ExtendedItemSubmit.TYPE,
+				com.xeno.fabric.client.render.frapi.render.XenoExtendedItemRenderer::new
+			);
+		}
 	}
 }

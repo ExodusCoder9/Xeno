@@ -37,8 +37,20 @@ import org.jspecify.annotations.Nullable;
 import java.util.function.Consumer;
 
 public class XenoQuadEmitter extends XenoMutableQuadView implements QuadEmitter {
+    protected static final QuadTransform NO_TRANSFORM = q -> true;
+
     private final Consumer<? super MutableQuadView> outputConsumer;
     private final ObjectArrayList<QuadTransform> transformStack = new ObjectArrayList<>();
+    protected QuadTransform activeTransform = NO_TRANSFORM;
+
+    private final QuadTransform stackTransform = q -> {
+        for (int i = this.transformStack.size() - 1; i >= 0; i--) {
+            if (!this.transformStack.get(i).transform(q)) {
+                return false;
+            }
+        }
+        return true;
+    };
 
     public XenoQuadEmitter(@Nullable Consumer<? super MutableQuadView> outputConsumer) {
         this.outputConsumer = outputConsumer;
@@ -191,28 +203,32 @@ public class XenoQuadEmitter extends XenoMutableQuadView implements QuadEmitter 
 
     @Override
     public void pushTransform(@NonNull QuadTransform transform) {
-        if (transform != null) {
-            this.transformStack.push(transform);
+        if (transform == null) {
+            throw new NullPointerException("QuadTransform cannot be null");
+        }
+        this.transformStack.push(transform);
+        if (this.transformStack.size() == 1) {
+            this.activeTransform = transform;
+        } else if (this.transformStack.size() == 2) {
+            this.activeTransform = this.stackTransform;
         }
     }
 
     @Override
     public void popTransform() {
-        if (!this.transformStack.isEmpty()) {
-            this.transformStack.pop();
+        this.transformStack.pop();
+        if (this.transformStack.isEmpty()) {
+            this.activeTransform = NO_TRANSFORM;
+        } else if (this.transformStack.size() == 1) {
+            this.activeTransform = this.transformStack.get(0);
         }
     }
 
     @Override
     public @NonNull QuadEmitter emit() {
-        int size = this.transformStack.size();
-        for (int i = size - 1; i >= 0; i--) {
-            if (!this.transformStack.get(i).transform(this)) {
-                clear();
-                return this;
-            }
+        if (this.activeTransform.transform(this)) {
+            emitDirectly();
         }
-        emitDirectly();
         clear();
         return this;
     }
