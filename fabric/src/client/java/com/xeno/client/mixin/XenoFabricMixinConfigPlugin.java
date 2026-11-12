@@ -18,16 +18,45 @@
 package com.xeno.client.mixin;
 
 import net.fabricmc.loader.api.FabricLoader;
+import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
+import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
+
+import java.util.List;
+import java.util.Set;
 
 public final class XenoFabricMixinConfigPlugin implements IMixinConfigPlugin {
     @Override
+    public void onLoad(String mixinPackage) {
+    }
+
+    @Override
+    public String getRefMapperConfig() {
+        return null;
+    }
+
+    @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        // Only used by XenoExtendedItemRenderer, which is registered only when the Fabric
-        // Renderer API is present.
         if (mixinClassName.contains("ItemFeatureRendererAccessor")) {
             return FabricLoader.getInstance().isModLoaded("fabric-renderer-api-v1");
         }
         return true;
+    }
+
+    @Override
+    public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {
+    }
+
+    @Override
+    public List<String> getMixins() {
+        return null;
+    }
+
+    @Override
+    public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
+    }
+
+    @Override
+    public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
     }
 }

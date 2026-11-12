@@ -17,17 +17,17 @@
 
 package com.xeno.client.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.xeno.client.common.render.chunk.XenoSectionCompiler;
 import net.minecraft.client.resources.ClientPackSource;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.VanillaPackResourcesBuilder;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(ClientPackSource.class)
 public abstract class ClientPackSourceMixin {
-    @Redirect(
+    @ModifyExpressionValue(
         method = "createVanillaPackSource",
         at = @At(
             value = "INVOKE",
@@ -37,6 +37,6 @@ public abstract class ClientPackSourceMixin {
     private static VanillaPackResourcesBuilder xeno$addXenoResources(VanillaPackResourcesBuilder builder) {
         builder.exposeNamespace("xeno");
         builder.pushClasspathResources(PackType.CLIENT_RESOURCES, XenoSectionCompiler.class);
-        return builder.pushJarResources();
+        return builder;
     }
 }

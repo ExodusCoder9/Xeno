@@ -36,9 +36,25 @@ import org.joml.Vector3fc;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.util.Arrays;
-
 public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView {
+    private static final int[] DEFAULT_QUAD_DATA = new int[XenoMeshFormat.TOTAL_STRIDE];
+
+    static {
+        int bits = 0;
+        bits = XenoMeshFormat.setChunkLayer(bits, ChunkSectionLayer.CUTOUT);
+        bits = XenoMeshFormat.setShadeMode(bits, ShadeMode.ENHANCED);
+        bits = XenoMeshFormat.setAmbientOcclusion(bits, TriState.DEFAULT);
+        bits = XenoMeshFormat.setAtlas(bits, QuadAtlas.BLOCK);
+        DEFAULT_QUAD_DATA[XenoMeshFormat.HEADER_BITS] = bits;
+        DEFAULT_QUAD_DATA[XenoMeshFormat.HEADER_FACE_NORMAL] = 0;
+        DEFAULT_QUAD_DATA[XenoMeshFormat.HEADER_TINT_INDEX] = -1;
+        DEFAULT_QUAD_DATA[XenoMeshFormat.HEADER_TAG] = 0;
+
+        for (int i = 0; i < 4; i++) {
+            int off = XenoMeshFormat.HEADER_STRIDE + i * XenoMeshFormat.VERTEX_STRIDE;
+            DEFAULT_QUAD_DATA[off + XenoMeshFormat.OFFSET_COLOR] = 0xFFFFFFFF;
+        }
+    }
 
     private int vertexOffset(int vertexIndex) {
         return this.baseIndex + XenoMeshFormat.HEADER_STRIDE + vertexIndex * XenoMeshFormat.VERTEX_STRIDE;
@@ -211,7 +227,7 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
     }
 
     @Override
-    public @NonNull MutableQuadView copyFrom(QuadView quad) {
+    public @NonNull MutableQuadView copyFrom(@NonNull QuadView quad) {
         if (quad instanceof XenoQuadView xenoQuad) {
             this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] =
                 xenoQuad.data()[xenoQuad.baseIndex() + XenoMeshFormat.HEADER_BITS];
@@ -250,7 +266,6 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
 
     @Override
     public @NonNull MutableQuadView fromBakedQuad(BakedQuad quad) {
-        clear();
         nominalFace(quad.direction());
 
         BakedQuad.MaterialInfo mat = quad.materialInfo();
@@ -282,19 +297,7 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
 
     @Override
     public @NonNull MutableQuadView clear() {
-        Arrays.fill(this.data, this.baseIndex, this.baseIndex + XenoMeshFormat.TOTAL_STRIDE, 0);
-        int bits = 0;
-        bits = XenoMeshFormat.setChunkLayer(bits, ChunkSectionLayer.CUTOUT);
-        bits = XenoMeshFormat.setShadeMode(bits, ShadeMode.ENHANCED);
-        bits = XenoMeshFormat.setAmbientOcclusion(bits, TriState.DEFAULT);
-        bits = XenoMeshFormat.setAtlas(bits, QuadAtlas.BLOCK);
-        this.data[this.baseIndex + XenoMeshFormat.HEADER_BITS] = bits;
-        this.data[this.baseIndex + XenoMeshFormat.HEADER_FACE_NORMAL] = 0;
-        this.data[this.baseIndex + XenoMeshFormat.HEADER_TINT_INDEX] = -1;
-
-        for (int i = 0; i < 4; i++) {
-            color(i, 0xFFFFFFFF);
-        }
+        System.arraycopy(DEFAULT_QUAD_DATA, 0, this.data, this.baseIndex, XenoMeshFormat.TOTAL_STRIDE);
         invalidateGeometry();
         return this;
     }

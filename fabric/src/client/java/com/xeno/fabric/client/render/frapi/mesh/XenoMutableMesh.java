@@ -37,22 +37,20 @@ public final class XenoMutableMesh extends XenoMeshView implements MutableMesh {
         this.limit = 0;
         this.emitter = new MeshEmitter();
         this.emitter.setBackingData(this.data, 0);
-        this.emitter.clear();
     }
 
-    private void ensureCapacity() {
-        if (this.limit + XenoMeshFormat.TOTAL_STRIDE > this.data.length) {
-            int newLength = Math.max(this.data.length * 2, this.limit + XenoMeshFormat.TOTAL_STRIDE);
+    private void ensureCapacity(int stride) {
+        if (this.limit + stride > this.data.length) {
+            int newLength = Math.max(this.data.length * 2, this.limit + stride);
             this.data = Arrays.copyOf(this.data, newLength);
-            this.emitter.setBackingData(this.data, this.limit);
+            this.emitter.updateBackingArray(this.data);
         }
     }
 
     @Override
     public @NonNull QuadEmitter emitter() {
-        ensureCapacity();
+        ensureCapacity(XenoMeshFormat.TOTAL_STRIDE);
         this.emitter.setBackingData(this.data, this.limit);
-        this.emitter.clear();
         return this.emitter;
     }
 
@@ -84,8 +82,8 @@ public final class XenoMutableMesh extends XenoMeshView implements MutableMesh {
     @Override
     public void clear() {
         this.limit = 0;
+        ensureCapacity(XenoMeshFormat.TOTAL_STRIDE);
         this.emitter.setBackingData(this.data, 0);
-        this.emitter.clear();
     }
 
     private final class MeshEmitter extends XenoQuadEmitter {
@@ -93,12 +91,18 @@ public final class XenoMutableMesh extends XenoMeshView implements MutableMesh {
             super(null);
         }
 
+        void updateBackingArray(int[] data) {
+            this.data = data;
+        }
+
         @Override
         protected void emitDirectly() {
             computeGeometry();
-            XenoMutableMesh.this.ensureCapacity();
             XenoMutableMesh.this.limit += XenoMeshFormat.TOTAL_STRIDE;
-            setBackingData(XenoMutableMesh.this.data, XenoMutableMesh.this.limit);
+            XenoMutableMesh.this.ensureCapacity(XenoMeshFormat.TOTAL_STRIDE);
+            this.data = XenoMutableMesh.this.data;
+            this.baseIndex = XenoMutableMesh.this.limit;
+            clear();
         }
     }
 }

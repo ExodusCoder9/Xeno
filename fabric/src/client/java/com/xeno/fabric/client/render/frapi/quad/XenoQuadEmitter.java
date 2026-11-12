@@ -60,7 +60,9 @@ public class XenoQuadEmitter extends XenoMutableQuadView implements QuadEmitter 
     }
 
     public void setBackingData(int[] data, int baseIndex) {
-        load(data, baseIndex);
+        this.data = data;
+        this.baseIndex = baseIndex;
+        clear();
     }
 
     @Override

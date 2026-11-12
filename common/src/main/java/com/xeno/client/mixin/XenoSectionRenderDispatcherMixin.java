@@ -17,6 +17,8 @@
 
 package com.xeno.client.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.xeno.client.common.render.chunk.XenoSectionStagingCoordinator;
 import com.xeno.client.common.render.chunk.XenoSectionTaskQueue;
 import com.xeno.client.common.render.chunk.XenoStagingAccess;
@@ -28,7 +30,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.concurrent.TimeUnit;
@@ -44,11 +45,11 @@ public abstract class XenoSectionRenderDispatcherMixin implements XenoStagingAcc
     @Unique
     private Condition xeno$stagingNotFull;
 
-    @Redirect(
+    @WrapOperation(
         method = "<init>",
         at = @At(value = "NEW", target = "Lnet/minecraft/client/renderer/chunk/SectionTaskDynamicQueue;")
     )
-    private static SectionTaskDynamicQueue xeno$useXenoTaskQueue() {
+    private static SectionTaskDynamicQueue xeno$useXenoTaskQueue(Operation<SectionTaskDynamicQueue> original) {
         return new XenoSectionTaskQueue();
     }
 

@@ -36,7 +36,7 @@ import org.jspecify.annotations.NonNull;
 
 import java.util.List;
 
-public class XenoExtendedItemRenderer extends RenderTypeFeatureRenderer<ExtendedItemSubmit> {
+public final class XenoExtendedItemRenderer extends RenderTypeFeatureRenderer<ExtendedItemSubmit> {
     private final XenoQuadEmitter emitter;
     private final XenoItemDecalGenerator decalGenerator = new XenoItemDecalGenerator();
     private final Matrix4f cameraInversePose = new Matrix4f();

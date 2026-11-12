@@ -17,6 +17,8 @@
 
 package com.xeno.client.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.xeno.client.common.render.chunk.XenoSectionCompiler;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
@@ -31,11 +33,10 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(ShaderManager.class)
 public abstract class XenoShaderManagerMixin {
-    @Redirect(
+    @WrapOperation(
         method = "loadConfigs(Lnet/minecraft/server/packs/resources/ResourceManager;)Lnet/minecraft/client/renderer/ShaderManager$Configs;",
         at = @At(
             value = "INVOKE",
@@ -43,9 +44,10 @@ public abstract class XenoShaderManagerMixin {
         )
     )
     private static Map<Identifier, Resource> xeno$injectXenoShaders(
-        ResourceManager manager, String directory, ResourceManager.Selector selector
+        ResourceManager manager, String directory, ResourceManager.Selector selector,
+        Operation<Map<Identifier, Resource>> original
     ) {
-        Map<Identifier, Resource> files = manager.listResources(directory, selector);
+        Map<Identifier, Resource> files = original.call(manager, directory, selector);
         Identifier terrainVsh = Identifier.fromNamespaceAndPath("xeno", "shaders/core/terrain.vsh");
         if (!files.containsKey(terrainVsh)) {
             Map<Identifier, Resource> mutableFiles = new HashMap<>(files);

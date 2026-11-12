@@ -19,7 +19,6 @@
     "XenoEntityRendererMixin",
     "XenoFrustumMixin",
     "XenoMeshDataMixin",
-    "XenoLevelExtractorMixin",
     "XenoLevelRendererMixin",
     "XenoOctreeLeafMixin",
     "XenoRenderSectionSortMixin",

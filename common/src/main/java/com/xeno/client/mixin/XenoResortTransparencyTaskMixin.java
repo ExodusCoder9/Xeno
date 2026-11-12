@@ -17,18 +17,19 @@
 
 package com.xeno.client.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.xeno.client.common.render.chunk.XenoSectionStagingCoordinator;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(targets = "net.minecraft.client.renderer.chunk.SectionRenderDispatcher$RenderSection$ResortTransparencyTask")
 public abstract class XenoResortTransparencyTaskMixin {
-    @Redirect(
+    @WrapOperation(
         method = "doTask",
         at = @At(value = "INVOKE", target = "Ljava/lang/Thread;onSpinWait()V")
     )
-    private void xeno$onSpinWait() {
+    private void xeno$onSpinWait(Operation<Void> original) {
         XenoSectionStagingCoordinator.awaitSpace();
     }
 }

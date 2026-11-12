@@ -17,6 +17,9 @@
 
 package com.xeno.client.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.xeno.client.common.render.chunk.XenoChunkExecutorService;
 import net.minecraft.TracingExecutor;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -24,26 +27,27 @@ import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(LevelRenderer.class)
 public abstract class XenoChunkExecutorMixin {
-    @Redirect(
+    @ModifyExpressionValue(
         method = "invalidateCompiledGeometry",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;backgroundExecutor()Lnet/minecraft/TracingExecutor;")
     )
-    private static TracingExecutor xeno$useXenoChunkExecutor() {
+    private static TracingExecutor xeno$useXenoChunkExecutor(TracingExecutor original) {
         return XenoChunkExecutorService.INSTANCE;
     }
 
-    @Redirect(
+    @WrapOperation(
         method = "compileSections",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/renderer/chunk/SectionRenderDispatcher$RenderSection;compileSync(Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;)V"
         )
     )
-    private static void xeno$compileSectionAsync(SectionRenderDispatcher.RenderSection section, RenderSectionRegion region) {
+    private static void xeno$compileSectionAsync(
+        SectionRenderDispatcher.RenderSection section, RenderSectionRegion region, Operation<Void> original
+    ) {
         section.compileAsync(region);
     }
 }

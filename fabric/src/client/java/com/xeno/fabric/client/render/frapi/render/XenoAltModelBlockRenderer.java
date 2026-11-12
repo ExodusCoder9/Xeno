@@ -38,7 +38,6 @@ import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
@@ -52,11 +51,10 @@ import org.joml.Vector3f;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
-public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTransform {
+public final class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTransform {
     private static final ThreadLocal<XenoQuadLighter> LIGHTER =
         ThreadLocal.withInitial(() -> new XenoQuadLighter(XenoLightDataCache.get()));
 
@@ -81,7 +79,6 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
     private boolean tintSourcesInitialized;
     private final List<@Nullable BlockTintSource> tintSources = new ObjectArrayList<>();
     private final IntList computedTintValues = new IntArrayList();
-    private final List<BlockStateModelPart> scratchParts = new ArrayList<>();
 
     private BlockAndTintGetter level;
     private BlockPos pos;
@@ -96,7 +93,7 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
 
     @Override
     public void tesselateBlock(
-            QuadEmitter output,
+            @NonNull QuadEmitter output,
             float x, float y, float z,
             @NonNull BlockAndTintGetter level,
             @NonNull BlockPos pos,
@@ -125,15 +122,6 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
         this.shouldCullFaceCache = 0;
 
         this.random.setSeed(seed);
-        this.defaultAo = this.ambientOcclusion && blockState.getLightEmission() == 0;
-        if (this.defaultAo) {
-            this.scratchParts.clear();
-            model.collectParts(this.random, this.scratchParts);
-            if (!this.scratchParts.isEmpty() && !this.scratchParts.get(0).useAmbientOcclusion()) {
-                this.defaultAo = false;
-            }
-            this.scratchParts.clear();
-        }
 
         output.clear();
         output.pushTransform(this);
@@ -190,34 +178,20 @@ public class XenoAltModelBlockRenderer implements AltModelBlockRenderer, QuadTra
             return;
         }
 
-        if (ao) {
-            XenoQuadLightResult result = LIGHTER.get().computeAmbientOcclusion(
+        XenoQuadLightResult result = ao
+            ? LIGHTER.get().computeAmbientOcclusion(
                 this.level, this.blockState, this.pos, this.quadGeometry.bind(quad), !vanillaShade
+            )
+            : LIGHTER.get().computeFlat(
+                this.level, this.blockState, this.pos, this.quadGeometry.bind(quad), quad.cullFace(), !vanillaShade
             );
 
-            for (int i = 0; i < 4; i++) {
-                applyQuadShade(quad, i, result.shades[i]);
-                quad.lightmap(i, ExtraLightCoordsUtil.smoothMax(quad.lightmap(i), result.lightCoords[i]));
-            }
-
-            applyQuadColorScale(quad, result.directionalBrightness);
-            return;
-        }
-
-        Direction lightFace = quad.lightFace();
-        Direction shadeDir = quad.shadeDirectionOverride();
-        Direction effectiveDir = shadeDir != null ? shadeDir : lightFace;
-
-        int lightCoords = LightCoordsUtil.getLightCoords(this.level, this.neighborPos.setWithOffset(this.pos, lightFace));
-
         for (int i = 0; i < 4; i++) {
-            int existingLight = quad.lightmap(i);
-            int blockLight = Math.max(LightCoordsUtil.block(existingLight), LightCoordsUtil.block(lightCoords));
-            int skyLight = Math.max(LightCoordsUtil.sky(existingLight), LightCoordsUtil.sky(lightCoords));
-            quad.lightmap(i, LightCoordsUtil.pack(blockLight, skyLight));
+            applyQuadShade(quad, i, result.shades[i]);
+            quad.lightmap(i, ExtraLightCoordsUtil.smoothMax(quad.lightmap(i), result.lightCoords[i]));
         }
 
-        applyQuadColorScale(quad, this.level.cardinalLighting().byFace(effectiveDir));
+        applyQuadColorScale(quad, result.directionalBrightness);
     }
 
     private static void applyQuadShade(MutableQuadView quad, int vertexIndex, float shade) {

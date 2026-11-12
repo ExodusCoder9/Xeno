@@ -17,7 +17,9 @@
 
 package com.xeno.client.mixin;
 
-import com.mojang.renderpearl.api.device.HintsAndWorkarounds;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.xeno.client.common.render.chunk.XenoSectionCompiler;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -26,28 +28,28 @@ import net.minecraft.client.renderer.block.FluidStateModelSet;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(LevelRenderer.class)
 public abstract class XenoLevelRendererMixin {
-    @Redirect(
+    @ModifyExpressionValue(
         method = "<init>",
         at = @At(
             value = "INVOKE",
             target = "Lcom/mojang/renderpearl/api/device/HintsAndWorkarounds;multiDrawIndirectHasKnownIssues()Z"
         )
     )
-    private boolean xeno$ignoreKnownIssues(HintsAndWorkarounds instance) {
+    private boolean xeno$ignoreKnownIssues(boolean original) {
         return false;
     }
 
-    @Redirect(
+    @WrapOperation(
         method = "invalidateCompiledGeometry",
         at = @At(value = "NEW", target = "Lnet/minecraft/client/renderer/chunk/SectionCompiler;")
     )
     private static SectionCompiler xeno$useXenoCompiler(
         boolean ambientOcclusion, boolean cutoutLeaves,
-        BlockStateModelSet blockModelSet, FluidStateModelSet fluidModelSet, BlockColors blockColors
+        BlockStateModelSet blockModelSet, FluidStateModelSet fluidModelSet, BlockColors blockColors,
+        Operation<SectionCompiler> original
     ) {
         return new XenoSectionCompiler(ambientOcclusion, cutoutLeaves, blockModelSet, fluidModelSet, blockColors);
     }

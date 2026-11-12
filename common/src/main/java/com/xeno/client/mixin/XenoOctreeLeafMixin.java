@@ -17,6 +17,8 @@
 
 package com.xeno.client.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.xeno.client.common.render.culling.XenoBranchlessFrustum;
 import com.xeno.client.common.render.culling.XenoFrustumProvider;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
@@ -27,7 +29,6 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(targets = "net.minecraft.client.renderer.Octree$Leaf")
 public abstract class XenoOctreeLeafMixin {
@@ -35,14 +36,14 @@ public abstract class XenoOctreeLeafMixin {
     @Final
     private SectionRenderDispatcher.RenderSection section;
 
-    @Redirect(
+    @WrapOperation(
             method = "visitNodes",
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/client/renderer/culling/Frustum;isVisible(Lnet/minecraft/world/phys/AABB;)Z"
             )
     )
-    private boolean xeno$fastSectionCull(Frustum frustum, AABB bb) {
+    private boolean xeno$fastSectionCull(Frustum frustum, AABB bb, Operation<Boolean> original) {
         if (frustum instanceof XenoFrustumProvider provider) {
             XenoBranchlessFrustum bf = provider.xeno$getBranchlessFrustum();
             BlockPos origin = this.section.getRenderOrigin();
@@ -51,6 +52,6 @@ public abstract class XenoOctreeLeafMixin {
             float relCenterZ = (float) (origin.getZ() + 8 - bf.getCamZ());
             return bf.isSectionVisibleRel(relCenterX, relCenterY, relCenterZ);
         }
-        return frustum.isVisible(bb);
+        return original.call(frustum, bb);
     }
 }

@@ -25,7 +25,7 @@ import org.joml.Matrix4fc;
 import org.joml.Vector3f;
 import org.jspecify.annotations.NonNull;
 
-public class XenoItemDecalGenerator implements VertexConsumer {
+public final class XenoItemDecalGenerator implements VertexConsumer {
     private VertexConsumer delegate;
     private Matrix4fc cameraInversePose;
     private Matrix3fc normalInversePose;

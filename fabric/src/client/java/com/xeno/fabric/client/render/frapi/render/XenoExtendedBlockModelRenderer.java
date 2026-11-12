@@ -39,7 +39,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Function;
 
-public class XenoExtendedBlockModelRenderer extends RenderTypeFeatureRenderer<ExtendedBlockModelSubmit> {
+public final class XenoExtendedBlockModelRenderer extends RenderTypeFeatureRenderer<ExtendedBlockModelSubmit> {
     private static final Direction[] DIRECTIONS = Direction.values();
     private final QuadInstance quadInstance = new QuadInstance();
     private final XenoQuadEmitter emitter;
