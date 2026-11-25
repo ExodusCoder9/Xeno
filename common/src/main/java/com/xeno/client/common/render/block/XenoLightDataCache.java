@@ -23,36 +23,63 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.LightCoordsUtil.BrightnessGetter;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.state.BlockState;
 
 public final class XenoLightDataCache {
     private static final int NEIGHBOR_BLOCK_RADIUS = 2;
-    private static final int BLOCK_LENGTH = 16 + 2 * NEIGHBOR_BLOCK_RADIUS;
-    private static final int BLOCK_COUNT = BLOCK_LENGTH * BLOCK_LENGTH * BLOCK_LENGTH;
+    private static final int SECTION_BLOCK_LENGTH = 16 + 2 * NEIGHBOR_BLOCK_RADIUS;
+    private static final int SINGLE_BLOCK_LENGTH = 1 + 2 * NEIGHBOR_BLOCK_RADIUS;
     private static final ThreadLocal<XenoLightDataCache> THREAD_LOCAL = ThreadLocal.withInitial(XenoLightDataCache::new);
 
-    private final BlockState[] states = new BlockState[BLOCK_COUNT];
-    private final int[] packedBrightness = new int[BLOCK_COUNT];
-    private final float[] shade = new float[BLOCK_COUNT];
-    private final int[] epoch = new int[BLOCK_COUNT];
-    private int currentEpoch = 1;
+    private static final int BLOCK_LIGHT_MASK = 0xF;
+    private static final int SKY_LIGHT_SHIFT = 4;
+    private static final int SKY_LIGHT_MASK = 0xF;
+    private static final int SHADE_SHIFT = 8;
+    private static final int SHADE_MASK = 0xFF;
+    private static final float SHADE_UNPACK = 1.0F / 255.0F;
+    private static final int POPULATED_BIT = 1 << 31;
+
+    private final int blockLength;
+    private final BlockState[] states;
+    private final int[] lightData;
     private int baseX;
     private int baseY;
     private int baseZ;
 
+    public XenoLightDataCache() {
+        this(SECTION_BLOCK_LENGTH);
+    }
+
+    private XenoLightDataCache(int blockLength) {
+        this.blockLength = blockLength;
+        int count = blockLength * blockLength * blockLength;
+        this.states = new BlockState[count];
+        this.lightData = new int[count];
+    }
+
+    public static XenoLightDataCache forSingleBlock() {
+        return new XenoLightDataCache(SINGLE_BLOCK_LENGTH);
+    }
+
     public static XenoLightDataCache get() {
         return THREAD_LOCAL.get();
+    }
+
+    public void reset(BlockPos pos) {
+        this.baseX = pos.getX();
+        this.baseY = pos.getY();
+        this.baseZ = pos.getZ();
+        Arrays.fill(this.states, null);
+        Arrays.fill(this.lightData, 0);
     }
 
     public void reset(SectionPos sectionPos) {
         this.baseX = sectionPos.minBlockX();
         this.baseY = sectionPos.minBlockY();
         this.baseZ = sectionPos.minBlockZ();
-        this.currentEpoch++;
-        if (this.currentEpoch == 0) {
-            Arrays.fill(this.epoch, 0);
-            this.currentEpoch = 1;
-        }
+        Arrays.fill(this.states, null);
+        Arrays.fill(this.lightData, 0);
     }
 
     public void bindSection(int sectionX, int sectionY, int sectionZ) {
@@ -65,42 +92,32 @@ public final class XenoLightDataCache {
         this.baseX = minX;
         this.baseY = minY;
         this.baseZ = minZ;
-        this.currentEpoch++;
-        if (this.currentEpoch == 0) {
-            Arrays.fill(this.epoch, 0);
-            this.currentEpoch = 1;
-        }
+        Arrays.fill(this.states, null);
+        Arrays.fill(this.lightData, 0);
     }
 
     public BlockState getState(BlockAndTintGetter level, BlockPos pos) {
-        if (!this.isWithinBounds(pos.getX(), pos.getY(), pos.getZ())) {
+        int relX = pos.getX() - this.baseX + NEIGHBOR_BLOCK_RADIUS;
+        int relY = pos.getY() - this.baseY + NEIGHBOR_BLOCK_RADIUS;
+        int relZ = pos.getZ() - this.baseZ + NEIGHBOR_BLOCK_RADIUS;
+        int len = this.blockLength;
+        if (isOutOfBounds(relX, relY, relZ, len)) {
             return level.getBlockState(pos);
         }
-        int index = this.index(pos);
-        if (this.epoch[index] != this.currentEpoch) {
-            this.populate(level, pos, index);
+        int index = (relX * len + relY) * len + relZ;
+        BlockState state = this.states[index];
+        if (state == null) {
+            state = level.getBlockState(pos);
+            this.states[index] = state;
         }
-        return this.states[index];
+        return state;
     }
 
     public int getLightCoords(BlockState state, BlockAndTintGetter level, BlockPos pos) {
         if (state.emissiveRendering()) {
             return LightCoordsUtil.FULL_BRIGHT;
         }
-        if (!this.isWithinBounds(pos.getX(), pos.getY(), pos.getZ())) {
-            int packed = BrightnessGetter.DEFAULT.packedBrightness(level, pos);
-            int blockLight = LightCoordsUtil.block(packed);
-            int emission = state.getLightEmission();
-            if (blockLight < emission) {
-                return LightCoordsUtil.withBlock(packed, emission);
-            }
-            return packed;
-        }
-        int index = this.index(pos);
-        if (this.epoch[index] != this.currentEpoch) {
-            this.populate(level, pos, index);
-        }
-        int packed = this.packedBrightness[index];
+        int packed = getRawLightCoords(level, pos);
         int blockLight = LightCoordsUtil.block(packed);
         int emission = state.getLightEmission();
         if (blockLight < emission) {
@@ -110,45 +127,55 @@ public final class XenoLightDataCache {
     }
 
     public int getRawLightCoords(BlockAndTintGetter level, BlockPos pos) {
-        if (!this.isWithinBounds(pos.getX(), pos.getY(), pos.getZ())) {
+        int relX = pos.getX() - this.baseX + NEIGHBOR_BLOCK_RADIUS;
+        int relY = pos.getY() - this.baseY + NEIGHBOR_BLOCK_RADIUS;
+        int relZ = pos.getZ() - this.baseZ + NEIGHBOR_BLOCK_RADIUS;
+        int len = this.blockLength;
+        if (isOutOfBounds(relX, relY, relZ, len)) {
             return BrightnessGetter.DEFAULT.packedBrightness(level, pos);
         }
-        int index = this.index(pos);
-        if (this.epoch[index] != this.currentEpoch) {
-            this.populate(level, pos, index);
+        int index = (relX * len + relY) * len + relZ;
+        int word = this.lightData[index];
+        if ((word & POPULATED_BIT) == 0) {
+            word = populateLight(level, pos, index);
         }
-        return this.packedBrightness[index];
+        int block = word & BLOCK_LIGHT_MASK;
+        int sky = (word >>> SKY_LIGHT_SHIFT) & SKY_LIGHT_MASK;
+        return LightCoordsUtil.pack(block, sky);
     }
 
     public float getShadeBrightness(BlockAndTintGetter level, BlockPos pos) {
-        if (!this.isWithinBounds(pos.getX(), pos.getY(), pos.getZ())) {
+        int relX = pos.getX() - this.baseX + NEIGHBOR_BLOCK_RADIUS;
+        int relY = pos.getY() - this.baseY + NEIGHBOR_BLOCK_RADIUS;
+        int relZ = pos.getZ() - this.baseZ + NEIGHBOR_BLOCK_RADIUS;
+        int len = this.blockLength;
+        if (isOutOfBounds(relX, relY, relZ, len)) {
             return level.getBlockState(pos).getShadeBrightness(level, pos);
         }
-        int index = this.index(pos);
-        if (this.epoch[index] != this.currentEpoch) {
-            this.populate(level, pos, index);
+        int index = (relX * len + relY) * len + relZ;
+        int word = this.lightData[index];
+        if ((word & POPULATED_BIT) == 0) {
+            word = populateLight(level, pos, index);
         }
-        return this.shade[index];
+        return ((word >>> SHADE_SHIFT) & SHADE_MASK) * SHADE_UNPACK;
     }
 
-    private void populate(BlockAndTintGetter level, BlockPos pos, int index) {
-        BlockState state = level.getBlockState(pos);
-        this.states[index] = state;
-        this.packedBrightness[index] = BrightnessGetter.DEFAULT.packedBrightness(level, pos);
-        this.shade[index] = state.getShadeBrightness(level, pos);
-        this.epoch[index] = this.currentEpoch;
+    private int populateLight(BlockAndTintGetter level, BlockPos pos, int index) {
+        BlockState state = this.states[index];
+        if (state == null) {
+            state = level.getBlockState(pos);
+            this.states[index] = state;
+        }
+        int packed = BrightnessGetter.DEFAULT.packedBrightness(level, pos);
+        int block = LightCoordsUtil.block(packed) & BLOCK_LIGHT_MASK;
+        int sky = LightCoordsUtil.sky(packed) & SKY_LIGHT_MASK;
+        int shade = Math.round(Mth.clamp(state.getShadeBrightness(level, pos), 0.0F, 1.0F) * 255.0F) & SHADE_MASK;
+        int word = POPULATED_BIT | (shade << SHADE_SHIFT) | (sky << SKY_LIGHT_SHIFT) | block;
+        this.lightData[index] = word;
+        return word;
     }
 
-    private boolean isWithinBounds(int x, int y, int z) {
-        int relX = x - this.baseX + NEIGHBOR_BLOCK_RADIUS;
-        int relY = y - this.baseY + NEIGHBOR_BLOCK_RADIUS;
-        int relZ = z - this.baseZ + NEIGHBOR_BLOCK_RADIUS;
-        return relX >= 0 && relX < BLOCK_LENGTH && relY >= 0 && relY < BLOCK_LENGTH && relZ >= 0 && relZ < BLOCK_LENGTH;
-    }
-
-    private int index(BlockPos pos) {
-        return ((pos.getX() - this.baseX + NEIGHBOR_BLOCK_RADIUS) * BLOCK_LENGTH + (pos.getY() - this.baseY + NEIGHBOR_BLOCK_RADIUS))
-            * BLOCK_LENGTH
-            + (pos.getZ() - this.baseZ + NEIGHBOR_BLOCK_RADIUS);
+    private static boolean isOutOfBounds(int relX, int relY, int relZ, int len) {
+        return (relX | relY | relZ) < 0 || relX >= len || relY >= len || relZ >= len;
     }
 }

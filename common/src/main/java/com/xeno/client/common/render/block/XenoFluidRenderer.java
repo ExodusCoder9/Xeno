@@ -27,7 +27,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.BlockPos.MutableBlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
-import net.minecraft.core.Direction.Plane;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.LightCoordsUtil;
@@ -45,6 +44,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class XenoFluidRenderer {
     private static final float MAX_FLUID_HEIGHT = 0.8888889F;
+    private static final Direction[] HORIZONTAL_DIRECTIONS = {
+        Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST
+    };
 
     private final FluidStateModelSet fluidModels;
     private final XenoLightDataCache lightCache;
@@ -63,27 +65,23 @@ public final class XenoFluidRenderer {
         this.lightCache = lightCache;
     }
 
-    private boolean isFaceOccludedByState(Direction direction, float height, BlockState state) {
+    private boolean isFaceVisibleByState(Direction direction, float height, BlockState state) {
         if (!state.canOcclude()) {
-            return false;
+            return true;
         }
         VoxelShape occluder = state.getFaceOcclusionShape(direction.getOpposite());
         if (XenoOcclusionCache.isEmpty(occluder)) {
-            return false;
+            return true;
         }
         if (XenoOcclusionCache.isFullCube(occluder)) {
-            return direction != Direction.UP || height == 1.0F;
+            return direction == Direction.UP && height != 1.0F;
         }
         VoxelShape shape = height >= 1.0F ? Shapes.block() : Shapes.box(0.0, 0.0, 0.0, 1.0, height, 1.0);
-        return this.occlusionCache.occludes(shape, occluder, direction);
+        return !this.occlusionCache.occludes(shape, occluder, direction);
     }
 
-    private boolean isFaceOccludedBySelf(BlockState state, Direction direction) {
-        return this.isFaceOccludedByState(direction.getOpposite(), 1.0F, state);
-    }
-
-    public boolean shouldRenderFace(FluidState fluidState, BlockState blockState, Direction direction, FluidState neighborFluidState) {
-        return !neighborFluidState.getType().isSame(fluidState.getType()) && !this.isFaceOccludedBySelf(blockState, direction);
+    private boolean isFaceVisibleBySelf(BlockState state, Direction direction) {
+        return this.isFaceVisibleByState(direction.getOpposite(), 1.0F, state);
     }
 
     public void tesselate(
@@ -121,13 +119,21 @@ public final class XenoFluidRenderer {
         BlockState blockStateEast = this.getState(level, this.scratchEast);
         FluidState fluidStateEast = blockStateEast.getFluidState();
 
-        boolean renderUp = !fluidStateUp.getType().isSame(fluidState.getType());
-        boolean renderDown = this.shouldRenderFace(fluidState, blockState, Direction.DOWN, fluidStateDown)
-                && !this.isFaceOccludedByState(Direction.DOWN, MAX_FLUID_HEIGHT, blockStateDown);
-        boolean renderNorth = this.shouldRenderFace(fluidState, blockState, Direction.NORTH, fluidStateNorth);
-        boolean renderSouth = this.shouldRenderFace(fluidState, blockState, Direction.SOUTH, fluidStateSouth);
-        boolean renderWest = this.shouldRenderFace(fluidState, blockState, Direction.WEST, fluidStateWest);
-        boolean renderEast = this.shouldRenderFace(fluidState, blockState, Direction.EAST, fluidStateEast);
+        Fluid type = fluidState.getType();
+        boolean selfCanOcclude = blockState.canOcclude();
+
+        boolean renderUp = !fluidStateUp.getType().isSame(type);
+        boolean renderDown = !fluidStateDown.getType().isSame(type)
+                && (!selfCanOcclude || this.isFaceVisibleBySelf(blockState, Direction.DOWN))
+                && this.isFaceVisibleByState(Direction.DOWN, MAX_FLUID_HEIGHT, blockStateDown);
+        boolean renderNorth = !fluidStateNorth.getType().isSame(type)
+                && (!selfCanOcclude || this.isFaceVisibleBySelf(blockState, Direction.NORTH));
+        boolean renderSouth = !fluidStateSouth.getType().isSame(type)
+                && (!selfCanOcclude || this.isFaceVisibleBySelf(blockState, Direction.SOUTH));
+        boolean renderWest = !fluidStateWest.getType().isSame(type)
+                && (!selfCanOcclude || this.isFaceVisibleBySelf(blockState, Direction.WEST));
+        boolean renderEast = !fluidStateEast.getType().isSame(type)
+                && (!selfCanOcclude || this.isFaceVisibleBySelf(blockState, Direction.EAST));
 
         if (!renderUp && !renderDown && !renderEast && !renderWest && !renderNorth && !renderSouth) {
             return;
@@ -135,11 +141,15 @@ public final class XenoFluidRenderer {
 
         FluidModel model = this.fluidModels.get(fluidState);
         XenoSectionLayerBuffer builder = output.getBuffer(model.layer());
-        int tintColor = model.tintSource() != null ? model.tintSource().colorInWorld(blockState, level, pos) : -1;
+        builder.recordAnimatedSprite(model.stillMaterial().sprite());
+        builder.recordAnimatedSprite(model.flowingMaterial().sprite());
+        var resolver = XenoColorRegistry.getResolver(blockState);
+        int tintColor = resolver != null
+            ? level.getBlockTint(pos, resolver)
+            : (model.tintSource() != null ? model.tintSource().colorInWorld(blockState, level, pos) : -1);
         CardinalLighting cardinalLighting = level.cardinalLighting();
-        Fluid type = fluidState.getType();
 
-        float heightSelf = this.getHeight(level, type, pos, blockState, fluidState);
+        float heightSelf = !renderUp ? 1.0F : fluidState.getOwnHeight();
         float heightNorthEast, heightNorthWest, heightSouthEast, heightSouthWest;
 
         if (heightSelf >= 1.0F) {
@@ -171,7 +181,7 @@ public final class XenoFluidRenderer {
             topLight = LightCoordsUtil.withBlock(topLight, 15);
         }
 
-        if (renderUp && !this.isFaceOccludedByState(
+        if (renderUp && this.isFaceVisibleByState(
                 Direction.UP, Math.min(Math.min(heightNorthWest, heightSouthWest), Math.min(heightSouthEast, heightNorthEast)), blockStateUp
         )) {
             heightNorthWest -= 0.001F;
@@ -244,7 +254,8 @@ public final class XenoFluidRenderer {
 
         int sideLight = topLight;
 
-        for (Direction faceDir : Plane.HORIZONTAL) {
+        for (int d = 0; d < HORIZONTAL_DIRECTIONS.length; d++) {
+            Direction faceDir = HORIZONTAL_DIRECTIONS[d];
             float hh0, hh1, x0, z0, x1, z1;
             boolean renderCondition;
             BlockState faceState;
@@ -293,7 +304,7 @@ public final class XenoFluidRenderer {
                 default -> throw new UnsupportedOperationException();
             }
 
-            if (renderCondition && !this.isFaceOccludedByState(faceDir, Math.max(hh0, hh1), faceState)) {
+            if (renderCondition && this.isFaceVisibleByState(faceDir, Math.max(hh0, hh1), faceState)) {
                 TextureAtlasSprite sprite = model.flowingMaterial().sprite();
                 boolean isOverlay = false;
                 if (model.overlayMaterial() != null) {

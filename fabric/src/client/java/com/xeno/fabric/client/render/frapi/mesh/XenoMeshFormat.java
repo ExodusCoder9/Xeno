@@ -141,17 +141,18 @@ public final class XenoMeshFormat {
     public static ItemStackRenderState.@Nullable FoilType getFoilType(int bits) {
         int val = (bits & FOIL_TYPE_MASK) >>> FOIL_TYPE_SHIFT;
         return switch (val) {
-            case 1 -> ItemStackRenderState.FoilType.STANDARD;
-            case 2 -> ItemStackRenderState.FoilType.SPECIAL;
+            case 1 -> ItemStackRenderState.FoilType.NONE;
+            case 2 -> ItemStackRenderState.FoilType.STANDARD;
+            case 3 -> ItemStackRenderState.FoilType.SPECIAL;
             default -> null;
         };
     }
 
     public static int setFoilType(int bits, ItemStackRenderState.@Nullable FoilType foilType) {
         int val = foilType == null ? 0 : switch (foilType) {
-            case NONE -> 0;
-            case STANDARD -> 1;
-            case SPECIAL -> 2;
+            case NONE -> 1;
+            case STANDARD -> 2;
+            case SPECIAL -> 3;
         };
         return (bits & ~FOIL_TYPE_MASK) | (val << FOIL_TYPE_SHIFT);
     }

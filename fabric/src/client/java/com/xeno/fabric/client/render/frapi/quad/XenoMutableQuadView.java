@@ -90,17 +90,15 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
         return this;
     }
 
-    public @NonNull MutableQuadView applyShade(int vertexIndex, float shade) {
+    public void applyShade(int vertexIndex, float shade) {
         int offset = vertexOffset(vertexIndex) + XenoMeshFormat.OFFSET_COLOR;
         this.data[offset] = ARGB.scaleRGB(this.data[offset], shade);
-        return this;
     }
 
-    public @NonNull MutableQuadView scaleColor(float factor) {
+    public void scaleColor(float factor) {
         for (int i = 0; i < 4; i++) {
             applyShade(i, factor);
         }
-        return this;
     }
 
     @Override
@@ -236,6 +234,7 @@ public class XenoMutableQuadView extends XenoQuadView implements MutableQuadView
         } else {
             cullFace(quad.cullFace());
             nominalFace(quad.nominalFace());
+            atlas(quad.atlas());
             chunkLayer(quad.chunkLayer());
             itemRenderType(quad.itemRenderType());
             itemGlintRenderType(quad.itemGlintRenderType());

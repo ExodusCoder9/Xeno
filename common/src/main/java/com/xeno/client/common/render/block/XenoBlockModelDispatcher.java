@@ -18,10 +18,10 @@
 package com.xeno.client.common.render.block;
 
 import com.xeno.client.common.render.chunk.XenoSectionLayerBuffer;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.BlockQuadOutput;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
-import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -29,13 +29,14 @@ import java.util.function.Function;
 
 @FunctionalInterface
 public interface XenoBlockModelDispatcher {
-    XenoBlockModelDispatcher DEFAULT = (output, x, y, z, region, pos, blockState, model, seed, blockRenderer, sinkProvider) ->
+    XenoBlockModelDispatcher DEFAULT = (output, _, x, y, z, region, pos, blockState, model, seed, blockRenderer, _) ->
         blockRenderer.emit(output, x, y, z, region, pos, blockState, model, seed);
 
     void tesselate(
         BlockQuadOutput output,
+        boolean forceOpaque,
         float x, float y, float z,
-        RenderSectionRegion region,
+        BlockAndTintGetter region,
         BlockPos pos,
         BlockState blockState,
         BlockStateModel model,

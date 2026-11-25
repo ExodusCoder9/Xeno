@@ -17,15 +17,18 @@
 
 package com.xeno.fabric.client.render.frapi.render;
 
+import com.xeno.client.common.render.block.XenoColorRegistry;
 import com.xeno.client.common.render.block.XenoLightDataCache;
 import com.xeno.client.common.render.block.XenoQuadGeometry;
 import com.xeno.client.common.render.block.XenoQuadLightResult;
 import com.xeno.client.common.render.block.XenoQuadLighter;
+import com.xeno.client.common.render.texture.XenoSpriteTracker;
 import com.xeno.fabric.client.render.frapi.quad.XenoMutableQuadView;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.MutableQuadView;
+import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadAtlas;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadTransform;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.ShadeMode;
@@ -41,9 +44,12 @@ import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ColorResolver;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -61,6 +67,9 @@ public final class XenoAltModelBlockRenderer implements AltModelBlockRenderer, Q
     private final boolean ambientOcclusion;
     private final boolean cull;
     private final BlockColors blockColors;
+    private final boolean terrainContext;
+    private final XenoLightDataCache lightCache;
+    private final XenoQuadLighter lighter;
 
     private final Predicate<@Nullable Direction> cullPredicate = this::shouldCullFace;
     private final RandomSource random = RandomSource.createThreadLocalInstance(0L);
@@ -86,9 +95,21 @@ public final class XenoAltModelBlockRenderer implements AltModelBlockRenderer, Q
     private boolean defaultAo;
 
     public XenoAltModelBlockRenderer(boolean ambientOcclusion, boolean cull, BlockColors blockColors) {
+        this(ambientOcclusion, cull, blockColors, false);
+    }
+
+    public XenoAltModelBlockRenderer(boolean ambientOcclusion, boolean cull, BlockColors blockColors, boolean terrainContext) {
         this.ambientOcclusion = ambientOcclusion;
         this.cull = cull;
         this.blockColors = blockColors;
+        this.terrainContext = terrainContext;
+        if (terrainContext) {
+            this.lightCache = XenoLightDataCache.get();
+            this.lighter = LIGHTER.get();
+        } else {
+            this.lightCache = XenoLightDataCache.forSingleBlock();
+            this.lighter = new XenoQuadLighter(this.lightCache);
+        }
     }
 
     @Override
@@ -108,15 +129,20 @@ public final class XenoAltModelBlockRenderer implements AltModelBlockRenderer, Q
         this.blockState = blockState;
         this.defaultAo = this.ambientOcclusion && blockState.getLightEmission() == 0;
 
-        int sectionX = SectionPos.blockToSectionCoord(pos.getX());
-        int sectionY = SectionPos.blockToSectionCoord(pos.getY());
-        int sectionZ = SectionPos.blockToSectionCoord(pos.getZ());
-        long section = SectionPos.asLong(sectionX, sectionY, sectionZ);
-        if (section != this.currentSection) {
-            this.currentSection = section;
-            XenoLightDataCache.get().bindSection(sectionX, sectionY, sectionZ);
+        if (this.terrainContext) {
+            int sectionX = SectionPos.blockToSectionCoord(pos.getX());
+            int sectionY = SectionPos.blockToSectionCoord(pos.getY());
+            int sectionZ = SectionPos.blockToSectionCoord(pos.getZ());
+            long section = SectionPos.asLong(sectionX, sectionY, sectionZ);
+            if (section != this.currentSection) {
+                this.currentSection = section;
+                this.lightCache.bindSection(sectionX, sectionY, sectionZ);
+            }
+            this.lighter.resetForBlock(pos);
+        } else {
+            this.lightCache.reset(pos);
+            this.lighter.invalidate();
         }
-        LIGHTER.get().resetForBlock(pos);
 
         this.cacheValidMask = 0;
         this.shouldCullFaceCache = 0;
@@ -149,6 +175,14 @@ public final class XenoAltModelBlockRenderer implements AltModelBlockRenderer, Q
 
         shadeQuad(quad, useAo, isEmissive, vanillaShade);
         tintQuad(quad);
+        if (!this.terrainContext && quad.animated()) {
+            Identifier atlasId = quad.atlas() == QuadAtlas.ITEM ? AtlasIds.ITEMS : AtlasIds.BLOCKS;
+            XenoSpriteTracker.markActive(
+                XenoSpriteTracker.forAtlas(atlasId).find(
+                    quad.u(0), quad.v(0), quad.u(1), quad.v(1), quad.u(2), quad.v(2), quad.u(3), quad.v(3)
+                )
+            );
+        }
         quad.translate(this.offset.x, this.offset.y, this.offset.z);
         return true;
     }
@@ -170,25 +204,17 @@ public final class XenoAltModelBlockRenderer implements AltModelBlockRenderer, Q
     }
 
     private void shadeQuad(MutableQuadView quad, boolean ao, boolean emissive, boolean vanillaShade) {
-        if (emissive) {
-            quad.lightmap(0, LightCoordsUtil.FULL_BRIGHT);
-            quad.lightmap(1, LightCoordsUtil.FULL_BRIGHT);
-            quad.lightmap(2, LightCoordsUtil.FULL_BRIGHT);
-            quad.lightmap(3, LightCoordsUtil.FULL_BRIGHT);
-            return;
-        }
-
         XenoQuadLightResult result = ao
-            ? LIGHTER.get().computeAmbientOcclusion(
+            ? this.lighter.computeAmbientOcclusion(
                 this.level, this.blockState, this.pos, this.quadGeometry.bind(quad), !vanillaShade
             )
-            : LIGHTER.get().computeFlat(
+            : this.lighter.computeFlat(
                 this.level, this.blockState, this.pos, this.quadGeometry.bind(quad), quad.cullFace(), !vanillaShade
             );
 
         for (int i = 0; i < 4; i++) {
             applyQuadShade(quad, i, result.shades[i]);
-            quad.lightmap(i, ExtraLightCoordsUtil.smoothMax(quad.lightmap(i), result.lightCoords[i]));
+            quad.lightmap(i, emissive ? LightCoordsUtil.FULL_BRIGHT : ExtraLightCoordsUtil.smoothMax(quad.lightmap(i), result.lightCoords[i]));
         }
 
         applyQuadColorScale(quad, result.directionalBrightness);
@@ -215,8 +241,18 @@ public final class XenoAltModelBlockRenderer implements AltModelBlockRenderer, Q
     private void tintQuad(MutableQuadView quad) {
         int tintIndex = quad.tintIndex();
         if (tintIndex != -1) {
-            int tint = getTintColor(this.level, this.blockState, this.pos, tintIndex);
-            quad.multiplyColor(tint);
+            ColorResolver resolver = XenoColorRegistry.getResolver(this.blockState);
+            if (resolver != null) {
+                for (int i = 0; i < 4; i++) {
+                    int c = XenoColorRegistry.sampleVertexColor(
+                        this.level, this.pos, this.scratchPos, resolver, quad.x(i), quad.z(i)
+                    );
+                    quad.color(i, ARGB.multiply(quad.color(i), c));
+                }
+            } else {
+                int tint = getTintColor(this.level, this.blockState, this.pos, tintIndex);
+                quad.multiplyColor(tint);
+            }
         }
     }
 
@@ -224,8 +260,8 @@ public final class XenoAltModelBlockRenderer implements AltModelBlockRenderer, Q
         List<BlockTintSource> sources = this.blockColors.getTintSources(blockState);
         int count = sources.size();
         if (count > 0) {
-            this.tintSources.addAll(sources);
             for (int i = 0; i < count; i++) {
+                this.tintSources.add(sources.get(i));
                 this.computedTintValues.add(-1);
             }
         } else {

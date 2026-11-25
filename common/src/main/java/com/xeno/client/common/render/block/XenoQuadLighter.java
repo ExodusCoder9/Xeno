@@ -60,6 +60,10 @@ public final class XenoQuadLighter {
         }
     }
 
+    public void invalidate() {
+        this.cachedBlockPos = Long.MIN_VALUE;
+    }
+
     public void resetForBlock(BlockPos pos) {
         long packed = pos.asLong();
         if (this.cachedBlockPos != packed) {
@@ -114,17 +118,33 @@ public final class XenoQuadLighter {
 
         XenoQuadLightResult out = this.result;
         boolean isFullAligned = minU <= EPSILON && minV <= EPSILON && maxU >= 1.0F - EPSILON && maxV >= 1.0F - EPSILON;
+        boolean isParallel = isAxisParallel(minX, minY, minZ, maxX, maxY, maxZ);
+
+        if (enhanced && !isParallel) {
+            computeIrregularAmbientOcclusion(level, state, centerPosition, geometry, out);
+            out.directionalBrightness = getDirectionalBrightness(level.cardinalLighting(), geometry);
+            out.flipDiagonal = shouldFlipDiagonal(out.shades, out.lightCoords);
+            return out;
+        }
 
         if (enhanced) {
             FaceData outer = faceData(level, state, centerPosition, direction, true);
-            FaceData inner = faceData(level, state, centerPosition, direction, false);
+            FaceData inner = null;
 
             if (isFullAligned) {
                 for (int i = 0; i < 4; i++) {
                     float depth = computeDepth(direction, geometry, i);
                     int corner = cornerIndex(vertexU[i], vertexV[i]);
-                    out.shades[i] = Mth.lerp(depth, outer.shades[corner], inner.shades[corner]);
-                    out.lightCoords[i] = lerpLight(outer.lightCoords[corner], inner.lightCoords[corner], depth);
+                    if (depth <= EPSILON) {
+                        out.shades[i] = outer.shades[corner];
+                        out.lightCoords[i] = outer.lightCoords[corner];
+                    } else {
+                        if (inner == null) {
+                            inner = faceData(level, state, centerPosition, direction, false);
+                        }
+                        out.shades[i] = Mth.lerp(depth, outer.shades[corner], inner.shades[corner]);
+                        out.lightCoords[i] = lerpLight(outer.lightCoords[corner], inner.lightCoords[corner], depth);
+                    }
                 }
             } else {
                 float[] blendedShades = this.blendedShades;
@@ -132,11 +152,18 @@ public final class XenoQuadLighter {
 
                 for (int i = 0; i < 4; i++) {
                     float depth = computeDepth(direction, geometry, i);
-                    for (int corner = 0; corner < 4; corner++) {
-                        blendedShades[corner] = Mth.lerp(depth, outer.shades[corner], inner.shades[corner]);
-                        blendedLights[corner] = lerpLight(outer.lightCoords[corner], inner.lightCoords[corner], depth);
+                    if (depth <= EPSILON) {
+                        applyBarycentric(vertexU[i], vertexV[i], outer.shades, outer.lightCoords, out, i);
+                    } else {
+                        if (inner == null) {
+                            inner = faceData(level, state, centerPosition, direction, false);
+                        }
+                        for (int corner = 0; corner < 4; corner++) {
+                            blendedShades[corner] = Mth.lerp(depth, outer.shades[corner], inner.shades[corner]);
+                            blendedLights[corner] = lerpLight(outer.lightCoords[corner], inner.lightCoords[corner], depth);
+                        }
+                        applyBarycentric(vertexU[i], vertexV[i], blendedShades, blendedLights, out, i);
                     }
-                    applyBarycentric(vertexU[i], vertexV[i], blendedShades, blendedLights, out, i);
                 }
             }
         } else {
@@ -157,7 +184,109 @@ public final class XenoQuadLighter {
         }
 
         out.directionalBrightness = getDirectionalBrightness(level.cardinalLighting(), geometry);
+        out.flipDiagonal = shouldFlipDiagonal(out.shades, out.lightCoords);
         return out;
+    }
+
+    private static boolean isAxisParallel(
+        float minX, float minY, float minZ,
+        float maxX, float maxY, float maxZ
+    ) {
+        return (maxX - minX) <= EPSILON || (maxY - minY) <= EPSILON || (maxZ - minZ) <= EPSILON;
+    }
+
+    private void computeIrregularAmbientOcclusion(
+        BlockAndTintGetter level,
+        BlockState state,
+        BlockPos centerPosition,
+        XenoQuadGeometry geometry,
+        XenoQuadLightResult out
+    ) {
+        float dx0 = geometry.x(2) - geometry.x(0);
+        float dy0 = geometry.y(2) - geometry.y(0);
+        float dz0 = geometry.z(2) - geometry.z(0);
+        float dx1 = geometry.x(3) - geometry.x(1);
+        float dy1 = geometry.y(3) - geometry.y(1);
+        float dz1 = geometry.z(3) - geometry.z(1);
+
+        float nx = dy0 * dz1 - dz0 * dy1;
+        float ny = dz0 * dx1 - dx0 * dz1;
+        float nz = dx0 * dy1 - dy0 * dx1;
+        float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (len > 1.0E-6F) {
+            nx /= len;
+            ny /= len;
+            nz /= len;
+        } else {
+            nx = 0.0F;
+            ny = 1.0F;
+            nz = 0.0F;
+        }
+
+        float wx = nx * nx;
+        float wy = ny * ny;
+        float wz = nz * nz;
+
+        Direction dirX = nx >= 0.0F ? Direction.EAST : Direction.WEST;
+        Direction dirY = ny >= 0.0F ? Direction.UP : Direction.DOWN;
+        Direction dirZ = nz >= 0.0F ? Direction.SOUTH : Direction.NORTH;
+
+        FaceData faceX = wx > 1.0E-4F ? faceData(level, state, centerPosition, dirX, false) : null;
+        FaceData faceY = wy > 1.0E-4F ? faceData(level, state, centerPosition, dirY, false) : null;
+        FaceData faceZ = wz > 1.0E-4F ? faceData(level, state, centerPosition, dirZ, false) : null;
+
+        for (int i = 0; i < 4; i++) {
+            float px = geometry.x(i);
+            float py = geometry.y(i);
+            float pz = geometry.z(i);
+
+            float shadeSum = 0.0F;
+            float blockSum = 0.0F;
+            float skySum = 0.0F;
+            float weightSum = 0.0F;
+
+            if (faceX != null) {
+                applyBarycentric(projectU(dirX, px, pz), projectV(dirX, py, pz), faceX.shades, faceX.lightCoords, out, i);
+                shadeSum += out.shades[i] * wx;
+                blockSum += LightCoordsUtil.block(out.lightCoords[i]) * wx;
+                skySum += LightCoordsUtil.sky(out.lightCoords[i]) * wx;
+                weightSum += wx;
+            }
+            if (faceY != null) {
+                applyBarycentric(projectU(dirY, px, pz), projectV(dirY, py, pz), faceY.shades, faceY.lightCoords, out, i);
+                shadeSum += out.shades[i] * wy;
+                blockSum += LightCoordsUtil.block(out.lightCoords[i]) * wy;
+                skySum += LightCoordsUtil.sky(out.lightCoords[i]) * wy;
+                weightSum += wy;
+            }
+            if (faceZ != null) {
+                applyBarycentric(projectU(dirZ, px, pz), projectV(dirZ, py, pz), faceZ.shades, faceZ.lightCoords, out, i);
+                shadeSum += out.shades[i] * wz;
+                blockSum += LightCoordsUtil.block(out.lightCoords[i]) * wz;
+                skySum += LightCoordsUtil.sky(out.lightCoords[i]) * wz;
+                weightSum += wz;
+            }
+
+            if (weightSum > 0.0F) {
+                out.shades[i] = Mth.clamp(shadeSum / weightSum, 0.0F, 1.0F);
+                int block = Mth.clamp(Math.round(blockSum / weightSum), 0, 15);
+                int sky = Mth.clamp(Math.round(skySum / weightSum), 0, 15);
+                out.lightCoords[i] = LightCoordsUtil.pack(block, sky);
+            }
+        }
+    }
+
+    private static boolean shouldFlipDiagonal(float[] shades, int[] lightCoords) {
+        float diag02 = shades[0] + shades[2];
+        float diag13 = shades[1] + shades[3];
+        if (Math.abs(diag02 - diag13) > 1.0E-4F) {
+            return diag02 < diag13;
+        }
+        int l02 = LightCoordsUtil.block(lightCoords[0]) + LightCoordsUtil.sky(lightCoords[0])
+            + LightCoordsUtil.block(lightCoords[2]) + LightCoordsUtil.sky(lightCoords[2]);
+        int l13 = LightCoordsUtil.block(lightCoords[1]) + LightCoordsUtil.sky(lightCoords[1])
+            + LightCoordsUtil.block(lightCoords[3]) + LightCoordsUtil.sky(lightCoords[3]);
+        return l02 < l13;
     }
 
     public XenoQuadLightResult computeFlat(
@@ -306,11 +435,11 @@ public final class XenoQuadLighter {
         );
     }
 
-    public void prepareQuadAmbientOcclusion(
+    public boolean prepareQuadAmbientOcclusion(
         BlockAndTintGetter level, BlockState state, BlockPos centerPosition, BakedQuad quad, QuadInstance outputInstance
     ) {
         XenoQuadLightResult result = computeAmbientOcclusion(
-            level, state, centerPosition, this.bakedGeometry.bind(quad), false
+            level, state, centerPosition, this.bakedGeometry.bind(quad), true
         );
 
         for (int i = 0; i < 4; i++) {
@@ -319,6 +448,7 @@ public final class XenoQuadLighter {
         }
 
         outputInstance.scaleColor(result.directionalBrightness);
+        return result.flipDiagonal;
     }
 
     public void prepareQuadFlat(
@@ -470,12 +600,10 @@ public final class XenoQuadLighter {
         private final float[] xs = new float[4];
         private final float[] ys = new float[4];
         private final float[] zs = new float[4];
-        private BakedQuad quad;
         private Direction direction;
         private @Nullable Direction shadeDirectionOverride;
 
         BakedQuadGeometry bind(BakedQuad quad) {
-            this.quad = quad;
             this.direction = quad.direction();
             this.shadeDirectionOverride = quad.materialInfo().shadeDirectionOverride();
             for (int i = 0; i < 4; i++) {
@@ -543,8 +671,8 @@ public final class XenoQuadLighter {
             int lightB = cache.getLightCoords(stateB, level, posB);
             float shadeB = cache.getShadeBrightness(level, posB);
 
-            boolean permeableA = cache.getState(level, permScratch.setWithOffset(posA, faceDir)).isLightPermeable();
-            boolean permeableB = cache.getState(level, permScratch.setWithOffset(posB, faceDir)).isLightPermeable();
+            boolean permeableA = stateA.isLightPermeable();
+            boolean permeableB = stateB.isLightPermeable();
 
             int lightDiag;
             float shadeDiag;
@@ -558,8 +686,25 @@ public final class XenoQuadLighter {
                 shadeDiag = cache.getShadeBrightness(level, posDiag);
             }
 
-            this.lightCoords[cornerIndex] = LightCoordsUtil.smoothBlend(lightA, lightB, lightDiag, centerLight);
+            this.lightCoords[cornerIndex] = blendCornerLight(lightA, lightB, lightDiag, centerLight);
             this.shades[cornerIndex] = (shadeA + shadeB + shadeDiag + centerShade) * 0.25F;
+        }
+
+        private static int blendCornerLight(int lightA, int lightB, int lightDiag, int centerLight) {
+            int centerBlock = LightCoordsUtil.block(centerLight);
+            int centerSky = LightCoordsUtil.sky(centerLight);
+
+            int aBlock = lightA == 0 ? centerBlock : LightCoordsUtil.block(lightA);
+            int bBlock = lightB == 0 ? centerBlock : LightCoordsUtil.block(lightB);
+            int dBlock = lightDiag == 0 ? centerBlock : LightCoordsUtil.block(lightDiag);
+
+            int aSky = lightA == 0 ? centerSky : LightCoordsUtil.sky(lightA);
+            int bSky = lightB == 0 ? centerSky : LightCoordsUtil.sky(lightB);
+            int dSky = lightDiag == 0 ? centerSky : LightCoordsUtil.sky(lightDiag);
+
+            int avgBlock = Math.round(((aBlock + bBlock + dBlock + centerBlock) * 0.25F) * 16.0F);
+            int avgSky = Math.round(((aSky + bSky + dSky + centerSky) * 0.25F) * 16.0F);
+            return LightCoordsUtil.smoothPack(Math.min(avgBlock, 240), Math.min(avgSky, 240));
         }
     }
 }

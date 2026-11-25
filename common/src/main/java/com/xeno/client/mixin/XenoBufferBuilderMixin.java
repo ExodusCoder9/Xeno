@@ -19,13 +19,21 @@ package com.xeno.client.mixin;
 
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import com.mojang.renderpearl.api.vertex.VertexFormat;
 import com.xeno.client.common.memory.MemoryAccess;
+import net.minecraft.client.model.geom.builders.UVPair;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.joml.Vector3fc;
+import org.jspecify.annotations.NonNull;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -48,11 +56,47 @@ public abstract class XenoBufferBuilderMixin implements VertexConsumer {
     private boolean xeno$particleFormat;
     @Unique
     private boolean xeno$positionColorTexLightmapFormat;
+    @Unique
+    private final Vector3f xeno$scratchNormal = new Vector3f();
+    @Unique
+    private final Vector3f xeno$scratchPos = new Vector3f();
 
     @Inject(method = "<init>(Lcom/mojang/blaze3d/vertex/ByteBufferBuilder;Lcom/mojang/renderpearl/api/pipeline/PrimitiveTopology;Lcom/mojang/renderpearl/api/vertex/VertexFormat;)V", at = @At("RETURN"))
     private void onInit(ByteBufferBuilder buffer, PrimitiveTopology primitiveTopology, VertexFormat format, CallbackInfo ci) {
         this.xeno$particleFormat = (format == DefaultVertexFormat.PARTICLE);
         this.xeno$positionColorTexLightmapFormat = (format == DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP);
+    }
+
+    @Override
+    public void putBakedQuad(PoseStack.@NonNull Pose pose, @NonNull BakedQuad quad, @NonNull QuadInstance instance) {
+        if (!(this.blockFormat || this.entityFormat || this.xeno$positionColorTexLightmapFormat)) {
+            VertexConsumer.super.putBakedQuad(pose, quad, instance);
+            return;
+        }
+
+        Vector3f normal = pose.transformNormal(quad.direction().getUnitVec3f(), this.xeno$scratchNormal);
+        float nx = normal.x();
+        float ny = normal.y();
+        float nz = normal.z();
+
+        Matrix4f mat = pose.pose();
+        Vector3f pos = this.xeno$scratchPos;
+        int emission = quad.materialInfo().lightEmission();
+        int overlay = instance.overlayCoords();
+
+        for (int i = 0; i < 4; i++) {
+            Vector3fc p = quad.position(i);
+            mat.transformPosition(p.x(), p.y(), p.z(), pos);
+            long packedUv = quad.packedUV(i);
+            this.addVertex(
+                pos.x(), pos.y(), pos.z(),
+                instance.getColor(i),
+                UVPair.unpackU(packedUv), UVPair.unpackV(packedUv),
+                overlay,
+                instance.getLightCoordsWithEmission(i, emission),
+                nx, ny, nz
+            );
+        }
     }
 
     /**

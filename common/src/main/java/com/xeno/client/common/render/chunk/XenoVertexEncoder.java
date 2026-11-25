@@ -26,6 +26,7 @@ public final class XenoVertexEncoder {
     public static final int POSITION_MAX_COORD = 1 << POSITION_BITS; // 65536
     public static final float POSITION_QUANT_SCALE = POSITION_MAX_COORD / MODEL_RANGE; // 2048.0F
     public static final float POSITION_DEQUANT_SCALE = MODEL_RANGE / (float) POSITION_MAX_COORD;
+    private static final float BOUNDARY_NUDGE_EPSILON = 0.5F / POSITION_QUANT_SCALE;
 
     private XenoVertexEncoder() {
     }
@@ -34,6 +35,20 @@ public final class XenoVertexEncoder {
         float normalized = coord + MODEL_ORIGIN;
         int quantized = (int) Math.floor(normalized * POSITION_QUANT_SCALE + 0.5F);
         return Mth.clamp(quantized, 0, POSITION_MAX_COORD - 1);
+    }
+
+    public static int quantizeBlockPosition(float origin, float localCoord) {
+        int q = quantizePosition(origin + localCoord);
+        if (localCoord > 0.0F && localCoord < BOUNDARY_NUDGE_EPSILON) {
+            if (q == quantizePosition(origin)) {
+                return Math.min(q + 1, POSITION_MAX_COORD - 1);
+            }
+        } else if (localCoord > 1.0F - BOUNDARY_NUDGE_EPSILON && localCoord < 1.0F) {
+            if (q == quantizePosition(origin + 1.0F)) {
+                return Math.max(q - 1, 0);
+            }
+        }
+        return q;
     }
 
     public static float dequantizePosition(int quantized) {

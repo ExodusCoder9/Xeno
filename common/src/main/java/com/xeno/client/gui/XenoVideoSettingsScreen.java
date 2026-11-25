@@ -20,6 +20,7 @@ package com.xeno.client.gui;
 import com.mojang.blaze3d.platform.Monitor;
 import com.mojang.blaze3d.platform.VideoMode;
 import com.mojang.blaze3d.platform.Window;
+import com.xeno.client.common.render.texture.XenoSpriteTracker;
 import com.xeno.client.gui.widget.XenoButton;
 import com.xeno.client.gui.widget.XenoScroller;
 import com.xeno.client.gui.widget.XenoSlider;
@@ -398,6 +399,13 @@ public final class XenoVideoSettingsScreen extends Screen {
             addCycle(this.options.inactivityFpsLimit(), "Inactivity FPS Limit",
                     "Limits the frame rate when the game is minimized or the player is idle, to save power.",
                     PerformanceImpact.LOW);
+            addDirectToggle(
+                    "Animate Only Visible Textures",
+                    "Only ticks and uploads animated textures that are currently visible on screen, reducing GPU and CPU overhead in modded packs.",
+                    PerformanceImpact.MEDIUM,
+                    XenoSpriteTracker::isAnimationCullingEnabled,
+                    XenoSpriteTracker::setAnimationCullingEnabled
+            );
 
         } else if (tabIndex == 3) {
             addCycle(this.options.attackIndicator(), "Attack Indicator",
@@ -597,6 +605,46 @@ public final class XenoVideoSettingsScreen extends Screen {
             double nextVal = val > 0.0 ? 0.0 : 0.75;
             markOptionChanged(option, nextVal);
             btn.setMessage(getOptionValueText(name, nextVal));
+        }) {
+            @Override
+            protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+                int x = this.getX();
+                int y = this.getY();
+                int w = this.getWidth();
+                int h = this.getHeight();
+                boolean hovered = this.isHoveredOrFocused();
+
+                int textColor = hovered ? 0xFFFFFFFF : 0xFF8B5CF6;
+                graphics.text(
+                        Minecraft.getInstance().font,
+                        this.getMessage(),
+                        x + w - Minecraft.getInstance().font.width(this.getMessage()) - 6,
+                        y + (h - 8) / 2,
+                        textColor
+                );
+            }
+        };
+
+        this.addRenderableWidget(button);
+        this.currentTabOptions.add(new OptionEntry(button, Component.literal(desc), impact, name));
+    }
+
+    private void addDirectToggle(
+            String name,
+            String desc,
+            PerformanceImpact impact,
+            java.util.function.BooleanSupplier getter,
+            java.util.function.Consumer<Boolean> setter
+    ) {
+        int index = this.currentTabOptions.size();
+        int y = 40 + index * ROW_HEIGHT;
+        boolean current = getter.getAsBoolean();
+        Component msg = Component.literal(current ? "ON" : "OFF");
+
+        XenoButton button = new XenoButton(0, y, 120, 20, msg, btn -> {
+            boolean next = !getter.getAsBoolean();
+            setter.accept(next);
+            btn.setMessage(Component.literal(next ? "ON" : "OFF"));
         }) {
             @Override
             protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {

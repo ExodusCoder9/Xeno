@@ -17,13 +17,18 @@
 
 package com.xeno.client.mixin;
 
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCopy;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(RenderSectionRegion.class)
 public interface RenderSectionRegionAccessor {
+    @Accessor("level")
+    ClientLevel xeno$getLevel();
+
     @Invoker("getSection")
     SectionCopy xeno$getSection(int sectionX, int sectionY, int sectionZ);
 }

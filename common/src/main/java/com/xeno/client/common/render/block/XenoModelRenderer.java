@@ -32,7 +32,9 @@ import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.BlockPos.MutableBlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ColorResolver;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -47,10 +49,12 @@ public final class XenoModelRenderer {
     private final RandomSource random = RandomSource.createThreadLocalInstance(0L);
     private final List<BlockStateModelPart> parts = new ObjectArrayList<>();
     private final MutableBlockPos scratchPos = new MutableBlockPos();
+    private final MutableBlockPos tintScratchPos = new MutableBlockPos();
     private final QuadInstance quadInstance = new QuadInstance();
     private int tintCacheIndex = -1;
     private int tintCacheValue;
     private boolean tintSourcesInitialized;
+    private boolean flipDiagonal;
     private final List<BlockTintSource> tintSources = new ObjectArrayList<>();
     private final IntList computedTintValues = new IntArrayList();
 
@@ -67,6 +71,10 @@ public final class XenoModelRenderer {
 
     public BlockColors blockColors() {
         return this.blockColors;
+    }
+
+    public boolean shouldFlipDiagonal() {
+        return this.flipDiagonal;
     }
 
     public void emit(
@@ -124,8 +132,8 @@ public final class XenoModelRenderer {
         List<BlockTintSource> tintSources = this.blockColors.getTintSources(blockState);
         int tintSourceCount = tintSources.size();
         if (tintSourceCount > 0) {
-            this.tintSources.addAll(tintSources);
             for (int i = 0; i < tintSourceCount; i++) {
+                this.tintSources.add(tintSources.get(i));
                 this.computedTintValues.add(-1);
             }
         }
@@ -170,7 +178,7 @@ public final class XenoModelRenderer {
                         }
                         if (shouldRenderFace) {
                             for (BakedQuad quad : culledQuads) {
-                                this.lighter.prepareQuadAmbientOcclusion(level, state, pos, quad, this.quadInstance);
+                                this.flipDiagonal = this.lighter.prepareQuadAmbientOcclusion(level, state, pos, quad, this.quadInstance);
                                 this.putQuadWithTint(output, x, y, z, level, state, pos, quad);
                             }
                         }
@@ -179,13 +187,14 @@ public final class XenoModelRenderer {
             }
 
             for (BakedQuad quad : part.getQuads(null)) {
-                this.lighter.prepareQuadAmbientOcclusion(level, state, pos, quad, this.quadInstance);
+                this.flipDiagonal = this.lighter.prepareQuadAmbientOcclusion(level, state, pos, quad, this.quadInstance);
                 this.putQuadWithTint(output, x, y, z, level, state, pos, quad);
             }
         }
     }
 
     private void emitFlat(BlockQuadOutput output, float x, float y, float z, BlockAndTintGetter level, BlockState state, BlockPos pos, List<BlockStateModelPart> parts) {
+        this.flipDiagonal = false;
         int cacheValid = 0;
         int shouldRenderFaceCache = 0;
 
@@ -243,7 +252,23 @@ public final class XenoModelRenderer {
     ) {
         int tintIndex = quad.materialInfo().tintIndex();
         if (tintIndex != -1) {
-            this.quadInstance.multiplyColor(this.getTintColor(level, state, pos, tintIndex));
+            ColorResolver resolver = XenoColorRegistry.getResolver(state);
+            if (resolver != null) {
+                var p0 = quad.position0();
+                var p1 = quad.position1();
+                var p2 = quad.position2();
+                var p3 = quad.position3();
+                this.quadInstance.setColor(0, ARGB.multiply(this.quadInstance.getColor(0),
+                    XenoColorRegistry.sampleVertexColor(level, pos, this.tintScratchPos, resolver, p0.x(), p0.z())));
+                this.quadInstance.setColor(1, ARGB.multiply(this.quadInstance.getColor(1),
+                    XenoColorRegistry.sampleVertexColor(level, pos, this.tintScratchPos, resolver, p1.x(), p1.z())));
+                this.quadInstance.setColor(2, ARGB.multiply(this.quadInstance.getColor(2),
+                    XenoColorRegistry.sampleVertexColor(level, pos, this.tintScratchPos, resolver, p2.x(), p2.z())));
+                this.quadInstance.setColor(3, ARGB.multiply(this.quadInstance.getColor(3),
+                    XenoColorRegistry.sampleVertexColor(level, pos, this.tintScratchPos, resolver, p3.x(), p3.z())));
+            } else {
+                this.quadInstance.multiplyColor(this.getTintColor(level, state, pos, tintIndex));
+            }
         }
         output.put(x, y, z, quad, this.quadInstance);
     }

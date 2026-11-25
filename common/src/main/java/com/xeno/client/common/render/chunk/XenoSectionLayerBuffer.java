@@ -25,12 +25,17 @@ import com.mojang.renderpearl.api.pipeline.IndexType;
 import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import com.mojang.renderpearl.api.vertex.VertexFormat;
 import com.xeno.client.common.memory.MemoryAccess;
+import com.xeno.client.common.render.texture.XenoSpriteTracker;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.LightCoordsUtil;
 import org.joml.Vector3fc;
 import org.jspecify.annotations.NonNull;
+
+import java.util.Set;
 
 public final class XenoSectionLayerBuffer implements VertexConsumer {
     private static final int VERTEX_SIZE = 16;
@@ -47,6 +52,7 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
     private final VertexFormat format;
     private final ChunkSectionLayer layer;
     private int vertexCount;
+    private final Set<TextureAtlasSprite> animatedSprites = new ReferenceOpenHashSet<>();
 
     public XenoSectionLayerBuffer(ChunkSectionLayer layer, VertexFormat format) {
         this(null, format, layer);
@@ -61,6 +67,19 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
     public void reset(ByteBufferBuilder buffer) {
         this.buffer = buffer;
         this.vertexCount = 0;
+        this.animatedSprites.clear();
+    }
+
+    public void recordAnimatedSprite(TextureAtlasSprite sprite) {
+        if (XenoSpriteTracker.hasAnimation(sprite)) {
+            this.animatedSprites.add(sprite);
+        }
+    }
+
+    public void collectAnimatedSprites(Set<TextureAtlasSprite> out) {
+        if (!this.animatedSprites.isEmpty()) {
+            out.addAll(this.animatedSprites);
+        }
     }
 
     public ByteBufferBuilder buffer() {
@@ -89,6 +108,10 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
     }
 
     public void writeBlockQuad(float x, float y, float z, BakedQuad quad, QuadInstance instance) {
+        this.writeBlockQuad(x, y, z, quad, instance, false);
+    }
+
+    public void writeBlockQuad(float x, float y, float z, BakedQuad quad, QuadInstance instance, boolean flipDiagonal) {
         long ptr = this.buffer.reserve(VERTEX_SIZE * 4);
         int emission = quad.materialInfo().lightEmission();
 
@@ -98,37 +121,31 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
         float u3 = unpackU(quad.packedUV3()); float v3 = unpackV(quad.packedUV3());
 
         Vector3fc p0 = quad.position0();
-        this.writeVertex(
-                ptr,
-                x + p0.x(), y + p0.y(), z + p0.z(),
-                MemoryAccess.getInt(instance, Q_COLOR0),
-                u0, v0,
-                LightCoordsUtil.lightCoordsWithEmission(MemoryAccess.getInt(instance, Q_LIGHT0), emission)
-        );
         Vector3fc p1 = quad.position1();
-        this.writeVertex(
-                ptr + VERTEX_SIZE,
-                x + p1.x(), y + p1.y(), z + p1.z(),
-                MemoryAccess.getInt(instance, Q_COLOR1),
-                u1, v1,
-                LightCoordsUtil.lightCoordsWithEmission(MemoryAccess.getInt(instance, Q_LIGHT1), emission)
-        );
         Vector3fc p2 = quad.position2();
-        this.writeVertex(
-                ptr + VERTEX_SIZE * 2,
-                x + p2.x(), y + p2.y(), z + p2.z(),
-                MemoryAccess.getInt(instance, Q_COLOR2),
-                u2, v2,
-                LightCoordsUtil.lightCoordsWithEmission(MemoryAccess.getInt(instance, Q_LIGHT2), emission)
-        );
         Vector3fc p3 = quad.position3();
-        this.writeVertex(
-                ptr + VERTEX_SIZE * 3,
-                x + p3.x(), y + p3.y(), z + p3.z(),
-                MemoryAccess.getInt(instance, Q_COLOR3),
-                u3, v3,
-                LightCoordsUtil.lightCoordsWithEmission(MemoryAccess.getInt(instance, Q_LIGHT3), emission)
-        );
+
+        int c0 = MemoryAccess.getInt(instance, Q_COLOR0);
+        int c1 = MemoryAccess.getInt(instance, Q_COLOR1);
+        int c2 = MemoryAccess.getInt(instance, Q_COLOR2);
+        int c3 = MemoryAccess.getInt(instance, Q_COLOR3);
+
+        int l0 = LightCoordsUtil.lightCoordsWithEmission(MemoryAccess.getInt(instance, Q_LIGHT0), emission);
+        int l1 = LightCoordsUtil.lightCoordsWithEmission(MemoryAccess.getInt(instance, Q_LIGHT1), emission);
+        int l2 = LightCoordsUtil.lightCoordsWithEmission(MemoryAccess.getInt(instance, Q_LIGHT2), emission);
+        int l3 = LightCoordsUtil.lightCoordsWithEmission(MemoryAccess.getInt(instance, Q_LIGHT3), emission);
+
+        if (!flipDiagonal) {
+            this.writeBlockVertex(ptr, x, y, z, p0.x(), p0.y(), p0.z(), c0, u0, v0, l0);
+            this.writeBlockVertex(ptr + VERTEX_SIZE, x, y, z, p1.x(), p1.y(), p1.z(), c1, u1, v1, l1);
+            this.writeBlockVertex(ptr + VERTEX_SIZE * 2, x, y, z, p2.x(), p2.y(), p2.z(), c2, u2, v2, l2);
+            this.writeBlockVertex(ptr + VERTEX_SIZE * 3, x, y, z, p3.x(), p3.y(), p3.z(), c3, u3, v3, l3);
+        } else {
+            this.writeBlockVertex(ptr, x, y, z, p1.x(), p1.y(), p1.z(), c1, u1, v1, l1);
+            this.writeBlockVertex(ptr + VERTEX_SIZE, x, y, z, p2.x(), p2.y(), p2.z(), c2, u2, v2, l2);
+            this.writeBlockVertex(ptr + VERTEX_SIZE * 2, x, y, z, p3.x(), p3.y(), p3.z(), c3, u3, v3, l3);
+            this.writeBlockVertex(ptr + VERTEX_SIZE * 3, x, y, z, p0.x(), p0.y(), p0.z(), c0, u0, v0, l0);
+        }
         this.vertexCount += 4;
     }
 
@@ -189,6 +206,22 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
         this.writeVertex(ptr + VERTEX_SIZE * 3, x3, y3, z3, color3, u3, v3, light3);
 
         this.vertexCount += 4;
+    }
+
+    private void writeBlockVertex(long ptr, float ox, float oy, float oz, float lx, float ly, float lz, int color, float u, float v, int light) {
+        int qx = XenoVertexEncoder.quantizeBlockPosition(ox, lx);
+        int qy = XenoVertexEncoder.quantizeBlockPosition(oy, ly);
+        int qz = XenoVertexEncoder.quantizeBlockPosition(oz, lz);
+
+        int packedUv = XenoVertexEncoder.packUV(u, v);
+        int packedLight = XenoVertexEncoder.packLight(light);
+
+        MemoryAccess.putShort(ptr, (short) qx);
+        MemoryAccess.putShort(ptr + 2L, (short) qy);
+        MemoryAccess.putShort(ptr + 4L, (short) qz);
+        MemoryAccess.putInt(ptr + 6L, ARGB.toABGR(color));
+        MemoryAccess.putInt(ptr + 10L, packedUv);
+        MemoryAccess.putShort(ptr + 14L, (short) packedLight);
     }
 
     private void writeVertex(long ptr, float px, float py, float pz, int color, float u, float v, int light) {

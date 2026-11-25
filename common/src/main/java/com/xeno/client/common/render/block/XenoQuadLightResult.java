@@ -21,4 +21,5 @@ public final class XenoQuadLightResult {
     public final float[] shades = new float[4];
     public final int[] lightCoords = new int[4];
     public float directionalBrightness = 1.0F;
+    public boolean flipDiagonal;
 }

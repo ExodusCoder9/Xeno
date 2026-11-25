@@ -30,8 +30,11 @@ import com.xeno.client.common.render.block.XenoBlockModelDispatcher;
 import com.xeno.client.common.render.block.XenoLightDataCache;
 import com.xeno.client.common.render.block.XenoModelRenderer;
 import com.xeno.client.common.render.block.XenoFluidRenderer;
+import com.xeno.client.common.render.block.XenoTintRegion;
+import com.xeno.client.common.render.texture.XenoSectionResultsExtension;
 import com.xeno.client.mixin.RenderSectionRegionAccessor;
 import com.xeno.client.mixin.SectionCopyAccessor;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import net.minecraft.client.renderer.block.BlockQuadOutput;
 import net.minecraft.client.renderer.block.BlockStateModelSet;
 import net.minecraft.client.renderer.block.FluidStateModelSet;
@@ -41,6 +44,7 @@ import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.minecraft.client.renderer.chunk.SectionCopy;
 import net.minecraft.client.renderer.chunk.VisGraph;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.block.RenderShape;
@@ -105,61 +109,73 @@ public final class XenoSectionCompiler extends SectionCompiler {
         XenoLightDataCache.get().reset(sectionPos);
         Workspace workspace = this.workspaces.get();
         workspace.bind(builders);
+        XenoTintRegion tintRegion = workspace.tintRegion;
+        int biomeBlendRadius = net.minecraft.client.Minecraft.getInstance().options.biomeBlendRadius().get();
+        tintRegion.bind(region, sectionPos, biomeBlendRadius);
         XenoModelRenderer blockRenderer = workspace.blockRenderer;
         XenoFluidRenderer fluidRenderer = workspace.fluidRenderer;
         XenoSectionLayerBuffer[] sinks = workspace.sinks;
 
-        BlockPos.MutableBlockPos currentPos = new BlockPos.MutableBlockPos();
-        for (int y = minY; y <= minY + SECTION_MAX; y++) {
-            for (int z = minZ; z <= minZ + SECTION_MAX; z++) {
-                for (int x = minX; x <= minX + SECTION_MAX; x++) {
-                    currentPos.set(x, y, z);
-                    BlockState blockState = region.getBlockState(currentPos);
-                    if (!blockState.isAir()) {
-                        try {
-                            if (blockState.isSolidRender()) {
-                                visGraph.setOpaque(currentPos);
-                            }
-                            if (blockState.hasBlockEntity()) {
-                                BlockEntity blockEntity = region.getBlockEntity(currentPos);
-                                if (blockEntity != null) {
-                                    results.blockEntities.add(blockEntity);
+        BlockPos.MutableBlockPos currentPos = workspace.currentPos;
+        try {
+            for (int y = minY; y <= minY + SECTION_MAX; y++) {
+                for (int z = minZ; z <= minZ + SECTION_MAX; z++) {
+                    for (int x = minX; x <= minX + SECTION_MAX; x++) {
+                        currentPos.set(x, y, z);
+                        BlockState blockState = region.getBlockState(currentPos);
+                        if (!blockState.isAir()) {
+                            try {
+                                if (blockState.isSolidRender()) {
+                                    visGraph.setOpaque(currentPos);
                                 }
+                                if (blockState.hasBlockEntity()) {
+                                    BlockEntity blockEntity = region.getBlockEntity(currentPos);
+                                    if (blockEntity != null) {
+                                        results.blockEntities.add(blockEntity);
+                                    }
+                                }
+                                FluidState fluidState = blockState.getFluidState();
+                                if (!fluidState.isEmpty()) {
+                                    fluidRenderer.tesselate(tintRegion, currentPos, workspace.fluidOutput, blockState, fluidState);
+                                }
+                                if (blockState.getRenderShape() == RenderShape.MODEL) {
+                                    boolean forceOpaque = ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState);
+                                    MODEL_DISPATCHER.tesselate(
+                                            forceOpaque ? workspace.opaqueQuadOutput : workspace.quadOutput,
+                                            forceOpaque,
+                                            SectionPos.sectionRelative(x),
+                                            SectionPos.sectionRelative(y),
+                                            SectionPos.sectionRelative(z),
+                                            tintRegion,
+                                            currentPos,
+                                            blockState,
+                                            this.blockModelSet.get(blockState),
+                                            blockState.getSeed(currentPos),
+                                            blockRenderer,
+                                            workspace::getSink
+                                    );
+                                }
+                            } catch (Throwable t) {
+                                CrashReport report = CrashReport.forThrowable(t, "Tesselating block in world");
+                                CrashReportCategory category = report.addCategory("Block being tesselated");
+                                CrashReportCategory.populateBlockDetails(category, region, currentPos, blockState);
+                                throw new ReportedException(report);
                             }
-                            FluidState fluidState = blockState.getFluidState();
-                            if (!fluidState.isEmpty()) {
-                                fluidRenderer.tesselate(region, currentPos, workspace.fluidOutput, blockState, fluidState);
-                            }
-                            if (blockState.getRenderShape() == RenderShape.MODEL) {
-                                MODEL_DISPATCHER.tesselate(
-                                        ModelBlockRenderer.forceOpaque(this.cutoutLeaves, blockState) ? workspace.opaqueQuadOutput : workspace.quadOutput,
-                                        SectionPos.sectionRelative(x),
-                                        SectionPos.sectionRelative(y),
-                                        SectionPos.sectionRelative(z),
-                                        region,
-                                        currentPos,
-                                        blockState,
-                                        this.blockModelSet.get(blockState),
-                                        blockState.getSeed(currentPos),
-                                        blockRenderer,
-                                        workspace::getSink
-                                );
-                            }
-                        } catch (Throwable t) {
-                            CrashReport report = CrashReport.forThrowable(t, "Tesselating block in world");
-                            CrashReportCategory category = report.addCategory("Block being tesselated");
-                            CrashReportCategory.populateBlockDetails(category, region, currentPos, blockState);
-                            throw new ReportedException(report);
                         }
                     }
                 }
             }
+        } finally {
+            tintRegion.release();
         }
 
+        ReferenceOpenHashSet<TextureAtlasSprite> animatedSprites = workspace.animatedSprites;
+        animatedSprites.clear();
         for (XenoSectionLayerBuffer sink : sinks) {
             if (sink == null || sink.buffer() == null || sink.vertexCount() == 0) {
                 continue;
             }
+            sink.collectAnimatedSprites(animatedSprites);
             MeshData mesh = sink.build();
             if (mesh != null) {
                 if (sink.layer() == ChunkSectionLayer.TRANSLUCENT) {
@@ -170,6 +186,13 @@ public final class XenoSectionCompiler extends SectionCompiler {
 
                 results.renderedLayers.put(sink.layer(), mesh);
             }
+        }
+
+        if (!animatedSprites.isEmpty()) {
+            ((XenoSectionResultsExtension) (Object) results).xeno$setAnimatedSprites(
+                animatedSprites.toArray(new TextureAtlasSprite[0])
+            );
+            animatedSprites.clear();
         }
 
         results.visibilitySet = visGraph.resolve();
@@ -204,6 +227,9 @@ public final class XenoSectionCompiler extends SectionCompiler {
         final BlockQuadOutput quadOutput;
         final BlockQuadOutput opaqueQuadOutput;
         final XenoFluidRenderer.Output fluidOutput;
+        final ReferenceOpenHashSet<TextureAtlasSprite> animatedSprites = new ReferenceOpenHashSet<>();
+        final BlockPos.MutableBlockPos currentPos = new BlockPos.MutableBlockPos();
+        final XenoTintRegion tintRegion = new XenoTintRegion();
         SectionBufferBuilderPack currentPack;
 
         Workspace() {
@@ -215,11 +241,13 @@ public final class XenoSectionCompiler extends SectionCompiler {
             }
             this.quadOutput = (x, y, z, quad, instance) -> {
                 XenoSectionLayerBuffer sink = this.getSink(quad.materialInfo().layer());
-                sink.writeBlockQuad(x, y, z, quad, instance);
+                sink.recordAnimatedSprite(quad.materialInfo().sprite());
+                sink.writeBlockQuad(x, y, z, quad, instance, this.blockRenderer.shouldFlipDiagonal());
             };
             this.opaqueQuadOutput = (x, y, z, quad, instance) -> {
                 XenoSectionLayerBuffer sink = this.getSink(ChunkSectionLayer.SOLID);
-                sink.writeBlockQuad(x, y, z, quad, instance);
+                sink.recordAnimatedSprite(quad.materialInfo().sprite());
+                sink.writeBlockQuad(x, y, z, quad, instance, this.blockRenderer.shouldFlipDiagonal());
             };
             this.fluidOutput = this::getSink;
         }

@@ -21,14 +21,19 @@ import com.xeno.client.common.render.block.XenoBlockModelDispatcher;
 import com.xeno.client.common.render.block.XenoModelRenderer;
 import com.xeno.client.common.render.chunk.XenoSectionCompiler;
 import com.xeno.client.common.render.chunk.XenoSectionLayerBuffer;
+import com.xeno.client.common.render.texture.XenoSpriteTracker;
+import com.xeno.client.common.render.texture.XenoTextureAtlasExtension;
 import com.xeno.fabric.client.render.frapi.XenoRegistrar;
 import com.xeno.fabric.client.render.frapi.XenoRenderer;
+import com.xeno.fabric.client.render.frapi.render.XenoAltModelBlockRenderer;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.MutableQuadView;
+import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadAtlas;
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter;
 import net.fabricmc.fabric.api.client.renderer.v1.model.MeshQuadCollection;
 import net.fabricmc.fabric.api.client.renderer.v1.render.AltModelBlockRenderer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.color.block.BlockColors;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.BlockQuadOutput;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
@@ -36,9 +41,12 @@ import net.minecraft.client.renderer.block.dispatch.SingleVariant;
 import net.minecraft.client.renderer.block.dispatch.WeightedVariants;
 import net.minecraft.client.renderer.block.dispatch.multipart.MultiPartModel;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
-import net.minecraft.client.renderer.chunk.RenderSectionRegion;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.SimpleModelWrapper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.state.BlockState;
 import org.slf4j.Logger;
@@ -82,8 +90,9 @@ public final class XenoFabricBlockModelDispatcher implements XenoBlockModelDispa
     @Override
     public void tesselate(
         BlockQuadOutput output,
+        boolean forceOpaque,
         float x, float y, float z,
-        RenderSectionRegion region,
+        BlockAndTintGetter region,
         BlockPos pos,
         BlockState blockState,
         BlockStateModel model,
@@ -100,7 +109,7 @@ public final class XenoFabricBlockModelDispatcher implements XenoBlockModelDispa
             this.contexts.set(context);
         }
         if (!isVanillaModel(model)) {
-            emitWithFrapi(context, x, y, z, region, pos, blockState, model, seed, sinkProvider);
+            emitWithFrapi(context, forceOpaque, x, y, z, region, pos, blockState, model, seed, sinkProvider);
             return;
         }
         List<BlockStateModelPart> parts = context.scratchParts;
@@ -110,7 +119,7 @@ public final class XenoFabricBlockModelDispatcher implements XenoBlockModelDispa
             model.collectParts(context.random, parts);
 
             if (requiresFrapiPath(parts)) {
-                emitWithFrapi(context, x, y, z, region, pos, blockState, model, seed, sinkProvider);
+                emitWithFrapi(context, forceOpaque, x, y, z, region, pos, blockState, model, seed, sinkProvider);
             } else {
                 blockRenderer.emitCollected(output, x, y, z, region, pos, blockState, parts);
             }
@@ -121,8 +130,9 @@ public final class XenoFabricBlockModelDispatcher implements XenoBlockModelDispa
 
     private static void emitWithFrapi(
         ThreadLocalFrapiContext context,
+        boolean forceOpaque,
         float x, float y, float z,
-        RenderSectionRegion region,
+        BlockAndTintGetter region,
         BlockPos pos,
         BlockState blockState,
         BlockStateModel model,
@@ -130,10 +140,12 @@ public final class XenoFabricBlockModelDispatcher implements XenoBlockModelDispa
         Function<ChunkSectionLayer, XenoSectionLayerBuffer> sinkProvider
     ) {
         context.currentSinkProvider = sinkProvider;
+        context.forceOpaque = forceOpaque;
         try {
             context.altRenderer.tesselateBlock(context.quadEmitter, x, y, z, region, pos, blockState, model, seed);
         } finally {
             context.currentSinkProvider = null;
+            context.forceOpaque = false;
         }
     }
 
@@ -164,11 +176,14 @@ public final class XenoFabricBlockModelDispatcher implements XenoBlockModelDispa
         final RandomSource random = RandomSource.createThreadLocalInstance(0L);
         final List<BlockStateModelPart> scratchParts = new ArrayList<>();
         Function<ChunkSectionLayer, XenoSectionLayerBuffer> currentSinkProvider;
+        boolean forceOpaque;
+        private TextureAtlas blockAtlas;
+        private TextureAtlas itemAtlas;
 
         ThreadLocalFrapiContext(BlockColors blockColors, boolean ao) {
             this.blockColors = blockColors;
             this.ambientOcclusion = ao;
-            this.altRenderer = XenoRenderer.INSTANCE.altModelBlockRenderer(ao, true, blockColors);
+            this.altRenderer = new XenoAltModelBlockRenderer(ao, true, blockColors, true);
             this.quadEmitter = XenoRenderer.INSTANCE.quadEmitter(this::handleQuad);
         }
 
@@ -177,9 +192,29 @@ public final class XenoFabricBlockModelDispatcher implements XenoBlockModelDispa
                 return;
             }
 
-            XenoSectionLayerBuffer sink = this.currentSinkProvider.apply(quad.chunkLayer());
+            ChunkSectionLayer layer = this.forceOpaque ? ChunkSectionLayer.SOLID : quad.chunkLayer();
+            XenoSectionLayerBuffer sink = this.currentSinkProvider.apply(layer);
             if (sink == null) {
                 return;
+            }
+
+            if (quad.animated()) {
+                TextureAtlas atlas;
+                if (quad.atlas() == QuadAtlas.ITEM) {
+                    if (this.itemAtlas == null) {
+                        this.itemAtlas = net.minecraft.client.Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.ITEMS);
+                    }
+                    atlas = this.itemAtlas;
+                } else {
+                    if (this.blockAtlas == null) {
+                        this.blockAtlas = net.minecraft.client.Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS);
+                    }
+                    atlas = this.blockAtlas;
+                }
+                TextureAtlasSprite sprite = ((XenoTextureAtlasExtension) atlas).xeno$getSpriteFinder().find(
+                    quad.u(0), quad.v(0), quad.u(1), quad.v(1), quad.u(2), quad.v(2), quad.u(3), quad.v(3)
+                );
+                sink.recordAnimatedSprite(sprite);
             }
 
             sink.writeFrapiQuad(
