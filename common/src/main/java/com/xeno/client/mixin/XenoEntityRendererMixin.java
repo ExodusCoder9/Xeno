@@ -18,6 +18,8 @@
 package com.xeno.client.mixin;
 
 import com.xeno.client.common.render.culling.XenoFrustumProvider;
+import com.xeno.client.common.render.culling.XenoOcclusionCuller;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.world.entity.Entity;
@@ -76,7 +78,22 @@ public abstract class XenoEntityRendererMixin<T extends Entity> {
                     box.minX - 0.5, box.minY - 0.5, box.minZ - 0.5,
                     box.maxX + 0.5, box.maxY + 0.5, box.maxZ + 0.5
             );
-            cir.setReturnValue(visible);
+            if (!visible) {
+                cir.setReturnValue(false);
+                return;
+            }
+            double volume = (box.maxX - box.minX) * (box.maxY - box.minY) * (box.maxZ - box.minZ);
+            if (volume <= 2048.0
+                    && !entity.shouldShowName()
+                    && !entity.isCurrentlyGlowing()
+                    && !Minecraft.getInstance().shouldEntityAppearGlowing(entity)) {
+                cir.setReturnValue(XenoOcclusionCuller.INSTANCE.isBoxVisible(
+                        box.minX, box.minY, box.minZ,
+                        box.maxX, box.maxY, box.maxZ
+                ));
+                return;
+            }
+            cir.setReturnValue(true);
         }
     }
 }

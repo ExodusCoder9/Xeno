@@ -86,6 +86,8 @@
   "xeno.options.inactivity_fps_limit.desc": "Limits the frame rate when the game is minimized or the player is idle, to save power.",
   "xeno.options.animate_only_visible_textures": "Animate Only Visible Textures",
   "xeno.options.animate_only_visible_textures.desc": "Only ticks and uploads animated textures that are currently visible on screen, reducing GPU and CPU overhead in modded packs.",
+  "xeno.options.gl_no_error": "OpenGL No-Error Context",
+  "xeno.options.gl_no_error.desc": "Disables OpenGL driver error checking for lower CPU overhead. Only available on OpenGL/Default; requires a game restart to take effect.",
 
   "xeno.options.attack_indicator": "Attack Indicator",
   "xeno.options.attack_indicator.desc": "Sets the display style and position for the combat crosshair attack indicator.",

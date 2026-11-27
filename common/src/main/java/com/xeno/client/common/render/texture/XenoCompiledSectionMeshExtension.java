@@ -12,11 +12,31 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://gnu.org/licenses/>.
  */
 
 package com.xeno.client.common.render.texture;
 
+import org.jspecify.annotations.Nullable;
+
 public interface XenoCompiledSectionMeshExtension {
     void xeno$markAnimatedSpritesActive();
+
+    long xeno$getVisibilityMask();
+
+    long @Nullable [] xeno$getDirectionalMasks();
+
+    boolean xeno$hasTightBounds();
+
+    float xeno$minX();
+
+    float xeno$minY();
+
+    float xeno$minZ();
+
+    float xeno$maxX();
+
+    float xeno$maxY();
+
+    float xeno$maxZ();
 }

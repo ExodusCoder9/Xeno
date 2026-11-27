@@ -17,6 +17,7 @@
 
 package com.xeno.fabric;
 
+import com.xeno.client.common.debug.XenoDebugEntry;
 import com.xeno.fabric.client.render.XenoFabricBlockModelDispatcher;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
@@ -24,6 +25,9 @@ import net.fabricmc.loader.api.FabricLoader;
 public final class XenoClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
+		FabricLoader.getInstance().getModContainer("xeno").ifPresent(
+			mod -> XenoDebugEntry.setVersion(mod.getMetadata().getVersion().getFriendlyString())
+		);
 		XenoFabricBlockModelDispatcher.register();
 		if (FabricLoader.getInstance().isModLoaded("fabric-renderer-api-v1")) {
 			FrapiFeatureRenderers.register();

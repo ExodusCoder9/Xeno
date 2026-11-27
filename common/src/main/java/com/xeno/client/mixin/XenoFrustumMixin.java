@@ -51,6 +51,11 @@ public abstract class XenoFrustumMixin implements XenoFrustumProvider {
     @Unique
     private final XenoBranchlessFrustum xeno$branchlessFrustum = new XenoBranchlessFrustum();
 
+    @Inject(method = "<init>(Lnet/minecraft/client/renderer/culling/Frustum;)V", at = @At("TAIL"))
+    private void xeno$onCopyInit(Frustum frustum, CallbackInfo ci) {
+        this.xeno$branchlessFrustum.set(this.matrix, this.camX, this.camY, this.camZ);
+    }
+
     @Inject(method = "calculateFrustum", at = @At("TAIL"))
     private void xeno$onCalculateFrustum(Matrix4fc modelView, Matrix4f projection, CallbackInfo ci) {
         this.xeno$branchlessFrustum.set(this.matrix, this.camX, this.camY, this.camZ);
@@ -76,13 +81,9 @@ public abstract class XenoFrustumMixin implements XenoFrustumProvider {
         this.xeno$branchlessFrustum.setCameraPos(this.camX, this.camY, this.camZ);
     }
 
-    /**
-     * @author ExodusCoder9
-     * @reason Replace JOML frustum AABB test with our frustum test.
-     */
-    @Overwrite
-    public boolean isVisible(AABB aabb) {
-        return this.xeno$branchlessFrustum.isVisible(aabb);
+    @Inject(method = "isVisible(Lnet/minecraft/world/phys/AABB;)Z", at = @At("HEAD"), cancellable = true)
+    private void xeno$isVisible(AABB bb, CallbackInfoReturnable<Boolean> cir) {
+        cir.setReturnValue(this.xeno$branchlessFrustum.isVisible(bb));
     }
 
     /**
@@ -90,7 +91,7 @@ public abstract class XenoFrustumMixin implements XenoFrustumProvider {
      * @reason Replace JOML cubeInFrustum with our branchless positive/negative vertex evaluation
      */
     @Overwrite
-    private int cubeInFrustum(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+    public int cubeInFrustum(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
         return this.xeno$branchlessFrustum.cubeInFrustum(minX, minY, minZ, maxX, maxY, maxZ);
     }
 

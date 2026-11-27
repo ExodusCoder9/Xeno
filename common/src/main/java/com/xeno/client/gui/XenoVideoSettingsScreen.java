@@ -20,6 +20,7 @@ package com.xeno.client.gui;
 import com.mojang.blaze3d.platform.Monitor;
 import com.mojang.blaze3d.platform.VideoMode;
 import com.mojang.blaze3d.platform.Window;
+import com.xeno.client.common.config.XenoConfig;
 import com.xeno.client.common.render.texture.XenoSpriteTracker;
 import com.xeno.client.gui.widget.XenoButton;
 import com.xeno.client.gui.widget.XenoScroller;
@@ -73,7 +74,10 @@ public final class XenoVideoSettingsScreen extends Screen {
         }
     }
 
-    private record OptionEntry(AbstractWidget widget, Component description, PerformanceImpact impact, Component name) {
+    private record OptionEntry(AbstractWidget widget, Component description, PerformanceImpact impact, Component name, java.util.function.BooleanSupplier activeCondition) {
+        OptionEntry(AbstractWidget widget, Component description, PerformanceImpact impact, Component name) {
+            this(widget, description, impact, name, null);
+        }
     }
 
     private static final Component TITLE = Component.translatable("xeno.options.title");
@@ -355,6 +359,16 @@ public final class XenoVideoSettingsScreen extends Screen {
                     XenoSpriteTracker::isAnimationCullingEnabled,
                     XenoSpriteTracker::setAnimationCullingEnabled
             );
+            addDirectToggle(
+                    "gl_no_error",
+                    PerformanceImpact.LOW,
+                    XenoConfig::isGlNoErrorContext,
+                    val -> {
+                        XenoConfig.setGlNoErrorContext(val);
+                        this.warningBannerTime = System.currentTimeMillis() + 5000;
+                    },
+                    () -> getOptionValue(this.options.preferredGraphicsBackend()) != PreferredGraphicsApi.VULKAN
+            );
 
         } else if (tabIndex == 3) {
             addCycle(this.options.attackIndicator(), "attack_indicator", PerformanceImpact.LOW);
@@ -574,6 +588,16 @@ public final class XenoVideoSettingsScreen extends Screen {
             java.util.function.BooleanSupplier getter,
             java.util.function.Consumer<Boolean> setter
     ) {
+        addDirectToggle(key, impact, getter, setter, null);
+    }
+
+    private void addDirectToggle(
+            String key,
+            PerformanceImpact impact,
+            java.util.function.BooleanSupplier getter,
+            java.util.function.Consumer<Boolean> setter,
+            java.util.function.BooleanSupplier activeCondition
+    ) {
         int index = this.currentTabOptions.size();
         int y = 40 + index * ROW_HEIGHT;
         boolean current = getter.getAsBoolean();
@@ -592,7 +616,7 @@ public final class XenoVideoSettingsScreen extends Screen {
                 int h = this.getHeight();
                 boolean hovered = this.isHoveredOrFocused();
 
-                int textColor = hovered ? 0xFFFFFFFF : 0xFF8B5CF6;
+                int textColor = !this.active ? 0xFF6B7280 : (hovered ? 0xFFFFFFFF : 0xFF8B5CF6);
                 graphics.text(
                         Minecraft.getInstance().font,
                         this.getMessage(),
@@ -604,7 +628,7 @@ public final class XenoVideoSettingsScreen extends Screen {
         };
 
         this.addRenderableWidget(button);
-        this.currentTabOptions.add(new OptionEntry(button, Component.translatable("xeno.options." + key + ".desc"), impact, Component.translatable("xeno.options." + key)));
+        this.currentTabOptions.add(new OptionEntry(button, Component.translatable("xeno.options." + key + ".desc"), impact, Component.translatable("xeno.options." + key), activeCondition));
     }
 
     private void addToggle(OptionInstance<Boolean> option, String key, PerformanceImpact impact) {
@@ -865,7 +889,7 @@ public final class XenoVideoSettingsScreen extends Screen {
 
             boolean inBounds = (yPos >= visibleMinY - 2 && yPos + ROW_HEIGHT <= visibleMaxY + 2);
             widget.visible = inBounds;
-            widget.active = inBounds;
+            widget.active = inBounds && (entry.activeCondition() == null || entry.activeCondition().getAsBoolean());
             if (inBounds) {
                 widget.setPosition(widgetX, widgetY);
             }
@@ -919,7 +943,8 @@ public final class XenoVideoSettingsScreen extends Screen {
                     graphics.fill(130, yPos, this.width - 30, yPos + ROW_HEIGHT - 2, 0x1AFFFFFF);
                 }
 
-                graphics.text(this.font, entry.name(), 140, yPos + (ROW_HEIGHT - 8) / 2, 0xFFFFFFFF);
+                int nameColor = entry.widget().active ? 0xFFFFFFFF : 0xFF6B7280;
+                graphics.text(this.font, entry.name(), 140, yPos + (ROW_HEIGHT - 8) / 2, nameColor);
 
                 if (entry.widget() instanceof XenoSlider) {
                     Component valMsg = entry.widget().getMessage();

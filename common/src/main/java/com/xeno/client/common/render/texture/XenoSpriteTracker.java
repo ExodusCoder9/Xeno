@@ -17,6 +17,7 @@
 
 package com.xeno.client.common.render.texture;
 
+import com.xeno.client.common.config.XenoConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -24,17 +25,15 @@ import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.Nullable;
 
 public final class XenoSpriteTracker {
-    private static volatile boolean animationCullingEnabled = true;
-
     private XenoSpriteTracker() {
     }
 
     public static boolean isAnimationCullingEnabled() {
-        return animationCullingEnabled;
+        return XenoConfig.isAnimationCullingEnabled();
     }
 
     public static void setAnimationCullingEnabled(boolean enabled) {
-        animationCullingEnabled = enabled;
+        XenoConfig.setAnimationCullingEnabled(enabled);
     }
 
     public static void markActive(@Nullable TextureAtlasSprite sprite) {

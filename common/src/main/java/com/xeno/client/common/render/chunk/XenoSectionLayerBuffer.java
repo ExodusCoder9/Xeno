@@ -52,6 +52,12 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
     private final VertexFormat format;
     private final ChunkSectionLayer layer;
     private int vertexCount;
+    private float minX = Float.POSITIVE_INFINITY;
+    private float minY = Float.POSITIVE_INFINITY;
+    private float minZ = Float.POSITIVE_INFINITY;
+    private float maxX = Float.NEGATIVE_INFINITY;
+    private float maxY = Float.NEGATIVE_INFINITY;
+    private float maxZ = Float.NEGATIVE_INFINITY;
     private final Set<TextureAtlasSprite> animatedSprites = new ReferenceOpenHashSet<>();
 
     public XenoSectionLayerBuffer(ChunkSectionLayer layer, VertexFormat format) {
@@ -67,7 +73,37 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
     public void reset(ByteBufferBuilder buffer) {
         this.buffer = buffer;
         this.vertexCount = 0;
+        this.minX = Float.POSITIVE_INFINITY;
+        this.minY = Float.POSITIVE_INFINITY;
+        this.minZ = Float.POSITIVE_INFINITY;
+        this.maxX = Float.NEGATIVE_INFINITY;
+        this.maxY = Float.NEGATIVE_INFINITY;
+        this.maxZ = Float.NEGATIVE_INFINITY;
         this.animatedSprites.clear();
+    }
+
+    public float minX() {
+        return this.minX;
+    }
+
+    public float minY() {
+        return this.minY;
+    }
+
+    public float minZ() {
+        return this.minZ;
+    }
+
+    public float maxX() {
+        return this.maxX;
+    }
+
+    public float maxY() {
+        return this.maxY;
+    }
+
+    public float maxZ() {
+        return this.maxZ;
     }
 
     public void recordAnimatedSprite(TextureAtlasSprite sprite) {
@@ -208,7 +244,17 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
         this.vertexCount += 4;
     }
 
+    private void recordVertexBounds(float x, float y, float z) {
+        if (x < this.minX) this.minX = x;
+        if (y < this.minY) this.minY = y;
+        if (z < this.minZ) this.minZ = z;
+        if (x > this.maxX) this.maxX = x;
+        if (y > this.maxY) this.maxY = y;
+        if (z > this.maxZ) this.maxZ = z;
+    }
+
     private void writeBlockVertex(long ptr, float ox, float oy, float oz, float lx, float ly, float lz, int color, float u, float v, int light) {
+        this.recordVertexBounds(ox + lx, oy + ly, oz + lz);
         int qx = XenoVertexEncoder.quantizeBlockPosition(ox, lx);
         int qy = XenoVertexEncoder.quantizeBlockPosition(oy, ly);
         int qz = XenoVertexEncoder.quantizeBlockPosition(oz, lz);
@@ -225,6 +271,7 @@ public final class XenoSectionLayerBuffer implements VertexConsumer {
     }
 
     private void writeVertex(long ptr, float px, float py, float pz, int color, float u, float v, int light) {
+        this.recordVertexBounds(px, py, pz);
         int qx = XenoVertexEncoder.quantizePosition(px);
         int qy = XenoVertexEncoder.quantizePosition(py);
         int qz = XenoVertexEncoder.quantizePosition(pz);

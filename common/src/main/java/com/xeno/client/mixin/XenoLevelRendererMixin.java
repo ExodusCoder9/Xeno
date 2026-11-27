@@ -1,30 +1,15 @@
-/*
- * Copyright (C) 2026 ExodusCoder9
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.xeno.client.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.xeno.client.common.render.chunk.XenoSectionCompiler;
+import com.xeno.client.common.render.culling.XenoOcclusionGraph;
 import com.xeno.client.common.render.texture.XenoCompiledSectionMeshExtension;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.SectionOcclusionGraph;
 import net.minecraft.client.renderer.block.BlockStateModelSet;
 import net.minecraft.client.renderer.block.FluidStateModelSet;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
@@ -41,7 +26,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class XenoLevelRendererMixin {
     @Shadow
     @Final
-    public ObjectArrayList<SectionRenderDispatcher.RenderSection> visibleSections;
+    private ObjectArrayList<SectionRenderDispatcher.RenderSection> visibleSections;
+
     @ModifyExpressionValue(
         method = "<init>",
         at = @At(
@@ -51,6 +37,14 @@ public abstract class XenoLevelRendererMixin {
     )
     private boolean xeno$ignoreKnownIssues(boolean original) {
         return false;
+    }
+
+    @WrapOperation(
+        method = "<init>",
+        at = @At(value = "NEW", target = "Lnet/minecraft/client/renderer/SectionOcclusionGraph;")
+    )
+    private static SectionOcclusionGraph xeno$useXenoOcclusionGraph(Operation<SectionOcclusionGraph> original) {
+        return new XenoOcclusionGraph();
     }
 
     @WrapOperation(

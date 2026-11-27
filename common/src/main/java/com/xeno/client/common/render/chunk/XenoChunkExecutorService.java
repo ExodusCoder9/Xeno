@@ -36,13 +36,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class XenoChunkExecutorService extends AbstractExecutorService {
 	private static final Logger LOGGER = LogManager.getLogger("XenoChunkExecutor");
 
-	public static final TracingExecutor INSTANCE = new TracingExecutor(new XenoChunkExecutorService());
+	private static final XenoChunkExecutorService RAW_INSTANCE = new XenoChunkExecutorService();
+	public static final TracingExecutor INSTANCE = new TracingExecutor(RAW_INSTANCE);
 	private final ConcurrentLinkedDeque<Runnable> tasks = new ConcurrentLinkedDeque<>();
 	private final Semaphore semaphore = new Semaphore(0);
 	private final AtomicBoolean running = new AtomicBoolean(true);
 	private final AtomicInteger terminatedThreads = new AtomicInteger();
 	private final List<Thread> threads = new ArrayList<>();
 	private final AtomicInteger queuedTasks = new AtomicInteger();
+	private final AtomicInteger busyThreads = new AtomicInteger();
 
 	private XenoChunkExecutorService() {
 		int count = optimalThreadCount();
@@ -62,10 +64,13 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 				continue;
 			}
 
+			this.busyThreads.incrementAndGet();
 			try {
 				task.run();
 			} catch (Throwable t) {
 				LOGGER.error("Task on chunk builder executor threw an exception", t);
+			} finally {
+				this.busyThreads.decrementAndGet();
 			}
 		}
 
@@ -151,6 +156,18 @@ public final class XenoChunkExecutorService extends AbstractExecutorService {
 			}
 		}
 		return this.isTerminated();
+	}
+
+	public static int getScheduledJobCount() {
+		return Math.max(0, RAW_INSTANCE.queuedTasks.get());
+	}
+
+	public static int getBusyThreadCount() {
+		return Math.max(0, RAW_INSTANCE.busyThreads.get());
+	}
+
+	public static int getTotalThreadCount() {
+		return RAW_INSTANCE.threads.size();
 	}
 
 	private static int optimalThreadCount() {

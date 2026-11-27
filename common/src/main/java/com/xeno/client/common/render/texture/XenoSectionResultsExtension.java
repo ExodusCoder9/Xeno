@@ -24,4 +24,24 @@ public interface XenoSectionResultsExtension {
     TextureAtlasSprite @Nullable [] xeno$getAnimatedSprites();
 
     void xeno$setAnimatedSprites(TextureAtlasSprite @Nullable [] sprites);
+
+    long @Nullable [] xeno$getDirectionalMasks();
+
+    void xeno$setDirectionalMasks(long @Nullable [] masks);
+
+    boolean xeno$hasTightBounds();
+
+    void xeno$setTightBounds(float minX, float minY, float minZ, float maxX, float maxY, float maxZ);
+
+    float xeno$minX();
+
+    float xeno$minY();
+
+    float xeno$minZ();
+
+    float xeno$maxX();
+
+    float xeno$maxY();
+
+    float xeno$maxZ();
 }

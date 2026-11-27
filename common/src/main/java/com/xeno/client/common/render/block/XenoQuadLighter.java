@@ -42,7 +42,6 @@ public final class XenoQuadLighter {
     private final MutableBlockPos sideAPos = new MutableBlockPos();
     private final MutableBlockPos sideBPos = new MutableBlockPos();
     private final MutableBlockPos cornerDiagPos = new MutableBlockPos();
-    private final MutableBlockPos permScratchPos = new MutableBlockPos();
     private final FaceData[] cubicFaceCache = new FaceData[6];
     private final FaceData nonCubicFace = new FaceData();
     private final float[] vertexU = new float[4];
@@ -562,10 +561,10 @@ public final class XenoQuadLighter {
 
         float centerShade = this.cache.getShadeBrightness(level, basePosition);
 
-        out.computeCorner(0, level, this.cache, basePosition, direction, uDir.getOpposite(), vDir.getOpposite(), centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
-        out.computeCorner(1, level, this.cache, basePosition, direction, uDir.getOpposite(), vDir, centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
-        out.computeCorner(2, level, this.cache, basePosition, direction, uDir, vDir.getOpposite(), centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
-        out.computeCorner(3, level, this.cache, basePosition, direction, uDir, vDir, centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos, this.permScratchPos);
+        out.computeCorner(0, level, this.cache, basePosition, uDir.getOpposite(), vDir.getOpposite(), centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos);
+        out.computeCorner(1, level, this.cache, basePosition, uDir.getOpposite(), vDir, centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos);
+        out.computeCorner(2, level, this.cache, basePosition, uDir, vDir.getOpposite(), centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos);
+        out.computeCorner(3, level, this.cache, basePosition, uDir, vDir, centerLight, centerShade, this.sideAPos, this.sideBPos, this.cornerDiagPos);
     }
 
     private static Direction getFaceTangentU(Direction face) {
@@ -651,15 +650,13 @@ public final class XenoQuadLighter {
             BlockAndTintGetter level,
             XenoLightDataCache cache,
             BlockPos basePos,
-            Direction faceDir,
             Direction dirA,
             Direction dirB,
             int centerLight,
             float centerShade,
             MutableBlockPos posA,
             MutableBlockPos posB,
-            MutableBlockPos posDiag,
-            MutableBlockPos permScratch
+            MutableBlockPos posDiag
         ) {
             posA.setWithOffset(basePos, dirA);
             BlockState stateA = cache.getState(level, posA);

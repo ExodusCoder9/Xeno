@@ -26,6 +26,7 @@ public final class XenoBranchlessFrustum {
     public static final int INTERSECT = FrustumIntersection.INTERSECT;
     public static final int OUTSIDE = FrustumIntersection.OUTSIDE;
     private static final float DEFAULT_SECTION_EXTENT = 8.0f;
+    private static final float PADDED_SECTION_EXTENT = 16.0f;
     private float p0_nx, p0_ny, p0_nz, p0_d;
     private float p0_absNx, p0_absNy, p0_absNz, p0_chunkD;
     private float p1_nx, p1_ny, p1_nz, p1_d;
@@ -42,6 +43,64 @@ public final class XenoBranchlessFrustum {
     private double camY;
     private double camZ;
     public XenoBranchlessFrustum() {
+    }
+
+    public XenoBranchlessFrustum(XenoBranchlessFrustum other) {
+        this.copyFrom(other);
+    }
+
+    public void copyFrom(XenoBranchlessFrustum other) {
+        this.p0_nx = other.p0_nx;
+        this.p0_ny = other.p0_ny;
+        this.p0_nz = other.p0_nz;
+        this.p0_d = other.p0_d;
+        this.p0_absNx = other.p0_absNx;
+        this.p0_absNy = other.p0_absNy;
+        this.p0_absNz = other.p0_absNz;
+        this.p0_chunkD = other.p0_chunkD;
+        this.p1_nx = other.p1_nx;
+        this.p1_ny = other.p1_ny;
+        this.p1_nz = other.p1_nz;
+        this.p1_d = other.p1_d;
+        this.p1_absNx = other.p1_absNx;
+        this.p1_absNy = other.p1_absNy;
+        this.p1_absNz = other.p1_absNz;
+        this.p1_chunkD = other.p1_chunkD;
+        this.p2_nx = other.p2_nx;
+        this.p2_ny = other.p2_ny;
+        this.p2_nz = other.p2_nz;
+        this.p2_d = other.p2_d;
+        this.p2_absNx = other.p2_absNx;
+        this.p2_absNy = other.p2_absNy;
+        this.p2_absNz = other.p2_absNz;
+        this.p2_chunkD = other.p2_chunkD;
+        this.p3_nx = other.p3_nx;
+        this.p3_ny = other.p3_ny;
+        this.p3_nz = other.p3_nz;
+        this.p3_d = other.p3_d;
+        this.p3_absNx = other.p3_absNx;
+        this.p3_absNy = other.p3_absNy;
+        this.p3_absNz = other.p3_absNz;
+        this.p3_chunkD = other.p3_chunkD;
+        this.p4_nx = other.p4_nx;
+        this.p4_ny = other.p4_ny;
+        this.p4_nz = other.p4_nz;
+        this.p4_d = other.p4_d;
+        this.p4_absNx = other.p4_absNx;
+        this.p4_absNy = other.p4_absNy;
+        this.p4_absNz = other.p4_absNz;
+        this.p4_chunkD = other.p4_chunkD;
+        this.p5_nx = other.p5_nx;
+        this.p5_ny = other.p5_ny;
+        this.p5_nz = other.p5_nz;
+        this.p5_d = other.p5_d;
+        this.p5_absNx = other.p5_absNx;
+        this.p5_absNy = other.p5_absNy;
+        this.p5_absNz = other.p5_absNz;
+        this.p5_chunkD = other.p5_chunkD;
+        this.camX = other.camX;
+        this.camY = other.camY;
+        this.camZ = other.camZ;
     }
 
     public void set(Matrix4fc matrix, double camX, double camY, double camZ) {
@@ -194,6 +253,23 @@ public final class XenoBranchlessFrustum {
                                 Float.floatToRawIntBits(v5)) & 0x80000000;
 
         return culledMask == 0;
+    }
+
+    public boolean isPaddedSectionCulledRel(float relCenterX, float relCenterY, float relCenterZ) {
+        final float v0 = this.p0_nx * relCenterX + this.p0_ny * relCenterY + this.p0_nz * relCenterZ + this.p0_absNx * PADDED_SECTION_EXTENT + this.p0_absNy * PADDED_SECTION_EXTENT + this.p0_absNz * PADDED_SECTION_EXTENT + this.p0_d;
+        final float v1 = this.p1_nx * relCenterX + this.p1_ny * relCenterY + this.p1_nz * relCenterZ + this.p1_absNx * PADDED_SECTION_EXTENT + this.p1_absNy * PADDED_SECTION_EXTENT + this.p1_absNz * PADDED_SECTION_EXTENT + this.p1_d;
+        final float v2 = this.p2_nx * relCenterX + this.p2_ny * relCenterY + this.p2_nz * relCenterZ + this.p2_absNx * PADDED_SECTION_EXTENT + this.p2_absNy * PADDED_SECTION_EXTENT + this.p2_absNz * PADDED_SECTION_EXTENT + this.p2_d;
+        final float v3 = this.p3_nx * relCenterX + this.p3_ny * relCenterY + this.p3_nz * relCenterZ + this.p3_absNx * PADDED_SECTION_EXTENT + this.p3_absNy * PADDED_SECTION_EXTENT + this.p3_absNz * PADDED_SECTION_EXTENT + this.p3_d;
+        final float v4 = this.p4_nx * relCenterX + this.p4_ny * relCenterY + this.p4_nz * relCenterZ + this.p4_absNx * PADDED_SECTION_EXTENT + this.p4_absNy * PADDED_SECTION_EXTENT + this.p4_absNz * PADDED_SECTION_EXTENT + this.p4_d;
+        final float v5 = this.p5_nx * relCenterX + this.p5_ny * relCenterY + this.p5_nz * relCenterZ + this.p5_absNx * PADDED_SECTION_EXTENT + this.p5_absNy * PADDED_SECTION_EXTENT + this.p5_absNz * PADDED_SECTION_EXTENT + this.p5_d;
+        final int culledMask = (Float.floatToRawIntBits(v0) |
+                                Float.floatToRawIntBits(v1) |
+                                Float.floatToRawIntBits(v2) |
+                                Float.floatToRawIntBits(v3) |
+                                Float.floatToRawIntBits(v4) |
+                                Float.floatToRawIntBits(v5)) & 0x80000000;
+
+        return culledMask != 0;
     }
 
     public int cubeInFrustum(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {

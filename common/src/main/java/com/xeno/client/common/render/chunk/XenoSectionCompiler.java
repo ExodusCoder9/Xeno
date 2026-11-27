@@ -31,6 +31,7 @@ import com.xeno.client.common.render.block.XenoLightDataCache;
 import com.xeno.client.common.render.block.XenoModelRenderer;
 import com.xeno.client.common.render.block.XenoFluidRenderer;
 import com.xeno.client.common.render.block.XenoTintRegion;
+import com.xeno.client.common.render.culling.XenoDirectionalVisGraph;
 import com.xeno.client.common.render.texture.XenoSectionResultsExtension;
 import com.xeno.client.mixin.RenderSectionRegionAccessor;
 import com.xeno.client.mixin.SectionCopyAccessor;
@@ -43,18 +44,23 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.minecraft.client.renderer.chunk.SectionCopy;
-import net.minecraft.client.renderer.chunk.VisGraph;
+import net.minecraft.client.renderer.chunk.VisibilitySet;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.material.FluidState;
 import org.jspecify.annotations.NonNull;
 
 public final class XenoSectionCompiler extends SectionCompiler {
     private static final int SECTION_MAX = 15;
+    private static final VisibilitySet FULL_VISIBILITY_SET = new VisibilitySet();
+    static {
+        FULL_VISIBILITY_SET.setAll(true);
+    }
     public static volatile XenoBlockModelDispatcher MODEL_DISPATCHER = XenoBlockModelDispatcher.DEFAULT;
 
     private final boolean ambientOcclusion;
@@ -100,15 +106,16 @@ public final class XenoSectionCompiler extends SectionCompiler {
         int minX = minPos.getX();
         int minY = minPos.getY();
         int minZ = minPos.getZ();
-        VisGraph visGraph = new VisGraph();
         SectionCopy sectionCopy = ((RenderSectionRegionAccessor) region).xeno$getSection(sectionPos.x(), sectionPos.y(), sectionPos.z());
-        if (((SectionCopyAccessor) sectionCopy).xeno$getSection() == null) {
-            results.visibilitySet = visGraph.resolve();
+        PalettedContainer<BlockState> blockSection = ((SectionCopyAccessor) sectionCopy).xeno$getSection();
+        if (blockSection == null) {
+            results.visibilitySet = FULL_VISIBILITY_SET;
             return results;
         }
         XenoLightDataCache.get().reset(sectionPos);
         Workspace workspace = this.workspaces.get();
         workspace.bind(builders);
+        workspace.directionalVisGraph.reset();
         XenoTintRegion tintRegion = workspace.tintRegion;
         int biomeBlendRadius = net.minecraft.client.Minecraft.getInstance().options.biomeBlendRadius().get();
         tintRegion.bind(region, sectionPos, biomeBlendRadius);
@@ -118,15 +125,18 @@ public final class XenoSectionCompiler extends SectionCompiler {
 
         BlockPos.MutableBlockPos currentPos = workspace.currentPos;
         try {
-            for (int y = minY; y <= minY + SECTION_MAX; y++) {
-                for (int z = minZ; z <= minZ + SECTION_MAX; z++) {
-                    for (int x = minX; x <= minX + SECTION_MAX; x++) {
-                        currentPos.set(x, y, z);
-                        BlockState blockState = region.getBlockState(currentPos);
+            for (int relY = 0; relY <= SECTION_MAX; relY++) {
+                int y = minY + relY;
+                for (int relZ = 0; relZ <= SECTION_MAX; relZ++) {
+                    int z = minZ + relZ;
+                    for (int relX = 0; relX <= SECTION_MAX; relX++) {
+                        BlockState blockState = blockSection.get(relX, relY, relZ);
                         if (!blockState.isAir()) {
+                            int x = minX + relX;
+                            currentPos.set(x, y, z);
                             try {
                                 if (blockState.isSolidRender()) {
-                                    visGraph.setOpaque(currentPos);
+                                    workspace.directionalVisGraph.setOpaque(relX, relY, relZ);
                                 }
                                 if (blockState.hasBlockEntity()) {
                                     BlockEntity blockEntity = region.getBlockEntity(currentPos);
@@ -143,9 +153,9 @@ public final class XenoSectionCompiler extends SectionCompiler {
                                     MODEL_DISPATCHER.tesselate(
                                             forceOpaque ? workspace.opaqueQuadOutput : workspace.quadOutput,
                                             forceOpaque,
-                                            SectionPos.sectionRelative(x),
-                                            SectionPos.sectionRelative(y),
-                                            SectionPos.sectionRelative(z),
+                                            relX,
+                                            relY,
+                                            relZ,
                                             tintRegion,
                                             currentPos,
                                             blockState,
@@ -171,10 +181,25 @@ public final class XenoSectionCompiler extends SectionCompiler {
 
         ReferenceOpenHashSet<TextureAtlasSprite> animatedSprites = workspace.animatedSprites;
         animatedSprites.clear();
+        float minSecX = Float.POSITIVE_INFINITY;
+        float minSecY = Float.POSITIVE_INFINITY;
+        float minSecZ = Float.POSITIVE_INFINITY;
+        float maxSecX = Float.NEGATIVE_INFINITY;
+        float maxSecY = Float.NEGATIVE_INFINITY;
+        float maxSecZ = Float.NEGATIVE_INFINITY;
+        boolean hasGeometry = false;
+        XenoSectionResultsExtension resultsExt = (XenoSectionResultsExtension) (Object) results;
         for (XenoSectionLayerBuffer sink : sinks) {
             if (sink == null || sink.buffer() == null || sink.vertexCount() == 0) {
                 continue;
             }
+            hasGeometry = true;
+            if (sink.minX() < minSecX) minSecX = sink.minX();
+            if (sink.minY() < minSecY) minSecY = sink.minY();
+            if (sink.minZ() < minSecZ) minSecZ = sink.minZ();
+            if (sink.maxX() > maxSecX) maxSecX = sink.maxX();
+            if (sink.maxY() > maxSecY) maxSecY = sink.maxY();
+            if (sink.maxZ() > maxSecZ) maxSecZ = sink.maxZ();
             sink.collectAnimatedSprites(animatedSprites);
             MeshData mesh = sink.build();
             if (mesh != null) {
@@ -188,14 +213,19 @@ public final class XenoSectionCompiler extends SectionCompiler {
             }
         }
 
+        if (hasGeometry && results.blockEntities.isEmpty()) {
+            resultsExt.xeno$setTightBounds(minSecX, minSecY, minSecZ, maxSecX, maxSecY, maxSecZ);
+        }
+
         if (!animatedSprites.isEmpty()) {
-            ((XenoSectionResultsExtension) (Object) results).xeno$setAnimatedSprites(
+            resultsExt.xeno$setAnimatedSprites(
                 animatedSprites.toArray(new TextureAtlasSprite[0])
             );
             animatedSprites.clear();
         }
 
-        results.visibilitySet = visGraph.resolve();
+        resultsExt.xeno$setDirectionalMasks(workspace.directionalVisGraph.resolve());
+        results.visibilitySet = FULL_VISIBILITY_SET;
         return results;
     }
 
@@ -230,6 +260,7 @@ public final class XenoSectionCompiler extends SectionCompiler {
         final ReferenceOpenHashSet<TextureAtlasSprite> animatedSprites = new ReferenceOpenHashSet<>();
         final BlockPos.MutableBlockPos currentPos = new BlockPos.MutableBlockPos();
         final XenoTintRegion tintRegion = new XenoTintRegion();
+        final XenoDirectionalVisGraph directionalVisGraph = new XenoDirectionalVisGraph();
         SectionBufferBuilderPack currentPack;
 
         Workspace() {

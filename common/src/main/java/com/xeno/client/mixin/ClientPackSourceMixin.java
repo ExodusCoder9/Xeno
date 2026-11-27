@@ -22,8 +22,12 @@ import com.xeno.client.common.render.chunk.XenoSectionCompiler;
 import net.minecraft.client.resources.ClientPackSource;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.VanillaPackResourcesBuilder;
+import net.minecraft.util.FileSystemUtil;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+
+import java.net.URL;
+import java.nio.file.Path;
 
 @Mixin(ClientPackSource.class)
 public abstract class ClientPackSourceMixin {
@@ -36,6 +40,18 @@ public abstract class ClientPackSourceMixin {
     )
     private static VanillaPackResourcesBuilder xeno$addXenoResources(VanillaPackResourcesBuilder builder) {
         builder.exposeNamespace("xeno");
+        try {
+            URL url = XenoSectionCompiler.class.getResource("/assets/xeno/lang/en_us.json");
+            if (url != null) {
+                Path enUsPath = FileSystemUtil.safeGetPath(url.toURI());
+                Path rootPath = enUsPath.getParent().getParent().getParent().getParent();
+                if (rootPath != null) {
+                    builder.pushUniversalPath(rootPath);
+                    return builder;
+                }
+            }
+        } catch (Exception ignored) {
+        }
         builder.pushClasspathResources(PackType.CLIENT_RESOURCES, XenoSectionCompiler.class);
         return builder;
     }
